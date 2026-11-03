@@ -1,0 +1,28 @@
+# Spring Boot
+target/
+build/
+bin/
+out/
+*.log
+
+# backend
+backend/imagens/*
+!backend/imagens/.gitkeep
+
+# React
+node_modules/
+dist/
+build/
+.vite/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# SOs
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
