@@ -1,0 +1,6 @@
+/* Estilos de AnamnesisFields.jsx (importado só por ele). */
+
+.ff-anamnesis { display: grid; gap: 4px; }
+.ff-section-heading { margin: 28px 0 12px; padding-top: 20px; border-top: 1px solid var(--line); font-family: var(--font-heading); font-size: 20px; font-weight: 400; color: var(--navy); }
+.ff-procedure-list { display: grid; gap: 8px; }
+.ff-signature-fields { margin-top: 20px; }

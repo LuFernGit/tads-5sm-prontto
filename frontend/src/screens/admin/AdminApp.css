@@ -1,0 +1,10 @@
+/* Estilos de AdminApp.jsx (importado só por ele). */
+
+/* ===================== 3. PAINEL DA GESTORA ===================== */
+.admin-app { min-height: 100vh; display: flex; }
+.admin-main { flex: 1; min-width: 0; margin-left: 256px; }
+.admin-content { padding: 26px 30px 40px; max-width: 1600px; margin: auto; }
+/* Ajustes do painel: tamanhos, menu, clientes, documentos, auditoria, mensagens, bloqueios */
+.admin-main small,
+.admin-main label > span { font-size: 12px !important; }
+.admin-main small { color: var(--muted) !important; }

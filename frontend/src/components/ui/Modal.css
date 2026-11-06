@@ -1,0 +1,44 @@
+/* Estilos de Modal.jsx (importado só por ele). */
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.58);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  backdrop-filter: blur(3px);
+}
+.modal-card {
+  width: min(470px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+}
+.modal-card-wide { width: min(680px, 100%); }
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+.modal-head button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: var(--navy);
+  font-size: 22px;
+  cursor: pointer;
+}
+@media (max-width: 700px) {
+  .modal-card { padding: 18px; }
+}

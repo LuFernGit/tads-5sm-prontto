@@ -1,0 +1,32 @@
+/* Estilos de SettingsPage.jsx (importado só por ele). */
+
+.category-selector { display: flex; flex-wrap: wrap; gap: 8px; }
+.category-selector > span {
+  border: 1px solid #f3dcc0;
+  border-radius: 20px;
+  background: var(--amber-pale);
+  color: var(--amber-dark);
+  padding: 9px 12px;
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  font-size: 8px !important;
+  font-weight: 800;
+  letter-spacing: 0 !important;
+}
+.address-grid { grid-template-columns: repeat(2, 1fr); }
+/* Configurações */
+.settings-grid { display: grid; grid-template-columns: 1fr; max-width: 1050px; gap: 18px; }
+.onboarding > p { font-size: 10px; color: var(--muted); line-height: 1.7; }
+.settings-section { padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--line); }
+.settings-section > strong { font-size: 12px; color: var(--navy); }
+@media (max-width: 700px) {
+  /* Formulários e modais */
+  .address-grid { grid-template-columns: 1fr; }
+}
+.clinic-account-danger {
+  display: grid; gap: 10px; margin-top: 32px; padding: 20px;
+  border: 1px solid #fecaca; border-radius: 14px; background: #fffafa;
+}
+.clinic-account-danger > strong { color: #991b1b; font-size: 14px; }
+.clinic-account-danger p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }

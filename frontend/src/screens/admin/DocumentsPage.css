@@ -1,0 +1,5 @@
+/* Estilos de DocumentsPage.jsx (importado só por ele). */
+
+/* Documentos e termos */
+.af-actions-col { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.af-file { display: inline-flex; align-items: center; cursor: pointer; }

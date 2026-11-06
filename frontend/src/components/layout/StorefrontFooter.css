@@ -1,0 +1,17 @@
+/* Estilos de StorefrontFooter.jsx (importado só por ele). */
+
+.storefront-footer { background: var(--navy); color: #fff; padding: 55px 7vw 20px; display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 35px; text-align: left; }
+.storefront-footer > div:not(.footer-brand):not(.footer-bottom) { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
+.storefront-footer span { font-size: 7px; letter-spacing: 0.15em; color: var(--gold); font-weight: 800; }
+.storefront-footer a { color: #cbd5e1; text-decoration: none; font-size: 9px; display: flex; align-items: center; gap: 5px; }
+.storefront-footer a:hover { color: #fff; }
+.storefront-footer p,
+.storefront-footer small { color: #94a3b8; font-size: 8px; line-height: 1.7; margin: 0; }
+.footer-brand { display: flex; gap: 12px; }
+.footer-brand > div:last-child { display: flex; flex-direction: column; gap: 5px; }
+.footer-brand strong { font-family: var(--font-heading); font-size: 18px; }
+.footer-bottom { grid-column: 1/-1; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px; color: #94a3b8; font-size: 7px; text-align: center; }
+@media (max-width: 700px) {
+  .storefront-footer { grid-template-columns: 1fr; padding: 42px 22px 95px; gap: 27px; }
+  .footer-bottom { grid-column: 1; }
+}

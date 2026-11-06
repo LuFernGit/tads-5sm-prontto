@@ -1,0 +1,78 @@
+/**
+ * Conversores entre o formato do banco/backend e o formato usado pelas telas.
+ *
+ * O backend devolve os agendamentos com os campos da tabela AGENDAMENTO
+ * (data "YYYY-MM-DD", hora "HH:mm", status PENDENTE/CONFIRMADO/CONCLUIDO/
+ * CANCELADO/ARQUIVADO, valores em número). As telas mostram datas por extenso
+ * e rótulos como "Agendado"/"Realizado"; essa tradução é feita só aqui.
+ */
+import { apptLabel } from "@/constants"
+
+// Índice 0 = domingo, igual ao Date.getDay() do JavaScript.
+const WEEKDAY_SHORT = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
+
+/** "2026-05-13" → "13 de maio de 2026" */
+const longDate = (iso) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
+
+/** "2026-05-13" → "13/05/2026" */
+export const isoToBr = (iso) => (iso ? iso.split("-").reverse().join("/") : "")
+
+/**
+ * AgendamentoCliente (backend) → item da tela "Meu perfil".
+ * Backend: { id, servicoId, nomeProcedimento, data, hora, duracao, valorServico,
+ *            valorSinal, status, canceladoPor?, motivoCancelamento?, dataCancelamento? }
+ */
+export function toClientAppointment(a) {
+  const status = a.status
+  return {
+    id: a.id,
+    servicoId: a.servicoId,
+    name: a.nomeProcedimento,
+    weekday: WEEKDAY_SHORT[new Date(`${a.data}T00:00:00`).getDay()],
+    date: longDate(a.data),
+    dateIso: a.data,
+    time: String(a.hora).slice(0, 5),
+    duration: a.duracao, // minutos
+    price: a.valorServico, // reais
+    signal: a.valorSinal, // reais ou null
+    rawStatus: status,
+    // Agrupamento usado pelas listas da tela
+    status:
+      status === "CONCLUIDO"
+        ? "Realizado"
+        : status === "CANCELADO"
+          ? "Cancelado"
+          : status === "ARQUIVADO"
+            ? "Arquivado"
+            : "Agendado",
+    badge: apptLabel[status] ?? status,
+    cancelledBy: a.canceladoPor,
+    cancellationReason: a.motivoCancelamento,
+  }
+}
+
+/**
+ * AgendamentoGestora (backend) → item das telas da gestora (agenda, mensagens).
+ * Backend: { id, cliente, whatsapp, nomeProcedimento, data, hora, duracao, status, ... }
+ */
+export function toManagerAppointment(a) {
+  return {
+    id: a.id,
+    cliente: a.cliente,
+    whatsapp: a.whatsapp,
+    servico: a.nomeProcedimento,
+    data: isoToBr(a.data),
+    dataIso: a.data,
+    horario: String(a.hora).slice(0, 5),
+    duracao: a.duracao,
+    status: a.status,
+    canceladoPor: a.canceladoPor,
+    motivoCancelamento: a.motivoCancelamento,
+    dataCancelamento: a.dataCancelamento,
+  }
+}

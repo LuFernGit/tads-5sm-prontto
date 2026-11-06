@@ -1,0 +1,23 @@
+/* Estilos de Toast.jsx (importado só por ele). */
+
+/* Toast */
+.toast {
+  position: fixed;
+  z-index: 120;
+  right: 24px;
+  bottom: 24px;
+  background: var(--navy);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 45px rgba(15, 23, 42, 0.3);
+  border-radius: 13px;
+  padding: 13px 17px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  animation: toast-in 0.2s ease-out;
+}
+.toast svg { color: #86efac; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }

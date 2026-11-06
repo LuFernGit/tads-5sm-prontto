@@ -1,0 +1,100 @@
+/* Estilos de DepositStep.jsx (importado só por ele). */
+
+.ff-card.ff-deposit .ff-qr { display: block; width: min(100%, 210px); height: auto; aspect-ratio: 1; margin: 0 auto; shape-rendering: crispEdges; }
+.ff-card.ff-deposit .ff-pix-code { box-sizing: border-box; width: 100%; min-height: 100px; resize: vertical; padding: 13px 14px; border: 1px solid #e9e5e1; border-radius: 8px; background: var(--cream); color: #51465a; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.ff-card.ff-deposit .ff-pix-code:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12); }
+/* ==================================================
+   PRONTTO — PAGAMENTO (estilo "formas de pagamento")
+   ================================================== */
+.pay-page {
+  width: min(100% - 32px, 980px);
+  margin: 28px auto 60px;
+  padding: 8px 0 0;
+  color: #555;
+  font-family: var(--font-body);
+}
+.pay-heading { margin: 0 0 22px 4px; font-size: 18px; font-weight: 700; color: #666; }
+.pay-bonus {
+  width: 50%;
+  border-top: 2px solid #5cb85c;
+  text-align: center;
+  padding-top: 5px;
+}
+.pay-bonus span { font-size: 10px; font-weight: 700; color: #4cae4c; letter-spacing: 0.01em; }
+.pay-tabs { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 1px solid #ddd; }
+.pay-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 18px 8px 16px;
+  background: #fff; border: 0; border-left: 1px solid #e6e6e6;
+  color: #666; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  position: relative; transition: 0.15s;
+}
+.pay-tab:first-child { border-left: 0; }
+.pay-tab:hover { background: #fafafa; }
+.pay-tab.active { color: var(--amber-dark); }
+.pay-tab.active::after { content: ""; position: absolute; inset: auto 0 -1px; height: 3px; background: var(--amber-dark); }
+.pay-body { max-width: 580px; margin: 0 auto; padding: 28px 0 10px; }
+.pay-method-title { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; color: #444; }
+.pay-method-title strong { font-size: 18px; color: #666; }
+.pay-copy { margin: 0 0 34px; font-size: 14.5px; line-height: 1.7; color: #666; }
+.pay-copy b { color: #444; }
+.pay-qr-row { display: flex; align-items: center; gap: 34px; }
+.pay-qr { flex: 0 0 auto; }
+.pay-qr svg { display: block; width: 160px; height: 160px; }
+.pay-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.pay-steps li { display: flex; align-items: center; gap: 14px; }
+.pay-steps p { margin: 0; font-size: 14px; line-height: 1.55; color: #666; }
+.pay-steps b { color: #444; }
+.pay-step-icon {
+  flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center; background: #6db6a6; color: #fff;
+}
+.pay-copy-box { margin-top: 26px; }
+.pay-copy-box label { display: block; margin-bottom: 8px; font-size: 12px; color: #777; }
+.pay-copy-box label b { color: #079d83; }
+.pay-copy-box > div { display: flex; gap: 8px; }
+.pay-copy-box input {
+  flex: 1; min-width: 0; height: 42px; padding: 0 12px;
+  border: 1px solid #d5d9de; border-radius: 4px; background: #fafafa;
+  color: #555; font: 11px ui-monospace, Menlo, Consolas, monospace;
+}
+.pay-copy-box button {
+  height: 42px; padding: 0 16px; border: 1px solid #6db6a6; border-radius: 4px;
+  background: #fff; color: #3f9a89; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.pay-copy-box button:hover { background: #eef8f5; }
+.pay-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 30px; padding-top: 22px; border-top: 1px solid #ddd;
+}
+.pay-total span { font-size: 22px; font-weight: 800; color: #444; }
+.pay-total strong { font-size: 22px; font-weight: 800; color: #444; font-variant-numeric: tabular-nums; }
+.pay-balance { margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: #888; }
+.pay-demo { margin: 16px 0 0; font-size: 11px; text-align: center; color: #8b6b37; }
+.pay-actions { display: flex; gap: 12px; margin-top: 20px; }
+.pay-status { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 16px; font-size: 12px; color: #777; }
+.pay-status > span { width: 8px; height: 8px; border-radius: 50%; background: #08bd99; }
+.pay-status > span.checking { background: #d97706; }
+@media (max-width: 700px) {
+  .pay-page { width: calc(100% - 20px); margin-top: 16px; }
+  .pay-bonus { width: 100%; }
+  .pay-qr-row { flex-direction: column; align-items: flex-start; gap: 22px; }
+  .pay-actions { flex-direction: column-reverse; }
+}
+/* Pagamento: formulário de cartão (mock) */
+.pay-card-form { display: grid; gap: 14px; }
+.pay-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pay-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pay-field label { font-size: 12px; font-weight: 700; color: #666; }
+.pay-field input,
+.pay-field select {
+  height: 46px; padding: 0 12px;
+  border: 1px solid #cfd4d9; border-radius: 4px; background: #fff;
+  color: #444; font: inherit; font-size: 14px;
+}
+.pay-field input:focus,
+.pay-field select:focus { border-color: #6db6a6; box-shadow: 0 0 0 3px #e4f3ef; outline: 0; }
+.pay-field input[aria-invalid="true"] { border-color: var(--red); }
+@media (max-width: 700px) {
+  .pay-card-row { grid-template-columns: 1fr; }
+}

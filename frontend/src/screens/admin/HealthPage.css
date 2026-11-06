@@ -1,0 +1,33 @@
+/* Estilos de HealthPage.jsx (importado só por ele). */
+
+/* Fichas de saúde (gestora) */
+.health-layout { display: grid; grid-template-columns: 285px 1fr; gap: 18px; }
+.health-client { padding: 11px 8px; display: flex; align-items: center; gap: 9px; border-radius: 11px; cursor: pointer; }
+.health-client.selected { background: var(--amber-pale); }
+.health-client > div { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.health-client strong { font-size: 10px; }
+.health-client small { font-size: 8px; color: var(--muted); }
+.health-client > svg { color: #94a3b8; }
+.record-hero { display: flex; align-items: center; gap: 13px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.record-hero > div:nth-child(2) { flex: 1; }
+.record-hero p { font-size: 9px; color: var(--muted); margin: 4px 0; }
+.health-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
+.health-cards > div { border: 1px solid var(--line); border-radius: 13px; padding: 15px; display: flex; flex-direction: column; gap: 6px; }
+.health-cards span { display: flex; gap: 6px; font-size: 8px; color: var(--amber-dark); font-weight: 800; }
+.health-cards strong { font-size: 11px; }
+.health-cards small { font-size: 8px; color: var(--muted); }
+.health-readonly { display: flex; align-items: center; gap: 9px; padding: 12px; border-radius: 10px; background: var(--cream); color: var(--muted); margin-bottom: 16px; }
+.health-readonly > span { display: flex; flex-direction: column; gap: 3px; }
+.health-readonly strong { font-size: 9px; color: var(--navy); }
+.health-readonly small { font-size: 8px; }
+.manager-observations { border: 1px solid var(--line); border-radius: 13px; padding: 15px; }
+.history { margin-top: 20px; }
+.history > div { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.history i { width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; background: var(--green-bg); color: var(--green); }
+.history div span { display: flex; flex-direction: column; gap: 3px; }
+.history strong { font-size: 9px; }
+.history small { font-size: 8px; color: var(--muted); }
+/* Clientes e fichas (agora com botões/links reais) */
+.health-client { width: 100%; border: 0; background: transparent; font: inherit; text-align: left; color: inherit; }
+.health-client:hover { background: var(--cream); }
+.notes-area { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid #94a3b8; border-radius: 10px; font: inherit; font-size: 14px; color: var(--navy); resize: vertical; }

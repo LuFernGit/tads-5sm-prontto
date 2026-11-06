@@ -1,0 +1,5 @@
+/* Estilos de ClientLoginScreen.jsx (importado só por ele). */
+
+.clinic-on-dark { position: absolute; top: 48px; left: 10vw; }
+.clinic-on-dark strong { color: #fff; }
+.login-mobile-brand .clinic-on-dark { position: static; }

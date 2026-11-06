@@ -1,0 +1,7 @@
+/* Estilos de AuditPage.jsx (importado só por ele). */
+
+/* Registros de auditoria */
+.audit-scroll { overflow-x: auto; margin-top: 16px; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.audit-table th { text-align: left; padding: 10px 12px; font-size: 12px; letter-spacing: 0.08em; color: var(--muted); border-bottom: 2px solid var(--line); }
+.audit-table td { padding: 12px; border-bottom: 1px solid var(--line); color: var(--navy); white-space: nowrap; }

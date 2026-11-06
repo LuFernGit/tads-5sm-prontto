@@ -1,0 +1,13 @@
+/* Estilos de Topbar.jsx (importado só por ele). */
+
+.topbar {
+  height: 91px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.welcome { font-size: 22px; font-weight: 750; margin-top: 3px; color: var(--navy); }
+.top-actions { display: flex; align-items: center; gap: 10px; }
