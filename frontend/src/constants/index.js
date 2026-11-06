@@ -1,0 +1,136 @@
+/**
+ * Constantes da interface e regras de negócio do front.
+ * Nada aqui é dado de demonstração: tudo continua válido depois da integração.
+ * (Os dados fictícios ficam em src/mocks.)
+ */
+
+/** Imagem lateral das telas de login e cadastro da gestora (visual neutro do Prontto). */
+export const neutralLoginImage =
+  "https://images.unsplash.com/photo-1652803723541-ffc5a8783329?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwzfHxtb2Rlcm4lMjBuZXV0cmFsJTIwd2VsbG5lc3MlMjBjbGluaWMlMjByZWNlcHRpb24lMjBwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMGludGVyaW9yfGVufDF8fHx8MTc5MjA2NzQ4M3ww&ixlib=rb-4.1.0&q=80&w=1600"
+
+/** Menu lateral do painel da gestora. */
+// label = texto do menu, icon = nome do ícone (components/ui/Icon.jsx),
+// key = identificador da página aberta no AdminApp.
+export const navigation = [
+  { label: "Painel", icon: "grid", key: "dashboard" },
+  { label: "Agenda", icon: "calendar", key: "schedule" },
+  { label: "Clientes", icon: "users", key: "clients" },
+  { label: "Serviços", icon: "sparkle", key: "services" },
+  { label: "Mensagens WhatsApp", icon: "whatsapp", key: "messages" },
+  { label: "Ficha de Saúde", icon: "heart", key: "health" },
+  { label: "Personalização", icon: "sparkle", key: "customization" },
+  { label: "Termos", icon: "file-text", key: "documents" },
+  { label: "Configurações", icon: "settings", key: "settings" },
+]
+
+/** Percentual do sinal cobrado de clientes não recorrentes. */
+export const SIGNAL_PERCENT = 30
+/** Validade do Pix gerado, em segundos. */
+export const PIX_TTL = 15 * 60
+/** Rótulo de exibição para os status de AGENDAMENTO.status do banco. */
+export const apptLabel = {
+  PENDENTE: "Pendente",
+  CONFIRMADO: "Confirmado",
+  CONCLUIDO: "Concluído",
+  CANCELADO: "Cancelado",
+  ARQUIVADO: "Arquivado",
+}
+
+/** Classe CSS de cada selo de agendamento na área da cliente. */
+export const badgeClass = {
+  Pendente: "pending",
+  Confirmado: "confirmed",
+  Concluído: "done",
+  Cancelado: "cancelled",
+}
+
+/** Serviço exibido enquanto o catálogo ainda não tem nenhum serviço ativo. */
+export const EMPTY_SERVICE = {
+  id: "",
+  name: "Serviço",
+  category: "",
+  duration: 0, // minutos
+  price: 0, // reais
+  active: false,
+  description: "",
+  image: "",
+}
+
+/** Cliente fictícia mostrada quando a gestora abre a vitrine em modo de visualização. */
+export const PREVIEW_CLIENT = {
+  name: "Cliente",
+  recurring: false,
+  email: "",
+  whatsapp: "",
+  birthDate: "",
+}
+
+/** Estrutura vazia da ficha de anamnese (formulário). */
+export const emptyAnamnesis = {
+  alergia: "",
+  alergiaDetalhe: "",
+  reacaoProduto: "",
+  reacaoProdutoDetalhe: "",
+  sensibilidade: "",
+  sensibilidadeDetalhe: "",
+  condicaoTratamento: "",
+  condicaoTratamentoDetalhe: "",
+  medicamentos: "",
+  medicamentosDetalhe: "",
+  gravidezAmamentacao: "",
+  alteracaoAtual: "",
+  alteracaoAtualDetalhe: "",
+  sinaisAtuais: [],
+  lentesContato: "",
+  condicaoOcular: "",
+  condicaoOcularDetalhe: "",
+  herpesLabial: "",
+  complicacaoAnterior: "",
+  complicacaoAnteriorDetalhe: "",
+  procedimentosAnteriores: "",
+  procedimentos: [],
+  outroProcedimento: "",
+  problemaProcedimento: "",
+  problemaProcedimentoDetalhe: "",
+  informacaoAdicional: "",
+  informacaoAdicionalDetalhe: "",
+  cienciaInformacoes: false,
+  localData: "",
+  nomeCliente: "",
+  assinatura: "",
+}
+
+/**
+ * Imagens e textos padrão da vitrine por categoria (identidade visual do front).
+ * Quando o backend passar a devolver imagem/descrição por categoria, basta
+ * preferir esses campos em getCategoryMeta (src/lib/booking.js).
+ */
+export const gallery = [
+  "https://images.unsplash.com/photo-1632345031435-8727f6897d53?auto=format&fit=crop&w=900&q=85",
+  "https://images.unsplash.com/photo-1589710751893-f9a6770ad71b?auto=format&fit=crop&w=900&q=85",
+  "https://images.unsplash.com/photo-1631214524115-9942bf927d4a?auto=format&fit=crop&w=900&q=85",
+]
+
+/** Texto e imagem padrão de cada categoria na vitrine da clínica. */
+export const storefrontCategories = [
+  {
+    name: "Nail Design",
+    copy: "Estrutura, proteção e acabamento impecável para suas unhas.",
+    image: gallery[0],
+  },
+  {
+    name: "Lash Design",
+    copy: "Técnicas personalizadas para valorizar cada formato de olhar.",
+    image: gallery[1],
+  },
+  {
+    name: "Sobrancelhas",
+    copy: "Design e alinhamento que respeitam a sua expressão.",
+    image: gallery[1],
+  },
+  {
+    name: "Estética Labial",
+    copy: "Hidratação, cuidado e brilho para lábios saudáveis.",
+    image: gallery[2],
+  },
+]

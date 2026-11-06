@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Quadrado branco com cantos arredondados (borda clara para destacar em abas brancas) -->
+  <rect x="1.5" y="1.5" width="61" height="61" rx="14" fill="#FFFFFF" stroke="#EADADC" stroke-width="1.5"/>
+
+  <!-- Diamante (redesenhado a partir de logo-ca-beauty.png, traço reforçado para ficar legível pequeno) -->
+  <g transform="translate(8.6 10) scale(0.0355)" fill="none" stroke="#A86B72" stroke-linecap="round" stroke-linejoin="round">
+    <!-- contorno -->
+    <path d="M305 125 L1010 125 M1075 175 L1285 392 L660 1195 L35 392 L305 125" stroke-width="70"/>
+    <!-- coroa e cintura -->
+    <path d="M35 392 L1285 392 M305 125 L660 385 L1010 135 M305 125 L478 392 M995 150 L840 392" stroke-width="48"/>
+    <!-- pavilhão -->
+    <path d="M660 392 L660 1190 M478 392 L660 1185 M840 392 L660 1185 M45 398 L300 570 L655 1180 M1275 398 L1020 570 L665 1180" stroke-width="40"/>
+  </g>
+  <!-- brilhos -->
+  <g fill="#A86B72" transform="translate(8.6 10) scale(0.0355)">
+    <path d="M1035 20 L1065 105 L1155 105 L1083 160 L1110 245 L1035 192 L960 245 L987 160 L915 105 L1005 105 Z"/>
+    <path d="M1195 40 L1212 85 L1260 85 L1222 114 L1236 160 L1195 132 L1154 160 L1168 114 L1130 85 L1178 85 Z"/>
+  </g>
+</svg>

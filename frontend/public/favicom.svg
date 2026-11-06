@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Fundo escuro com cantos arredondados -->
+  <rect x="32" y="32" width="448" height="448" rx="80" ry="80" fill="#0B1325" />
+
+  <!-- Losango exterior (bege) -->
+  <path d="M 256 96 L 416 256 L 256 416 L 96 256 Z" fill="none" stroke="#E2A96D" stroke-width="48" stroke-linejoin="round" stroke-linecap="round" />
+
+  <!-- Losango interior (laranja) -->
+  <path d="M 256 176 L 336 256 L 256 336 L 176 256 Z" fill="none" stroke="#D97706" stroke-width="36" stroke-linejoin="round" stroke-linecap="round" />
+</svg>

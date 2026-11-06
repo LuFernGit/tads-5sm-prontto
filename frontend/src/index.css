@@ -1,0 +1,15 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+/* =======================================================================
+   PRONTTO — estilos GLOBAIS (variáveis, base e classes usadas por várias telas).
+   Estilos de uma tela ou componente ficam no .css ao lado do .jsx e são
+   importados por ele (ex.: screens/admin/DashboardPage.css).
+   A ordem abaixo importa: arquivos de baixo sobrescrevem os de cima.
+   ======================================================================= */
+@import "./styles/base.css";
+@import "./styles/ui.css";
+@import "./styles/admin.css";
+@import "./styles/auth.css";
+@import "./styles/storefront.css";
+@import "./styles/forms.css";
