@@ -53,8 +53,21 @@ origem do front e os headers `Authorization` e `Content-Type`.
 - `perfil` é `GESTORA` ou `CLIENTE`. Rotas `/gestora/**` exigem GESTORA e rotas
   `/cliente/**` exigem CLIENTE; o backend descobre a clínica pelo token.
 - Ao abrir a página, o front chama `GET /auth/me` para restaurar a sessão.
-- **401** em qualquer rota faz o front descartar o token e voltar ao login.
-  Use **403** para "logado, mas sem permissão".
+- **401** em qualquer rota faz o front descartar o token. No link do Prontto
+  (gestora) a pessoa volta ao login; no link da clínica (`?clinica=<slug>`) ela
+  volta para a **vitrine como visitante**. Use **403** para "logado, mas sem permissão".
+
+### Visitante na vitrine (sem login)
+
+No link da clínica, quem não está logado entra direto na vitrine e pode ver
+**Início, Serviços e Agendar** (calendário e horários livres). Para isso o front
+usa só as rotas públicas `/clinicas/{slug}/**`, que **não exigem token**.
+
+- A aba **Meu perfil** só aparece depois do login.
+- Na agenda, a visitante escolhe dia e horário, mas o botão vira
+  "Entrar para confirmar": **criar o agendamento exige login** (`POST /cliente/agendamentos`
+  continua exigindo perfil CLIENTE).
+- **Sair** (logout) e **excluir a conta** levam de volta para a vitrine como visitante.
 
 ## 3. Formato de erro
 
@@ -135,9 +148,21 @@ Cadastro da cliente (montado em `src/screens/client/ClientRegisterPage.jsx`):
 
 | Método | Rota                                              | Resposta |
 | ------ | ------------------------------------------------- | -------- |
-| GET    | `/clinicas/{slug}`                                | `{ empresa, servicos (só ativos), categorias }`; 404 se o slug não existir ou a clínica estiver ENCERRADA |
+| GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias }`; 404 se o slug não existir ou a clínica estiver ENCERRADA |
 | GET    | `/clinicas/{slug}/calendario?mes=YYYY-MM`         | `{ diasLotados: number[], diasSemanaFechados: number[] }` (0 = domingo) |
 | GET    | `/clinicas/{slug}/horarios?data=&servicoId=`      | `[{ label: "MANHÃ", slots: [{ time: "09:00", occupied: false }] }]` |
+
+**Campos públicos da empresa** (o que a vitrine sem login pode receber):
+`slug`, `name`, `initials`, `logoImage`, `heroImage`, `favicon`, `tagline`,
+`heroTitle`, `description`, `phone`, `email` (contato), `instagram`, `address`,
+`termsOfUse`, `privacyPolicy`, `clinicTermsDocument`, `clinicTermsFileName`.
+**Não devolver** `cpfCnpj` (pode ser o CPF pessoal da profissional autônoma),
+`ownerName` nem `status`: a vitrine não usa esses dados (LGPD, art. 6º, III —
+princípio da necessidade). Referência: `publicCompanyOut` em `src/mocks/handlers.js`.
+
+As rotas de calendário e horários devolvem **só disponibilidade**: nenhum nome
+de cliente, serviço agendado ou contato. Como são abertas, recomenda-se limitar
+o número de requisições por IP (*rate limit*) no backend real.
 
 O `slug` é o nome da empresa em minúsculas, sem acento e com hífens
 (`CA Beauty Clinic` → `ca-beauty-clinic`), igual a `toSlug` em `src/lib/format.js`.
@@ -201,7 +226,7 @@ Não existe mais rota de "pedidos LGPD": a exclusão de conta é imediata (seç�
 | GET    | `/cliente/ficha-saude`                     | → `{ respostas, atualizadaEm }` (ISO) |
 | PUT    | `/cliente/ficha-saude`                     | `{ respostas, alergias, observacoes_medicas }` |
 | GET    | `/cliente/agendamentos`                    | → `AgendamentoCliente[]` |
-| POST   | `/cliente/agendamentos`                    | `{ servicoId, data, hora, valorSinal }` → `AgendamentoCliente` |
+| POST   | `/cliente/agendamentos`                    | `{ servicoId, data, hora, valorSinal }` → `AgendamentoCliente` (400 se a data/hora já passou) |
 | POST   | `/cliente/agendamentos/{id}/cancelamento`  | `{ motivo }` → `AgendamentoCliente` |
 | POST   | `/cliente/conta/exclusao`                  | — (exclusão imediata) |
 
@@ -289,15 +314,37 @@ explicando o passo a passo em `src/mocks/handlers.js` e em `src/api/services/*.j
   no período, o bloqueio **é criado mesmo assim** e a resposta traz
   `agendamentosNoPeriodo` para alertar a gestora; os agendamentos **não** são
   cancelados. Novos agendamentos no período passam a ser recusados.
-- Agendamento novo: conferir disponibilidade (409 se ocupado/bloqueado) e copiar
-  `nome_procedimento` e `valor_servico` do SERVICO (snapshot).
+- Agendamento novo: recusar data/hora no passado (**400**, "Essa data ou horário
+  já passou. Escolha um horário futuro."), conferir disponibilidade (409 se
+  ocupado/bloqueado) e copiar `nome_procedimento` e `valor_servico` do SERVICO
+  (snapshot). O front também bloqueia o passado, mas a regra precisa valer no backend.
 - Cancelamento (gestora ou cliente): `status = 'CANCELADO'`, `cancelado_por`,
   `motivo_cancelamento`, `data_cancelamento`, e LOG_AUDITORIA.
+
+**Estados da agenda (o que a cliente vê no calendário)**
+
+| Estado | Onde aparece | Regra |
+| ------ | ------------ | ----- |
+| **Livre** | dia | Tem pelo menos um horário em que o serviço escolhido cabe inteiro (HORARIO − BLOQUEIO_HORARIO − AGENDAMENTO não cancelados). |
+| **Lotado** | dia | Dia de expediente sem nenhum horário livre para o serviço escolhido, por agendamentos e/ou bloqueios parciais. Vem em `diasLotados`. |
+| **Fechado** | dia | Dia da semana sem expediente em HORARIO (`diasSemanaFechados`) **ou** dia inteiro bloqueado pela gestora (BLOQUEIO_HORARIO com `hora_inicio`/`hora_fim` `NULL`). |
+| **Passado** | dia | Data anterior a hoje. Calculado no front; o backend recusa agendar no passado. |
+| **Indisponível** | horário | Horário ocupado por agendamento **ou** bloqueado (`occupied: true`). A cliente não vê o motivo, por privacidade. Horários de hoje que já passaram também aparecem como indisponíveis ("Já passou"). |
+
+No painel da gestora os mesmos dados aparecem com mais detalhe (`free`, `busy` com
+o nome da cliente, `blocked` com o bloqueio), porque ela está logada.
+
+> No backend falso (`src/mocks`), `diasLotados` ainda é uma lista fixa de
+> demonstração; no Spring ele deve ser calculado pela regra acima.
 
 **Ficha de anamnese**
 - `respostas` (JSON) guarda todas as perguntas; `alergias` (≤ 255) e
   `observacoes_medicas` (≤ 500) guardam o resumo gerado pelo front.
 - A cada alteração, gravar HISTORICO_ANAMNESE por campo alterado.
+- Os campos `localData`, `nomeCliente` e `assinatura` **não aparecem mais** na
+  tela (nem no cadastro, nem na edição da ficha). Eles continuam existindo dentro
+  de `respostas`, normalmente vazios; `nomeCliente` é preenchido com o nome do
+  cadastro. O backend não deve exigi-los.
 
 **Exclusão de conta da cliente (LGPD) — imediata, sem fila de pedidos**
 1. Anonimizar o USUARIO: `nome = 'CLIENTE_ANONIMIZADO'`,
@@ -320,9 +367,22 @@ LOG_AUDITORIA. Dados com obrigação legal de guarda não são apagados.
 (Pix/cartão em `DepositStep.jsx`); só o valor vai para `AGENDAMENTO.valor_sinal`.
 As cores da vitrine também não são personalizáveis.
 
-**Imagens** (logo, capa, favicon, foto do serviço) são enviadas como data URL
-dentro do JSON. Se preferirem upload separado, criem uma rota multipart e usem
-`http.upload` no front.
+**Imagens** que a gestora envia (logo, capa, favicon, foto do serviço) vão como
+data URL dentro do JSON. Se preferirem upload separado, criem uma rota multipart
+e usem `http.upload` no front.
+
+As imagens da **clínica de demonstração** ficam no próprio projeto, como arquivos:
+
+- capa de cada categoria: `public/images/categorias/<nome-da-categoria>.jpg`
+  (ex.: `nail-design.jpg`), definidas em `storefrontCategories` (`src/constants/index.js`);
+- foto de cada serviço: `public/images/servicos/<id-do-serviço>.jpg`
+  (ex.: `lash-fox.jpg`), referenciada no campo `image` de `src/mocks/data/services.js`.
+
+Para trocar uma foto, basta substituir o arquivo mantendo o mesmo nome. Os caminhos
+usam `import.meta.env.BASE_URL`, então funcionam no `npm run dev` e com o site
+publicado em subpasta. Categoria criada pela gestora sem imagem própria usa a capa
+padrão (`DEFAULT_CATEGORY_COVER`). O campo `image` aceita tanto um caminho/URL
+quanto uma data URL.
 
 ## 7. Checklist da integração
 
