@@ -10,6 +10,8 @@ function Action({ children, variant = "primary", className = "", onClick }) {
     <button
       type="button"
       onClick={onClick}
+      // Classe 'disabled' = botão inativo: avisa o leitor de tela (aria-disabled).
+      aria-disabled={/\bdisabled\b/.test(className) || undefined}
       className={`action action-${variant} ${className}`}
     >
       {children}

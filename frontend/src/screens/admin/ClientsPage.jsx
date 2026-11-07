@@ -46,20 +46,20 @@ function ClientsPageView({ notify, clientList }) {
         </div>
       </div>
       <div className="table-toolbar">
-        <label className="search-box">
+        <label htmlFor="cli-buscar-cliente-por-nome" className="search-box">
           <span className="sr-only">
             Buscar cliente por nome, e-mail ou WhatsApp
           </span>
           <Icon name="search" />
-          <input
+          <input id="cli-buscar-cliente-por-nome"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Nome, e-mail ou WhatsApp..."
           />
         </label>
-        <label className="af-filter">
+        <label htmlFor="cli-filtrar-clientes" className="af-filter">
           <span className="sr-only">Filtrar clientes</span>
-          <select
+          <select id="cli-filtrar-clientes"
             className="af-select"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -76,11 +76,12 @@ function ClientsPageView({ notify, clientList }) {
         aria-label="Clientes"
       >
         <div className="table-row table-header" role="row">
-          <span>CLIENTE</span>
-          <span>ÚLTIMO PROCEDIMENTO</span>
-          <span>ÚLTIMO ATENDIMENTO</span>
-          <span>MANUTENÇÃO</span>
-          <span>AÇÕES</span>
+          {/* role='columnheader' / role='cell': o leitor de tela lê como tabela de verdade. */}
+          <span role="columnheader">CLIENTE</span>
+          <span role="columnheader">ÚLTIMO PROCEDIMENTO</span>
+          <span role="columnheader">ÚLTIMO ATENDIMENTO</span>
+          <span role="columnheader">MANUTENÇÃO</span>
+          <span role="columnheader">AÇÕES</span>
         </div>
         {rows.map((c) => {
           const m = maintenance(c)
@@ -91,7 +92,7 @@ function ClientsPageView({ notify, clientList }) {
               role="row"
               key={c.id}
             >
-              <span className="main-cell">
+              <span className="main-cell" role="cell">
                 <i className="client-initials">{c.initials}</i>
                 <span className="client-name">
                   <strong>{c.name}</strong>
@@ -104,16 +105,18 @@ function ClientsPageView({ notify, clientList }) {
                   </small>
                 </span>
               </span>
-              <span>
+              <span role="cell">
                 <strong className="application-model">{c.model}</strong>
                 <small className="application-category">{c.service}</small>
               </span>
-              <span className="application-date">
+              <span className="application-date" role="cell">
                 <strong>{gone ? "—" : br(c.lastDate)}</strong>
                 <small>{m.days === null ? "" : `há ${m.days} dias`}</small>
               </span>
-              <span className={`alert-pill ${m.tone}`}>{m.label}</span>
-              <span className="client-row-actions">
+              <span role="cell">
+                <span className={`alert-pill ${m.tone}`}>{m.label}</span>
+              </span>
+              <span className="client-row-actions" role="cell">
                 {!gone && (
                   <a
                     className="icon-button whatsapp-icon"

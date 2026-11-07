@@ -10,7 +10,7 @@
 .login-visual > div:first-of-type { background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.58)); }
 /* Texto sobre a imagem (z-index 2 = fica acima da foto e da camada escura). */
 .login-visual-copy { position: relative; z-index: 2; color: #fff; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 10vw; }
-.login-visual-copy > span { font-size: 8px; color: var(--gold); font-weight: 800; letter-spacing: 0.16em; }
+.login-visual-copy > span { font-size: 12px; color: var(--gold); font-weight: 800; letter-spacing: 0.16em; }
 .login-visual-copy h1 { font-family: var(--font-heading); font-size: 48px; line-height: 1.08; font-weight: 400; margin: 20px 0; }
 .login-visual-copy > p { max-width: 410px; color: #cbd5e1; font-size: 12px; line-height: 1.8; }
 /* COLUNA DO FORMULÁRIO: centraliza a caixa de login (máx. 420px de largura). */
@@ -19,24 +19,49 @@
 /* Logo do celular: escondido no computador (aparece no @media lá embaixo). */
 .login-mobile-brand { display: none; }
 .login-title { font-family: var(--font-heading); font-size: 37px; color: var(--navy); margin: 8px 0; }
-.login-box > p { font-size: 10px; color: var(--muted); line-height: 1.7; margin-bottom: 24px; }
+.login-box > p { font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 24px; }
 /* Campos de e-mail e senha. :focus = estilo quando o campo está selecionado. */
 .login-form { display: grid; gap: 13px; }
 .login-form label { display: flex; flex-direction: column; gap: 6px; }
-.login-form label span { font-size: 8px; font-weight: 800; color: #64748b; letter-spacing: 0.1em; }
-.login-form input { height: 48px; border: 1px solid var(--line); border-radius: 11px; padding: 0 13px; font: inherit; font-size: 11px; outline: 0; }
-.login-form input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-pale); }
-.forgot-password { margin: -4px 0 2px auto; border: 0; background: transparent; color: var(--amber-dark); font: inherit; font-size: 8px; font-weight: 700; cursor: pointer; }
+.login-form label span { font-size: 12px; font-weight: 800; color: #475569; letter-spacing: 0.1em; }
+.login-form input { height: 48px; border: 1px solid var(--line); border-radius: 11px; padding: 0 13px; font: inherit; font-size: 12px; outline: 0; }
+.login-form input:hover { border-color: #94a3b8; }
+/* Foco: UMA linha só, na mesma cor do rótulo "E-MAIL" (#475569).
+   A sombra interna de 1px engrossa a borda para 2px sem mexer no tamanho do campo,
+   e o outline global (laranja) é desligado só aqui. Contraste #475569 × branco = 7,58:1
+   (o mínimo para indicador de foco é 3:1). */
+.login-form input:focus,
+.login-form input:focus-visible {
+  border-color: #475569;
+  box-shadow: inset 0 0 0 1px #475569;
+  outline: none !important;
+}
+.forgot-password { margin: -4px 0 2px auto; border: 0; background: transparent; color: var(--amber-text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 /* Divisor 'OU': :before e :after desenham as linhas dos dois lados do texto. */
 .login-divider { display: flex; align-items: center; gap: 10px; margin: 22px 0; }
 .login-divider:before,
 .login-divider:after { content: ""; height: 1px; background: var(--line); flex: 1; }
-.login-divider span { font-size: 7px; color: #94a3b8; font-weight: 800; }
+.login-divider span { font-size: 12px; color: #475569; font-weight: 800; }
 /* Bloco 'Cadastre sua empresa' e a dica do acesso de demonstração. */
 .company-signup { text-align: center; }
-.company-signup strong { font-size: 11px; }
-.company-signup p { font-size: 9px; color: var(--muted); margin: 5px 0 13px; }
-.login-hint { display: block; margin-top: 17px; text-align: center; color: #64748b; font-size: 7px; }
+.company-signup strong { font-size: 12px; }
+.company-signup p { font-size: 12px; color: var(--muted); margin: 5px 0 13px; }
+/* Dica do rodapé: #475569 sobre branco = 7,58:1 (AAA) */
+.login-hint { display: block; margin-top: 17px; text-align: center; color: #475569; font-size: 12px; line-height: 1.6; }
+
+/* Botão "Criar conta de cliente": contorno na cor da marca, bem visível.
+   #92400e sobre branco = 7,09:1; no hover, #78350f sobre #fef3c7 = 8,15:1 (AAA). */
+.company-signup .action-secondary {
+  min-height: 46px;
+  background: #fff;
+  border: 1.5px solid var(--amber-dark);
+  color: var(--amber-text);
+}
+.company-signup .action-secondary:hover { background: var(--amber-pale); color: #78350f; }
+/* Na tela da gestora (tema neutro) o mesmo botão fica em cinza-azulado:
+   #334155 sobre branco = 10,35:1; no hover, sobre #f1f5f9 = 9,45:1. */
+.neutral-auth .company-signup .action-secondary { border-color: #334155; color: #334155; }
+.neutral-auth .company-signup .action-secondary:hover { background: #f1f5f9; color: #334155; }
 /* TEMA NEUTRO: no login e no cadastro da gestora os botões ficam cinza-azulados
    (a gestora ainda não está dentro de uma clínica). '.neutral-auth .action-primary'
    = botão principal (Action.jsx) que está DENTRO de um elemento com a classe neutral-auth. */

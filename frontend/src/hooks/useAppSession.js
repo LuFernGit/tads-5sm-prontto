@@ -21,8 +21,14 @@ export function useAppSession() {
     setSessionScope(slug ? `cliente:${slug}` : "gestora")
     return slug
   })
-  /** @type {["loading"|"login"|"admin"|"client"|"preview", Function]} */
+  /**
+   * Modos: loading | login | admin (gestora) | client (cliente logada) |
+   * guest (visitante na vitrine, sem login) | preview (gestora vendo a vitrine)
+   * @type {["loading"|"login"|"admin"|"client"|"guest"|"preview", Function]}
+   */
   const [mode, setModeState] = useState("loading")
+  // Sem login: no link da clínica a pessoa vê a vitrine (guest); no link do Prontto, o login.
+  const visitorMode = clinicSlug ? "guest" : "login"
   // notice = texto do aviso (Toast). notify(msg) é o atalho para mostrar um aviso.
   const [notice, setNotice] = useState("")
   const notify = useCallback((message) => setNotice(message), [])
@@ -73,7 +79,7 @@ export function useAppSession() {
         return
       }
       if (!getToken()) {
-        if (!cancelled) setModeState("login")
+        if (!cancelled) setModeState(visitorMode)
         return
       }
       try {
@@ -87,31 +93,31 @@ export function useAppSession() {
           if (!cancelled) setModeState("admin")
         } else {
           clearToken()
-          if (!cancelled) setModeState("login")
+          if (!cancelled) setModeState(visitorMode)
         }
       } catch {
         clearToken()
-        if (!cancelled) setModeState("login")
+        if (!cancelled) setModeState(visitorMode)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [clinicSlug, loadClinic, loadManagerWorkspace])
+  }, [clinicSlug, loadClinic, loadManagerWorkspace, visitorMode])
 
   useEffect(
     () =>
       // Se o backend responder 401 em qualquer tela, volta para o login com um aviso.
       onSessionExpired(() => {
-        setModeState("login")
+        setModeState(visitorMode)
         notify("Sua sessão expirou. Entre novamente.")
       }),
-    [notify],
+    [notify, visitorMode],
   )
 
-  /** Trocar para "login" a partir de uma área logada encerra a sessão. */
+  /** Ir para "login" ou voltar para a vitrine ("guest") encerra a sessão (logout). */
   const setMode = useCallback((next) => {
-    if (next === "login") api.auth.logout()
+    if (next === "login" || next === "guest") api.auth.logout()
     setModeState(next)
   }, [])
 
@@ -193,7 +199,7 @@ export function useAppSession() {
   // Na área da cliente usa os dados públicos da clínica; na pré-visualização da
   // gestora (mode 'preview') usa os dados da própria empresa dela.
   const clientView =
-    mode === "client" && clinic
+    (mode === "client" || mode === "guest") && clinic
       ? {
           company: clinic.empresa,
           services: clinic.servicos,

@@ -1,62 +1,62 @@
 /* Estilos de CompanyRegistrationPage.jsx (importado só por ele). */
 
-.service-form-help { font-size: 8px; line-height: 1.6; color: var(--muted); margin: -5px 0 12px; }
+.service-form-help { font-size: 12px; line-height: 1.6; color: var(--muted); margin: -5px 0 12px; }
 .pf-check,
 label.pf-check { flex-direction: row; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; background: var(--cream); cursor: pointer; }
 .pf-check input { width: 18px; height: 18px; padding: 0; accent-color: var(--amber-dark); }
 .pf-health-form .pf-check span,
-.registration-form label.pf-check > span { font-size: 11px; font-weight: 600; letter-spacing: 0; color: var(--muted); text-transform: none; }
+.registration-form label.pf-check > span { font-size: 12px; font-weight: 600; letter-spacing: 0; color: var(--muted); text-transform: none; }
 .registration-form label.pf-check { flex-direction: row; }
 /* Cadastro da empresa */
 .registration-page { min-height: 100vh; background: var(--cream); color: var(--text); }
 .registration-header { height: 76px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 5vw; }
-.registration-header button { border: 0; background: transparent; color: #475569; font: inherit; font-size: 9px; font-weight: 800; cursor: pointer; }
+.registration-header button { border: 0; background: transparent; color: #475569; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .registration-shell { max-width: 1180px; margin: 34px auto; padding: 0 24px; display: grid; grid-template-columns: 270px 1fr; gap: 22px; align-items: start; }
 .registration-steps { background: #1e293b; color: #fff; border-radius: 20px; padding: 28px; position: sticky; top: 20px; }
-.registration-steps > span { font-size: 7px; letter-spacing: 0.16em; color: #cbd5e1; font-weight: 800; }
-.registration-steps > strong { display: block; font-family: var(--font-heading); font-size: 24px; line-height: 1.15; margin: 10px 0; }
-.registration-steps > p { font-size: 8px; line-height: 1.7; color: #94a3b8; margin: 0 0 24px; }
-.registration-steps > div { display: flex; align-items: center; gap: 10px; padding: 9px 0; color: #94a3b8; font-size: 9px; font-weight: 700; }
-.registration-steps > div i { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #64748b; display: grid; place-items: center; font-style: normal; font-size: 8px; }
+.registration-steps > span { font-size: 12px; letter-spacing: 0.16em; color: #cbd5e1; font-weight: 800; }
+.registration-steps > strong { display: block; font-family: var(--font-body); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin: 12px 0 10px; }
+.registration-steps > p { font-size: 12px; line-height: 1.7; color: #cbd5e1; margin: 0 0 24px; }
+.registration-steps > div { display: flex; align-items: center; gap: 10px; padding: 9px 0; color: #cbd5e1; font-size: 12px; font-weight: 700; }
+.registration-steps > div i { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #64748b; display: grid; place-items: center; font-style: normal; font-size: 12px; }
 .registration-content { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 34px; min-height: 620px; display: flex; flex-direction: column; }
 .registration-title { font-family: var(--font-heading); font-size: 34px; color: var(--navy); margin-top: 7px; }
-.registration-content > p { font-size: 10px; color: var(--muted); line-height: 1.7; margin: 7px 0 25px; }
+.registration-content > p { font-size: 12px; color: var(--muted); line-height: 1.7; margin: 7px 0 25px; }
 .registration-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .registration-form label { display: flex; flex-direction: column; gap: 6px; }
-.registration-form label > span { font-size: 8px; font-weight: 800; color: #64748b; letter-spacing: 0.08em; }
+.registration-form label > span { font-size: 12px; font-weight: 800; color: #475569; letter-spacing: 0.08em; }
 .registration-form input,
 .registration-form select,
-.registration-form textarea { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: #fbfcfd; color: var(--navy); padding: 11px 12px; font: inherit; font-size: 10px; outline: 0; resize: vertical; }
+.registration-form textarea { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: #fbfcfd; color: var(--navy); padding: 11px 12px; font: inherit; font-size: 12px; outline: 0; resize: vertical; }
 .registration-form input:focus,
 .registration-form select:focus,
 .registration-form textarea:focus { border-color: #64748b; box-shadow: 0 0 0 3px #f1f5f9; }
 .registration-actions { margin-top: auto; padding-top: 25px; display: flex; justify-content: space-between; }
 .registration-category-create { display: flex; gap: 9px; }
-.registration-category-create input { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font: inherit; font-size: 10px; }
+.registration-category-create input { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font: inherit; font-size: 12px; }
 .registration-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0; }
-.registration-chips > span { border-radius: 20px; background: #f1f5f9; color: #334155; padding: 7px 8px 7px 11px; display: flex; align-items: center; gap: 7px; font-size: 8px; font-weight: 800; }
-.registration-chips button { border: 0; background: #fff; border-radius: 50%; width: 18px; height: 18px; color: #64748b; cursor: pointer; }
+.registration-chips > span { border-radius: 20px; background: #f1f5f9; color: #334155; padding: 7px 8px 7px 11px; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; }
+.registration-chips button { border: 0; background: #fff; border-radius: 50%; width: 18px; height: 18px; color: #475569; cursor: pointer; }
 .initial-service-form { border-top: 1px solid var(--line); padding-top: 17px; margin-top: 5px; }
-.initial-service-form > strong { display: block; font-size: 11px; margin-bottom: 12px; }
+.initial-service-form > strong { display: block; font-size: 12px; margin-bottom: 12px; }
 .initial-service-list { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 13px; }
 .initial-service-list > span { border: 1px solid var(--line); border-radius: 9px; padding: 9px; display: flex; flex-direction: column; gap: 3px; }
-.initial-service-list strong { font-size: 9px; }
-.initial-service-list small { font-size: 7px; color: var(--muted); }
+.initial-service-list strong { font-size: 12px; }
+.initial-service-list small { font-size: 12px; color: var(--muted); }
 .registration-uploads { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-top: 18px; }
 .registration-uploads label { display: flex; flex-direction: column; gap: 6px; }
-.registration-uploads label > span { font-size: 8px; font-weight: 800; color: #64748b; }
+.registration-uploads label > span { font-size: 12px; font-weight: 800; color: #475569; }
 .registration-uploads input { position: absolute; opacity: 0; pointer-events: none; }
-.registration-uploads label > div { height: 150px; border: 1px dashed #cbd5e1; border-radius: 12px; overflow: hidden; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #64748b; cursor: pointer; }
+.registration-uploads label > div { height: 150px; border: 1px dashed #cbd5e1; border-radius: 12px; overflow: hidden; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #475569; cursor: pointer; }
 .registration-uploads img { width: 100%; height: 100%; object-fit: cover; }
 .registration-review { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .registration-review > div { border: 1px solid var(--line); border-radius: 11px; padding: 13px; display: flex; flex-direction: column; gap: 4px; }
-.registration-review small { font-size: 7px; color: #64748b; font-weight: 800; }
-.registration-review strong { font-size: 11px; color: var(--navy); }
-.registration-review span { font-size: 8px; color: var(--muted); }
+.registration-review small { font-size: 12px; color: #475569; font-weight: 800; }
+.registration-review strong { font-size: 12px; color: var(--navy); }
+.registration-review span { font-size: 12px; color: var(--muted); }
 .registration-ready { margin-top: 15px; border-radius: 12px; background: #f1f5f9; color: #334155; padding: 14px; display: flex; align-items: center; gap: 9px; }
 .registration-ready > span { display: flex; flex-direction: column; gap: 4px; }
-.registration-ready strong { font-size: 9px; }
-.registration-ready small { font-size: 8px; color: #64748b; }
+.registration-ready strong { font-size: 12px; }
+.registration-ready small { font-size: 12px; color: #475569; }
 @media (max-width: 700px) {
   /* Cadastro da empresa */
   .registration-header { height: 66px; padding: 0 18px; }

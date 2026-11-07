@@ -3,7 +3,13 @@
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px; }
 .brand-mark { width: 40px; height: 40px; flex: 0 0 40px; }
 .brand-name { font-family: var(--font-heading); font-size: 28px; line-height: 25px; letter-spacing: 0.02em; }
-.brand-tagline { margin-top: 5px; font-size: 7px; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; }
+.brand-tagline { margin-top: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #475569; }
+/* Sobre fundo escuro (menu lateral e lado da imagem no login): #cbd5e1 × #0f172a = 12,02:1 */
+.sidebar .brand-tagline,
+.login-visual .brand-tagline,
+.login-mobile-brand .brand-tagline { color: #cbd5e1; }
+/* Com 12px (tamanho mínimo), em maiúsculas o texto quebrava em 3 linhas no menu lateral */
+.sidebar .brand-tagline { text-transform: none; letter-spacing: 0; white-space: nowrap; }
 .login-visual-copy .brand { position: absolute; top: 48px; left: 10vw; }
 .registration-header .brand { color: var(--navy); }
 @media (max-width: 700px) {

@@ -3,3 +3,7 @@
 .clinic-on-dark { position: absolute; top: 48px; left: 10vw; }
 .clinic-on-dark strong { color: #fff; }
 .login-mobile-brand .clinic-on-dark { position: static; }
+
+/* Botão "← Voltar para a vitrine" no login da cliente: #334155 × branco = 10,35:1 */
+.back-to-store { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; padding: 0; border: 0; background: transparent; color: #334155; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.back-to-store:hover { color: var(--navy); text-decoration: underline; }

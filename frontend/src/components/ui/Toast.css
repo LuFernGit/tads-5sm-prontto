@@ -15,7 +15,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   animation: toast-in 0.2s ease-out;
 }

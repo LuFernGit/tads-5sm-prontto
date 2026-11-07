@@ -53,7 +53,7 @@ function SettingsPage({
       return
     }
     if (emailError(profile.email ?? "")) {
-      notify("Informe um e-mail de contato válido.")
+      notify(emailError(profile.email ?? ""))
       return
     }
     // O backend confere se o e-mail de contato é diferente do e-mail de acesso.
@@ -90,27 +90,27 @@ function SettingsPage({
           {/* Bloco 1: nome, responsável, CPF/CNPJ e e-mail de contato. */}
           <strong>Identificação</strong>
           <div className="form-grid">
-            <label>
+            <label htmlFor="cfg-nome-do-estabelecimento">
               <span>NOME DO ESTABELECIMENTO</span>
-              <input
+              <input id="cfg-nome-do-estabelecimento"
                 value={profile.clinicName}
                 onChange={(event) =>
                   updateProfile("clinicName", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label htmlFor="cfg-responsavel">
               <span>RESPONSÁVEL</span>
-              <input
+              <input id="cfg-responsavel"
                 value={profile.responsible}
                 onChange={(event) =>
                   updateProfile("responsible", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label htmlFor="cfg-cpf-cnpj">
               <span>CPF / CNPJ</span>
-              <input
+              <input id="cfg-cpf-cnpj"
                 inputMode="numeric"
                 value={profile.document}
                 onChange={(event) =>
@@ -119,9 +119,9 @@ function SettingsPage({
                 placeholder={PLACEHOLDER.cpfCnpj}
               />
             </label>
-            <label>
+            <label htmlFor="cfg-e-mail-de-contato">
               <span>E-MAIL DE CONTATO DA CLÍNICA</span>
-              <input
+              <input id="cfg-e-mail-de-contato"
                 type="email"
                 value={profile.email}
                 onChange={(event) => updateProfile("email", event.target.value)}
@@ -137,9 +137,9 @@ function SettingsPage({
           {/* Bloco 2: telefone, WhatsApp e Instagram. */}
           <strong>Contato</strong>
           <div className="form-grid">
-            <label>
+            <label htmlFor="cfg-telefone">
               <span>TELEFONE</span>
-              <input
+              <input id="cfg-telefone"
                 inputMode="tel"
                 value={profile.phone}
                 onChange={(event) =>
@@ -148,9 +148,9 @@ function SettingsPage({
                 placeholder={PLACEHOLDER.phone}
               />
             </label>
-            <label>
+            <label htmlFor="cfg-whatsapp">
               <span>WHATSAPP</span>
-              <input
+              <input id="cfg-whatsapp"
                 inputMode="tel"
                 value={profile.whatsapp}
                 onChange={(event) =>
@@ -159,9 +159,9 @@ function SettingsPage({
                 placeholder={PLACEHOLDER.phone}
               />
             </label>
-            <label className="wide">
+            <label htmlFor="cfg-instagram" className="wide">
               <span>INSTAGRAM</span>
-              <input
+              <input id="cfg-instagram"
                 value={profile.instagram}
                 onChange={(event) =>
                   updateProfile("instagram", event.target.value)
@@ -174,9 +174,9 @@ function SettingsPage({
           {/* Bloco 3: endereço completo. */}
           <strong>Localização</strong>
           <div className="form-grid address-grid">
-            <label>
+            <label htmlFor="cfg-cep">
               <span>CEP</span>
-              <input
+              <input id="cfg-cep"
                 value={profile.cep}
                 inputMode="numeric"
                 onChange={(event) =>
@@ -185,52 +185,52 @@ function SettingsPage({
                 placeholder={PLACEHOLDER.cep}
               />
             </label>
-            <label>
+            <label htmlFor="cfg-endereco">
               <span>ENDEREÇO</span>
-              <input
+              <input id="cfg-endereco"
                 value={profile.address}
                 onChange={(event) =>
                   updateProfile("address", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label htmlFor="cfg-numero">
               <span>NÚMERO</span>
-              <input
+              <input id="cfg-numero"
                 value={profile.number}
                 onChange={(event) =>
                   updateProfile("number", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label htmlFor="cfg-complemento">
               <span>COMPLEMENTO</span>
-              <input
+              <input id="cfg-complemento"
                 value={profile.complement}
                 onChange={(event) =>
                   updateProfile("complement", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label htmlFor="cfg-bairro">
               <span>BAIRRO</span>
-              <input
+              <input id="cfg-bairro"
                 value={profile.neighborhood}
                 onChange={(event) =>
                   updateProfile("neighborhood", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label htmlFor="cfg-cidade">
               <span>CIDADE</span>
-              <input
+              <input id="cfg-cidade"
                 value={profile.city}
                 onChange={(event) => updateProfile("city", event.target.value)}
               />
             </label>
-            <label>
+            <label htmlFor="cfg-estado">
               <span>ESTADO</span>
-              <input
+              <input id="cfg-estado"
                 value={profile.state}
                 onChange={(event) => updateProfile("state", event.target.value)}
               />
@@ -253,16 +253,16 @@ function SettingsPage({
               </div>
               <small>Novas categorias são criadas na aba Serviços.</small>
             </label>
-            <label className="wide">
+            <label htmlFor="cfg-horario-de-funcionamento" className="wide">
               <span>HORÁRIO DE FUNCIONAMENTO</span>
-              <input
+              <input id="cfg-horario-de-funcionamento"
                 value={profile.hours}
                 onChange={(event) => updateProfile("hours", event.target.value)}
               />
             </label>
-            <label className="wide">
+            <label htmlFor="cfg-apresentacao-da-clinica" className="wide">
               <span>APRESENTAÇÃO DA CLÍNICA</span>
-              <textarea
+              <textarea id="cfg-apresentacao-da-clinica"
                 rows={3}
                 maxLength={400}
                 value={profile.presentation}
@@ -271,9 +271,9 @@ function SettingsPage({
                 }
               />
             </label>
-            <label className="wide">
+            <label htmlFor="cfg-politica-de-cancelamento" className="wide">
               <span>POLÍTICA DE CANCELAMENTO</span>
-              <textarea
+              <textarea id="cfg-politica-de-cancelamento"
                 rows={3}
                 value={profile.cancellation}
                 onChange={(event) =>

@@ -3,6 +3,7 @@ import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import Action from "@/components/ui/Action"
+import NewTabHint from "@/components/ui/NewTabHint"
 import Icon from "@/components/ui/Icon"
 import Modal from "@/components/ui/Modal"
 import { openWhatsApp } from "@/lib/whatsapp"
@@ -360,7 +361,7 @@ function DashboardPageView({ notify, dashboard, reload }) {
                                 }
                               >
                                 <Icon name="whatsapp" size={15} /> Chamar no
-                                WhatsApp
+                                WhatsApp <NewTabHint compact />
                               </Action>
                             </div>
                           </div>
@@ -470,8 +471,7 @@ function DashboardPageView({ notify, dashboard, reload }) {
                   )
                 }
               >
-                <Icon name="whatsapp" /> Ir para o Whatsapp{" "}
-                <small>(abre em nova guia)</small>
+                <Icon name="whatsapp" /> Ir para o WhatsApp <NewTabHint compact />
               </Action>
             </div>
           </div>
@@ -539,7 +539,7 @@ function DashboardPageView({ notify, dashboard, reload }) {
                         }
                       >
                         <Icon name="whatsapp" size={15} /> Chamar no WhatsApp{" "}
-                        <small>(abre em nova guia)</small>
+                        <NewTabHint compact />
                       </Action>
                     </div>
                   </div>
@@ -589,9 +589,9 @@ function DashboardPageView({ notify, dashboard, reload }) {
             )}
           </div>
           {selectedSlot.status === "busy" && (
-            <label className="manager-cancel-reason">
+            <label htmlFor="pai-motivo-do-cancelamento" className="manager-cancel-reason">
               <span>MOTIVO DO CANCELAMENTO</span>
-              <textarea
+              <textarea id="pai-motivo-do-cancelamento"
                 rows={2}
                 value={cancelReason}
                 onChange={(event) => setCancelReason(event.target.value)}
@@ -625,7 +625,7 @@ function DashboardPageView({ notify, dashboard, reload }) {
                     )
                   }
                 >
-                  <Icon name="whatsapp" /> WhatsApp
+                  <Icon name="whatsapp" /> WhatsApp <NewTabHint compact />
                 </Action>
               </>
             )}
@@ -666,7 +666,8 @@ function DashboardPageView({ notify, dashboard, reload }) {
               Voltar
             </Action>
             <Action variant="danger" onClick={confirmCalendarCancellation}>
-              Sim, cancelar compromisso
+              Sim, cancelar compromisso{" "}
+              <NewTabHint compact text="abre o WhatsApp em nova guia para avisar a cliente" />
             </Action>
           </div>
         </Modal>

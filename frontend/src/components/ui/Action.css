@@ -21,21 +21,21 @@
 .action:hover { transform: translateY(-1px); filter: brightness(0.98); }
 .action.full { width: 100%; }
 .action.disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-.table-row .action { font-size: 9px; min-height: 30px; }
-.vitrine-card .action { grid-column: 1 / 3; color: var(--gold); min-height: 27px; font-size: 9px; justify-content: flex-start; margin-top: 7px; }
-.slot-tooltip .action { min-height: 31px; width: 100%; font-size: 8px; }
-.calendar-foot .action { font-size: 8px; min-height: 30px; }
-.next-card > .action { min-height: 38px; font-size: 10px; }
-.client-head-actions .action { font-size: 10px; }
-.service-card-body .action { width: 100%; font-size: 9px; }
-.pf-next-actions .action { min-height: 36px; padding: 0 14px; font-size: 11px; }
+.table-row .action { font-size: 12px; min-height: 30px; }
+.vitrine-card .action { grid-column: 1 / 3; color: var(--gold); min-height: 27px; font-size: 12px; justify-content: flex-start; margin-top: 7px; }
+.slot-tooltip .action { min-height: 31px; width: 100%; font-size: 12px; }
+.calendar-foot .action { font-size: 12px; min-height: 30px; }
+.next-card > .action { min-height: 38px; font-size: 12px; }
+.client-head-actions .action { font-size: 12px; }
+.service-card-body .action { width: 100%; font-size: 12px; }
+.pf-next-actions .action { min-height: 36px; padding: 0 14px; font-size: 12px; }
 .pf-card-foot .action { font-size: 12px; min-height: 36px; }
 @media (prefers-reduced-motion: reduce) {
   .action { transition: none; }
 }
 @media (max-width: 700px) {
   .modal-actions .action { padding: 0 12px; }
-  .registration-actions .action { flex: 1; padding: 0 10px; font-size: 9px; }
+  .registration-actions .action { flex: 1; padding: 0 10px; font-size: 12px; }
 }
 .mini-item .expand-panel .action { margin-bottom: 12px; }
 .clinic-account-danger .action { justify-self: start; }

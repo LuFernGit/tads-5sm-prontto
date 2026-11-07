@@ -1,4 +1,4 @@
 /* Estilos de ExternalLink.jsx (importado só por ele). */
 
-.ff-external { color: var(--amber-dark); font-weight: 700; }
+.ff-external { color: var(--amber-text); font-weight: 700; }
 .ff-external small { font-size: 12px; font-weight: 400; color: var(--muted); }

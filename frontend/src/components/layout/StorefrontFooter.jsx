@@ -1,4 +1,5 @@
 import Icon from "@/components/ui/Icon"
+import NewTabHint from "@/components/ui/NewTabHint"
 import "./StorefrontFooter.css"
 
 /**
@@ -23,7 +24,7 @@ function StorefrontFooter({ company }) {
       <div>
         <span>CONTATO</span>
         <a href="https://wa.me/5511999887766" target="_blank" rel="noreferrer">
-          {company.phone}
+          {company.phone} <NewTabHint text="abre o WhatsApp em nova guia" />
         </a>
         <a href={`mailto:${company.email}`}>{company.email}</a>
         <small>{company.instagram}</small>

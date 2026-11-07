@@ -10,12 +10,12 @@ import Field, { aria } from "@/components/ui/Field"
 import BookingConfirmation from "./BookingConfirmation"
 import DepositStep from "./DepositStep"
 import StorefrontFooter from "@/components/layout/StorefrontFooter"
+import NewTabHint from "@/components/ui/NewTabHint"
 import {
   EMPTY_SERVICE,
   PREVIEW_CLIENT,
   badgeClass,
   emptyAnamnesis,
-  gallery,
 } from "@/constants"
 import { clearToken } from "@/api/session"
 import { toHealthRecord } from "@/lib/anamnesis"
@@ -56,6 +56,13 @@ const formatUpdatedAt = (iso) =>
 // pad(5) → '05' (completa com zero à esquerda).
 const pad = (n) => String(n).padStart(2, "0")
 
+/** true se a data (AAAA-MM-DD) é hoje e o horário (HH:mm) já passou. */
+const isPastTime = (dateIso, time) => {
+  const now = new Date()
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  return dateIso === today && time <= `${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
 // ClientAppView = a tela da vitrine em si. Tem 4 abas (state 'tab'):
 //   home     → início (capa, especialidades, endereço)
 //   services → lista de serviços por categoria
@@ -69,6 +76,8 @@ function ClientAppView({
   serviceCategories,
   company,
   preview = false,
+  // guest = visitante sem login: vê vitrine, serviços e agenda; para confirmar, faz login.
+  guest = false,
   initialProfile,
   initialHealthRecord,
   initialAppointments,
@@ -89,7 +98,6 @@ function ClientAppView({
   const [depositStep, setDepositStep] = useState(false)
   const [signalValue, setSignalValue] = useState(null)
   // Meu perfil
-  const [showAllHistory, setShowAllHistory] = useState(false)
   const [appointments, setAppointments] = useState(initialAppointments)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [cancelling, setCancelling] = useState(null)
@@ -119,15 +127,11 @@ function ClientAppView({
   })
   const [profileDraft, setProfileDraft] = useState(profileData)
   const [profileErrors, setProfileErrors] = useState({})
-  // Separa os agendamentos em próximos e já realizados (aba Perfil).
+  // Agendamentos ainda por acontecer; o primeiro aparece em "Próximo agendamento".
   const upcomingAppointments = appointments.filter(
     (item) => item.status === "Agendado",
   )
-  const doneAppointments = appointments.filter(
-    (item) => item.status === "Realizado",
-  )
   const nextAppointment = upcomingAppointments[0]
-  const otherUpcoming = upcomingAppointments.slice(1)
   // Links do Google Maps: mapa embutido e botão 'Como chegar'.
   const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(company.address)}&output=embed`
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`
@@ -168,13 +172,18 @@ function ClientAppView({
     .toLocaleDateString("pt-BR", { month: "long" })
     .toUpperCase()
   const bookingYear = bookingDate.getFullYear()
-  const selectedDaySafe = Math.min(
-    selectedDay,
-    new Date(
-      bookingDate.getFullYear(),
-      bookingDate.getMonth() + 1,
-      0,
-    ).getDate(),
+  // Dia escolhido, ajustado para existir no mês mostrado e, no mês atual,
+  // nunca ser anterior a hoje (não dá para agendar no passado).
+  const selectedDaySafe = Math.max(
+    Math.min(
+      selectedDay,
+      new Date(
+        bookingDate.getFullYear(),
+        bookingDate.getMonth() + 1,
+        0,
+      ).getDate(),
+    ),
+    bookingMonthOffset === 0 ? new Date().getDate() : 1,
   )
   const selectedDateLabel = `${selectedDaySafe} de ${bookingDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`
   const firstWeekday = bookingDate.getDay()
@@ -225,22 +234,32 @@ function ClientAppView({
         : day > daysInMonth
           ? day - daysInMonth
           : day
-    const closed = inMonth && closedWeekdays.includes(index % 7)
-    const full = inMonth && busyDays.includes(day)
+    // Dia que já passou: só existe no mês atual (meses anteriores não são exibidos).
+    const past =
+      inMonth &&
+      new Date(bookingDate.getFullYear(), bookingDate.getMonth(), day) <
+        new Date(new Date().setHours(0, 0, 0, 0))
+    const closed = inMonth && !past && closedWeekdays.includes(index % 7)
+    const full = inMonth && !past && busyDays.includes(day)
     return {
       index,
       day,
       label,
       inMonth,
+      past,
       closed,
       full,
-      unavailable: closed || full,
+      unavailable: past || closed || full,
     }
   })
   /** Clique em um dia do calendário (dias fechados ou lotados só mostram aviso). */
-  const chooseDay = (day, unavailable = false) => {
+  const chooseDay = (day, unavailable = false, past = false) => {
     if (preview) {
       notify("O calendário está somente para visualização.")
+      return
+    }
+    if (past) {
+      notify("Essa data já passou. Escolha hoje ou um dia mais à frente.")
       return
     }
     if (unavailable) {
@@ -251,9 +270,13 @@ function ClientAppView({
     setSelectedTime("")
   }
   /** Clique em um horário (horários ocupados só mostram aviso). */
-  const chooseTime = (time, occupied = false) => {
+  const chooseTime = (time, occupied = false, past = false) => {
     if (preview) {
       notify("Os horários estão somente para visualização.")
+      return
+    }
+    if (past) {
+      notify("Esse horário de hoje já passou. Escolha um horário mais tarde ou outro dia.")
       return
     }
     if (occupied) {
@@ -356,7 +379,8 @@ function ClientAppView({
   /** Valida e salva os dados pessoais da cliente. */
   const saveProfile = async () => {
     const errs = {}
-    if (!profileDraft.name.trim()) errs.name = "Informe seu nome."
+    if (!profileDraft.name.trim())
+      errs.name = "Informe seu nome completo. Exemplo: Jamily Souza."
     if (profileDraft.email.trim() && emailError(profileDraft.email))
       errs.email = emailError(profileDraft.email)
     if (profileDraft.whatsapp.trim() && phoneError(profileDraft.whatsapp))
@@ -439,7 +463,7 @@ function ClientAppView({
           >
             Agendar
           </button>
-          {!preview && (
+          {!preview && !guest && (
             <button
               type="button"
               onClick={() => setTab("profile")}
@@ -457,9 +481,16 @@ function ClientAppView({
             </Action>
           ) : (
             <>
-              <Action variant="ghost" onClick={() => setMode("login")}>
-                <Icon name="login" size={14} /> Sair
-              </Action>
+              {guest ? (
+                <Action variant="ghost" onClick={() => setMode("login")}>
+                  <Icon name="login" size={14} /> Login
+                </Action>
+              ) : (
+                // Sair encerra a sessão e volta para a vitrine (modo visitante)
+                <Action variant="ghost" onClick={() => setMode("guest")}>
+                  <Icon name="logout" size={14} /> Sair
+                </Action>
+              )}
               <Action onClick={() => goSchedule()}>Agendar agora</Action>
             </>
           )}
@@ -623,6 +654,8 @@ function ClientAppView({
               dateLabel={selectedDateLabel}
               time={selectedTime}
               merchantName={company.name}
+              company={company}
+              duration={service.duration}
               recurring={clientSession.recurring}
               onBack={() => setDepositStep(false)}
               onConfirm={async (value, payment) => {
@@ -737,14 +770,18 @@ function ClientAppView({
                         cell.day === selectedDaySafe && !cell.unavailable
                       const state = isSelected
                         ? "selected"
-                        : cell.closed
+                        : cell.past
+                          ? "past"
+                          : cell.closed
                           ? "closed"
                           : cell.full
                             ? "full"
                             : "free"
                       const tag = isSelected
                         ? "Selecionado"
-                        : cell.closed
+                        : cell.past
+                          ? "Passado"
+                          : cell.closed
                           ? "Fechado"
                           : cell.full
                             ? "Lotado"
@@ -754,8 +791,12 @@ function ClientAppView({
                           type="button"
                           key={cell.index}
                           className={`bk-cal-cell ${state}`}
-                          onClick={() => chooseDay(cell.day, cell.unavailable)}
+                          onClick={() =>
+                            chooseDay(cell.day, cell.unavailable, cell.past)
+                          }
                           aria-label={`Dia ${cell.day}: ${tag}`}
+                          // Dia passado: avisa o leitor de tela que o botão está inativo
+                          aria-disabled={cell.past || undefined}
                         >
                           <strong>{cell.day}</strong>
                           <small>{tag}</small>
@@ -783,12 +824,19 @@ function ClientAppView({
                     {timePeriods
                       .map((period) => ({
                         ...period,
-                        slots: period.slots.filter((slot) =>
-                          fitsBusinessHours(
-                            slot.time,
-                            durationInMinutes(service.duration),
+                        slots: period.slots
+                          .filter((slot) =>
+                            fitsBusinessHours(
+                              slot.time,
+                              durationInMinutes(service.duration),
+                            ),
+                          )
+                          // Hoje: horário que já passou fica indisponível.
+                          .map((slot) =>
+                            isPastTime(selectedDateIso, slot.time)
+                              ? { ...slot, occupied: true, past: true }
+                              : slot,
                           ),
-                        ),
                       }))
                       .filter((period) => period.slots.length > 0)
                       .map((period) => (
@@ -806,11 +854,13 @@ function ClientAppView({
                                   selectedTime === slot.time ? "selected" : ""
                                 }`}
                                 onClick={() =>
-                                  chooseTime(slot.time, slot.occupied)
+                                  chooseTime(slot.time, slot.occupied, slot.past)
                                 }
                               >
                                 {slot.time}
-                                {slot.occupied && <small>Indisponível</small>}
+                                {slot.occupied && (
+                                  <small>{slot.past ? "Já passou" : "Indisponível"}</small>
+                                )}
                               </button>
                             ))}
                           </div>
@@ -826,12 +876,7 @@ function ClientAppView({
                     <div className="bk-service">
                       <img
                         src={
-                          service.image ||
-                          (service.category === "Nail Design"
-                            ? gallery[0]
-                            : service.category === "Lash Design"
-                              ? gallery[1]
-                              : gallery[2])
+                          service.image || getCategoryMeta(service.category).image
                         }
                         alt=""
                       />
@@ -883,6 +928,11 @@ function ClientAppView({
                           ? notify(
                               "A confirmação está desativada para a gestora.",
                             )
+                          : guest && selectedTime
+                            ? (notify(
+                                "Entre na sua conta (ou crie uma) para confirmar o agendamento.",
+                              ),
+                              setMode("login"))
                           : selectedTime
                             ? setDepositStep(true)
                             : notify("Selecione um horário para continuar.")
@@ -890,7 +940,9 @@ function ClientAppView({
                     >
                       {preview
                         ? "Confirmação desativada"
-                        : "Confirmar agendamento"}
+                        : guest
+                          ? "Entrar para confirmar"
+                          : "Confirmar agendamento"}
                       <Icon name={preview ? "lock" : "arrow"} size={16} />
                     </Action>
                   </section>
@@ -914,12 +966,23 @@ function ClientAppView({
               }}
             />
           )}
+          <footer className="booking-footer pf-footer">
+            <p>
+              © {new Date().getFullYear()} Prontto. Todos os direitos
+              reservados.
+            </p>
+            <nav aria-label="Links institucionais da agenda">
+              <a href="#termos">Termos de Uso</a>
+              <span aria-hidden="true">·</span>
+              <a href="#privacidade">Política de Privacidade</a>
+            </nav>
+          </footer>
         </main>
       )}
 
       {/* ===== MEU PERFIL ===== */}
       {/* ===== ABA PERFIL (não existe no modo de visualização da gestora) ===== */}
-      {!preview && tab === "profile" && (
+      {!preview && !guest && tab === "profile" && (
         <main className="pf-page">
           <section className="pf-hero">
             <div className="pf-hero-inner">
@@ -1085,172 +1148,10 @@ function ClientAppView({
             </div>
           </div>
 
-          <div className="pf-row">
-            <div className="pf-card">
-              <div className="pf-title-row">
-                <div className="pf-icon-box">
-                  <Icon name="calendar" size={20} />
-                </div>
-                <h2 className="pf-title">Agendamentos futuros</h2>
-              </div>
-              <div className="pf-list">
-                {otherUpcoming.map((item) => (
-                  <button
-                    type="button"
-                    className="pf-item"
-                    key={item.id}
-                    onClick={() => setSelectedAppointment(item)}
-                  >
-                    <div className="pf-icon-box">
-                      <Icon name={procedureIcon(item.name)} size={22} />
-                    </div>
-                    <div className="pf-item-info">
-                      <strong>{item.name}</strong>
-                      <small>
-                        <Icon name="calendar" size={13} /> {item.date} ·{" "}
-                        {item.time}
-                      </small>
-                    </div>
-                    <span className="pf-pill scheduled">{item.status}</span>
-                    <Icon name="chevron" size={16} />
-                  </button>
-                ))}
-                {otherUpcoming.length === 0 && (
-                  <div className="pf-empty">
-                    <p>Nenhum outro agendamento além do próximo.</p>
-                  </div>
-                )}
-              </div>
-              <div className="pf-card-foot">
-                <Action variant="ghost" onClick={() => goSchedule()}>
-                  <Icon name="plus" size={14} /> Agendar novo horário
-                </Action>
-              </div>
-            </div>
-
-            <div className="pf-card">
-              <div className="pf-title-row">
-                <div className="pf-icon-box">
-                  <Icon name="heart" size={20} />
-                </div>
-                <h2 className="pf-title">Ficha de saúde</h2>
-              </div>
-              <p className="pf-text">
-                Mantenha seus dados sempre atualizados para um atendimento ainda
-                mais seguro e personalizado.
-              </p>
-              <button
-                type="button"
-                className="pf-health-status"
-                onClick={openHealthEditor}
-              >
-                <div className="pf-round-icon">
-                  <Icon name="clock" size={20} />
-                </div>
-                <div>
-                  <strong>Sua ficha de saúde está atualizada</strong>
-                  <small>Última atualização: {healthUpdatedAt}</small>
-                </div>
-                <Icon name="chevron" size={16} />
-              </button>
-              <button
-                type="button"
-                className="pf-outline-btn"
-                onClick={openHealthEditor}
-              >
-                <Icon name="edit" size={16} /> Editar ficha de saúde
-              </button>
-            </div>
-          </div>
-
-          <div className="pf-row">
-            <div className="pf-card pf-card-pink">
-              <div className="pf-title-row">
-                <div className="pf-icon-box pf-icon-purple">
-                  <Icon name="clock" size={20} />
-                </div>
-                <h2 className="pf-title">Histórico de atendimentos</h2>
-                {doneAppointments.length > 3 && (
-                  <button
-                    type="button"
-                    className="pf-see-all"
-                    onClick={() => setShowAllHistory((value) => !value)}
-                  >
-                    {showAllHistory ? "Ver menos" : "Ver todos"}{" "}
-                    <Icon name="arrow" size={13} />
-                  </button>
-                )}
-              </div>
-              <div className="pf-history">
-                {(showAllHistory
-                  ? doneAppointments
-                  : doneAppointments.slice(0, 3)
-                ).map((item) => (
-                  <button
-                    type="button"
-                    className="pf-history-row"
-                    key={item.id}
-                    onClick={() => setSelectedAppointment(item)}
-                  >
-                    <div className="pf-icon-box pf-icon-purple">
-                      <Icon name={procedureIcon(item.name)} size={18} />
-                    </div>
-                    <strong>{item.name}</strong>
-                    <span className="pf-history-date">
-                      {item.date} · {item.time}
-                    </span>
-                    <span className="pf-pill done">{item.status}</span>
-                    <Icon name="chevron" size={16} />
-                  </button>
-                ))}
-                {doneAppointments.length === 0 && (
-                  <div className="pf-empty">
-                    Você ainda não tem atendimentos realizados.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="pf-card pf-card-care">
-              <div className="pf-title-row">
-                <div className="pf-icon-box pf-icon-white">
-                  <Icon name="sparkle" size={20} />
-                </div>
-                <h2 className="pf-title">Seus cuidados</h2>
-              </div>
-              <p className="pf-text">
-                Aqui você encontra todas as informações sobre seus atendimentos,
-                benefícios e sua ficha de saúde. Tudo em um só lugar!
-              </p>
-            </div>
-          </div>
-
-          <div className="pf-card">
-            <div className="pf-title-row">
-              <div className="pf-icon-box">
-                <Icon name="user" size={20} />
-              </div>
-              <h2 className="pf-title">Dados pessoais</h2>
-            </div>
-
-            <p className="pf-text">
-              Consulte e atualize suas informações pessoais e os dados da sua
-              conta.
-            </p>
-
-            <button
-              type="button"
-              className="pf-outline-btn"
-              onClick={() => setEditingProfile(true)}
-            >
-              <Icon name="edit" size={16} />
-              Alterar meus dados
-            </button>
-          </div>
-
           {/* Modal: detalhes de um atendimento. */}
           {selectedAppointment && (
             <Modal
+              wide
               title="Detalhes do atendimento"
               onClose={() => setSelectedAppointment(null)}
             >
@@ -1326,7 +1227,8 @@ function ClientAppView({
                   <small>Seg–Sáb · 09h às 19h</small>
                   <div className="pf-location-actions">
                     <a href={directionsUrl} target="_blank" rel="noreferrer">
-                      <Icon name="arrow" size={13} /> Como chegar
+                      <Icon name="arrow" size={13} /> Como chegar{" "}
+                      <NewTabHint compact />
                     </a>
                     <button type="button" onClick={copyAddress}>
                       Copiar endereço
@@ -1375,7 +1277,8 @@ function ClientAppView({
                     )
                   }
                 >
-                  <Icon name="whatsapp" size={15} /> Enviar por WhatsApp
+                  <Icon name="whatsapp" size={15} /> Enviar por WhatsApp{" "}
+                  <NewTabHint compact text="abre o WhatsApp em nova guia" />
                 </Action>
               </div>
             </Modal>
@@ -1402,7 +1305,8 @@ function ClientAppView({
                   Manter agendamento
                 </Action>
                 <Action variant="danger" onClick={confirmCancel}>
-                  Sim, cancelar
+                  Sim, cancelar{" "}
+                  <NewTabHint compact text="abre o WhatsApp da clínica em nova guia" />
                 </Action>
               </div>
             </Modal>
@@ -1427,6 +1331,7 @@ function ClientAppView({
                   setHealthDraft((c) => ({ ...c, [key]: value }))
                 }
                 defaultName={clientSession.name}
+                editing
               />
               <div className="modal-actions">
                 <Action
@@ -1582,7 +1487,7 @@ function ClientAppView({
                     clearToken()
                     setConfirmingAccountDeletion(false)
                     setEditingProfile(false)
-                    setMode("login")
+                    setMode("guest")
                     notify(
                       "Sua conta foi excluída e seus dados pessoais foram anonimizados.",
                     )
@@ -1594,7 +1499,7 @@ function ClientAppView({
             </Modal>
           )}
 
-          <footer className="booking-footer">
+          <footer className="booking-footer pf-footer">
             <p>
               © {new Date().getFullYear()} Prontto. Todos os direitos
               reservados.
@@ -1615,15 +1520,19 @@ function ClientAppView({
           { key: "home", icon: "home", label: "Início" },
           { key: "services", icon: "sparkle", label: "Serviços" },
           { key: "schedule", icon: "calendar", label: "Agendar" },
-          ...(!preview
-            ? [{ key: "profile", icon: "user", label: "Perfil" }]
-            : []),
+          // Logada: aba Perfil. Visitante: botão Entrar. Gestora (visualização): nada.
+          ...(preview
+            ? []
+            : guest
+              ? [{ key: "login", icon: "login", label: "Entrar" }]
+              : [{ key: "profile", icon: "user", label: "Perfil" }]),
         ].map((item) => (
           <button
             type="button"
             key={item.key}
             className={tab === item.key ? "active" : ""}
             onClick={() => {
+              if (item.key === "login") return setMode("login")
               if (item.key === "services") setCategory("")
               setTab(item.key)
             }}
@@ -1653,10 +1562,10 @@ function ClientApp(props) {
       return { profile, healthRecord, appointments }
     },
     [],
-    { enabled: !props.preview },
+    { enabled: !props.preview && !props.guest },
   )
-  // Visualização da gestora: não chama a API e usa uma cliente fictícia.
-  if (props.preview)
+  // Visualização da gestora ou visitante sem login: não chama a API da conta.
+  if (props.preview || props.guest)
     return (
       <ClientAppView
         {...props}

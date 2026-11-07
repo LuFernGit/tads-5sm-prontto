@@ -1,3 +1,6 @@
-/* Estilos de BookingConfirmation.jsx (importado só por ele). */
+/* Estilos de BookingConfirmation.jsx (o layout vem de BookingFlowLayout.css). */
 
-.ff-card.ff-deposit.confirmation { text-align: center; }
+/* ID do comprovante dentro da faixa verde: #14532d × #dcfce7 = 8,30:1 */
+.bf-receipt-id { margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+/* Observação final: #475569 × branco = 7,58:1 */
+.bf-note { margin: 0; font-size: 12px; color: var(--muted); }

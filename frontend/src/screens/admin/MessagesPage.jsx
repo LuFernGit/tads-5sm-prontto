@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import NewTabHint from "@/components/ui/NewTabHint"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
@@ -289,7 +290,7 @@ function MessagesPageView({
               }
             }}
           >
-            Abrir no WhatsApp <small>(mensagem pronta)</small>
+            Abrir no WhatsApp <NewTabHint text="mensagem pronta · abre em nova guia" />
           </a>
           <button
             type="button"

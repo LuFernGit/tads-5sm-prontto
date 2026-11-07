@@ -692,6 +692,9 @@ router.post("/cliente/agendamentos", (ctx) => {
   const service = clinic.services.find((s) => s.id === servicoId)
   if (!service) fail(404, "Serviço não encontrado.")
   if (!data || !hora) fail(400, "Escolha a data e o horário.")
+  // BACKEND: não aceitar agendamento no passado (a tela também bloqueia, mas a regra vale aqui).
+  if (new Date(`${data}T${String(hora).slice(0, 5)}:00`) <= new Date())
+    fail(400, "Essa data ou horário já passou. Escolha um horário futuro.")
   const appointment = {
     id: `a${Date.now()}`,
     servicoId,

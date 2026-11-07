@@ -4,3 +4,51 @@
 .ff-section-heading { margin: 28px 0 12px; padding-top: 20px; border-top: 1px solid var(--line); font-family: var(--font-heading); font-size: 20px; font-weight: 400; color: var(--navy); }
 .ff-procedure-list { display: grid; gap: 8px; }
 .ff-signature-fields { margin-top: 20px; }
+
+/* ===== Edição da ficha (Meu perfil): layout limpo =====
+   Opções sem caixa em volta: só o botão de opção/caixa de seleção e o texto.
+   A altura mínima de 44px mantém a área de clique do nível AAA (WCAG 2.5.5). */
+.ff-anamnesis-clean { gap: 0; }
+.ff-anamnesis-clean .ff-copy { font-size: 13px; }
+.ff-anamnesis-clean .ff-section-heading { margin: 26px 0 14px; padding-top: 24px; font-size: 20px; }
+.ff-anamnesis-clean .ff-question { margin-bottom: 18px; }
+.ff-anamnesis-clean .ff-question legend { margin-bottom: 4px; font-size: 13px; color: var(--navy); }
+.ff-anamnesis-clean .ff-radio-row { gap: 4px 28px; }
+.ff-anamnesis-clean .ff-radio {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  color: var(--navy);
+}
+.ff-anamnesis-clean .ff-radio:has(input:checked) { background: transparent; font-weight: 700; }
+.ff-anamnesis-clean .ff-procedure-list { gap: 0; }
+.ff-anamnesis-clean .ff-procedure-list .ff-radio { min-height: 40px; }
+.ff-anamnesis-clean .ff-notice { margin-top: 0; background: #f8fafc; }
+.ff-anamnesis-clean .ff-notice p { font-size: 13px; color: var(--muted); } /* #475569 sobre #f8fafc = 7,24:1 */
+.ff-anamnesis-clean .ff-check { font-size: 13px; }
+
+/* ===== Cadastro da cliente (boxed): cada pergunta numa caixa com borda ===== */
+.ff-anamnesis-boxed .ff-section-heading {
+  margin: 26px 0 14px;
+  padding: 0 0 8px;
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.ff-anamnesis-boxed .ff-question {
+  margin: 0 0 14px;
+  padding: 14px 16px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+/* float + clear: a pergunta (legend) fica DENTRO da caixa, e não em cima da borda */
+.ff-anamnesis-boxed .ff-question legend { float: left; width: 100%; margin-bottom: 2px; }
+.ff-anamnesis-boxed .ff-question legend + * { clear: both; }
+.ff-anamnesis-boxed .ff-detail { margin: -4px 0 18px; }

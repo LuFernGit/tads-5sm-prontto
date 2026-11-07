@@ -1,5 +1,6 @@
 import { useState } from "react"
 import Action from "@/components/ui/Action"
+import NewTabHint from "@/components/ui/NewTabHint"
 import Field from "@/components/ui/Field"
 import Icon from "@/components/ui/Icon"
 import Modal from "@/components/ui/Modal"
@@ -314,11 +315,12 @@ function SchedulePageView({
         </p>
         <div
           className="af-table"
-          role="table"
+          // É um formulário (um bloco por dia), não uma tabela de dados: role='group'.
+          role="group"
           aria-label="Horários por dia da semana"
         >
           {rules.map((r) => (
-            <div className="af-row" role="row" key={r.dia}>
+            <div className="af-row" key={r.dia}>
               <div className="ff-check af-day">
                 <input
                   id={`af-on-${r.dia}`}
@@ -428,7 +430,8 @@ function SchedulePageView({
                 setAppointmentToCancel(null)
               }}
             >
-              Sim, cancelar compromisso
+              Sim, cancelar compromisso{" "}
+              <NewTabHint compact text="abre o WhatsApp em nova guia para avisar a cliente" />
             </Action>
           </div>
         </Modal>

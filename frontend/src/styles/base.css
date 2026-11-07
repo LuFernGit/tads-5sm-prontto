@@ -12,7 +12,8 @@
   --navy-2: #172033;
 
   --amber: #d97706;
-  --amber-dark: #92400e;
+  --amber-dark: #92400e;   /* FUNDO de botão: branco sobre ele = 7,09:1 (AAA) */
+  --amber-text: #78350f;   /* TEXTO âmbar: ≥ 8:1 sobre branco, creme e fundos âmbar claros (AAA) */
   --amber-light: #e0a96d;
   --amber-pale: #fef3c7;
   --gold: #e0a96d; /* dourado de destaque (as cores não são personalizáveis por clínica) */
@@ -25,9 +26,11 @@
   --text: #0f172a;
   --muted: #475569;
 
-  --green: #15803d;
+  /* Cores de status com contraste AAA sobre o próprio fundo claro:
+     #14532d × #dcfce7 = 8,30:1  |  #7f1d1d × #fee2e2 = 8,20:1 */
+  --green: #14532d;
   --green-bg: #dcfce7;
-  --red: #991b1b;
+  --red: #7f1d1d;
   --red-bg: #fee2e2;
   --amber-bg: #fef3c7;
 

@@ -168,20 +168,22 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
    */
   const validateStep = () => {
     if (step === 0) {
-      if (!data.companyName.trim() || !data.businessType)
-        return "Preencha os dados obrigatórios da empresa."
+      // Cada mensagem diz qual campo corrigir e como (WCAG 3.3.3).
+      if (!data.companyName.trim())
+        return "Informe o nome da empresa, como ele deve aparecer na vitrine."
+      if (!data.businessType) return "Escolha o tipo de negócio na lista."
       const documentError = cpfCnpjError(data.document)
       if (documentError) return documentError
       if (emailError(data.contactEmail))
-        return "Informe um e-mail de contato válido para a clínica."
+        return `E-mail de contato da clínica: ${emailError(data.contactEmail)}`
     }
     if (step === 1) {
-      if (
-        !data.ownerName.trim() ||
-        emailError(data.email) ||
-        data.password.length < 6
-      )
-        return "Preencha os dados da responsável e use uma senha de pelo menos 6 caracteres."
+      if (!data.ownerName.trim())
+        return "Informe o nome completo da responsável pelo painel."
+      if (emailError(data.email))
+        return `E-mail de acesso: ${emailError(data.email)}`
+      if (data.password.length < 6)
+        return "A senha precisa ter pelo menos 6 caracteres. Exemplo: Clinica2026."
       const ageError = birthError(data.birthDate, MIN_AGE_MANAGER)
       if (ageError) return ageError
       if (phoneError(data.whatsapp)) return phoneError(data.whatsapp)
@@ -189,24 +191,23 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
       if (emailsError) return emailsError
     }
     if (step === 2) {
-      if (
-        !data.address.trim() ||
-        !data.number.trim() ||
-        !data.city.trim() ||
-        !data.state.trim()
-      )
-        return "Complete os dados de localização."
+      if (!data.address.trim()) return "Informe o endereço (rua ou avenida)."
+      if (!data.number.trim())
+        return "Informe o número do endereço. Se não houver, digite S/N."
+      if (!data.city.trim()) return "Informe a cidade."
+      if (!data.state.trim()) return "Informe o estado com a sigla. Exemplo: SP."
       if (cepError(data.cep)) return cepError(data.cep)
     }
     if (step === 3 && categories.length === 0)
       return "Crie pelo menos uma categoria de serviço."
-    if (
-      step === 4 &&
-      (!data.tagline.trim() ||
-        !data.heroTitle.trim() ||
-        !data.description.trim())
-    )
-      return "Complete as informações da identidade da empresa."
+    if (step === 4) {
+      if (!data.tagline.trim())
+        return "Informe a assinatura da marca. Exemplo: BEAUTY & ESTHETICS."
+      if (!data.heroTitle.trim())
+        return "Informe o título principal da vitrine. Exemplo: Realçando sua beleza com naturalidade."
+      if (!data.description.trim())
+        return "Escreva um texto curto de apresentação da empresa."
+    }
     return ""
   }
   /** Botão 'Continuar': só avança se a etapa atual for válida (máximo: etapa 5). */
@@ -337,9 +338,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                 Comece com os dados jurídicos e o segmento principal do negócio.
               </p>
               <div className="registration-form">
-                <label>
+                <label htmlFor="cad-nome-da-empresa">
                   <span>NOME DA EMPRESA *</span>
-                  <input
+                  <input id="cad-nome-da-empresa"
                     autoFocus
                     value={data.companyName}
                     onChange={(event) =>
@@ -348,9 +349,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     placeholder="Nome que será exibido na vitrine"
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-tipo-de-negocio">
                   <span>TIPO DE NEGÓCIO *</span>
-                  <select
+                  <select id="cad-tipo-de-negocio"
                     value={data.businessType}
                     onChange={(event) =>
                       update("businessType", event.target.value)
@@ -366,9 +367,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     <option>Outro serviço</option>
                   </select>
                 </label>
-                <label>
+                <label htmlFor="cad-cpf-cnpj">
                   <span>CPF / CNPJ *</span>
-                  <input
+                  <input id="cad-cpf-cnpj"
                     inputMode="numeric"
                     value={data.document}
                     onChange={(event) =>
@@ -381,9 +382,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     números.
                   </small>
                 </label>
-                <label>
+                <label htmlFor="cad-e-mail-de-contato">
                   <span>E-MAIL DE CONTATO DA CLÍNICA *</span>
-                  <input
+                  <input id="cad-e-mail-de-contato"
                     type="email"
                     value={data.contactEmail}
                     onChange={(event) =>
@@ -396,9 +397,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     do e-mail de acesso ao painel.
                   </small>
                 </label>
-                <label>
+                <label htmlFor="cad-instagram">
                   <span>INSTAGRAM</span>
-                  <input
+                  <input id="cad-instagram"
                     value={data.instagram}
                     onChange={(event) =>
                       update("instagram", event.target.value)
@@ -421,9 +422,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                 administrativo.
               </p>
               <div className="registration-form">
-                <label>
+                <label htmlFor="cad-nome-completo">
                   <span>NOME COMPLETO *</span>
-                  <input
+                  <input id="cad-nome-completo"
                     autoFocus
                     value={data.ownerName}
                     onChange={(event) =>
@@ -431,9 +432,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     }
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-cargo-especialidade">
                   <span>CARGO / ESPECIALIDADE</span>
-                  <input
+                  <input id="cad-cargo-especialidade"
                     value={data.professionalRole}
                     onChange={(event) =>
                       update("professionalRole", event.target.value)
@@ -441,9 +442,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     placeholder="Ex.: Fisioterapeuta, médica, proprietária"
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-e-mail-de-acesso">
                   <span>E-MAIL DE ACESSO *</span>
-                  <input
+                  <input id="cad-e-mail-de-acesso"
                     type="email"
                     value={data.email}
                     onChange={(event) => update("email", event.target.value)}
@@ -454,9 +455,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     da clínica.
                   </small>
                 </label>
-                <label>
+                <label htmlFor="cad-data-de-nascimento">
                   <span>DATA DE NASCIMENTO *</span>
-                  <input
+                  <input id="cad-data-de-nascimento"
                     type="date"
                     value={data.birthDate}
                     onChange={(event) => update("birthDate", event.target.value)}
@@ -466,18 +467,18 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     uma clínica.
                   </small>
                 </label>
-                <label>
+                <label htmlFor="cad-senha">
                   <span>SENHA *</span>
-                  <input
+                  <input id="cad-senha"
                     type="password"
                     value={data.password}
                     onChange={(event) => update("password", event.target.value)}
                     placeholder="Mínimo de 6 caracteres"
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-telefone">
                   <span>TELEFONE</span>
-                  <input
+                  <input id="cad-telefone"
                     inputMode="tel"
                     value={data.phone}
                     onChange={(event) =>
@@ -486,9 +487,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     placeholder={PLACEHOLDER.phone}
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-whatsapp">
                   <span>WHATSAPP *</span>
-                  <input
+                  <input id="cad-whatsapp"
                     inputMode="tel"
                     value={data.whatsapp}
                     onChange={(event) =>
@@ -507,9 +508,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
               <div className="registration-title">Localização</div>
               <p>O endereço será usado na vitrine e no link “Como chegar”.</p>
               <div className="registration-form">
-                <label>
+                <label htmlFor="cad-cep">
                   <span>CEP *</span>
-                  <input
+                  <input id="cad-cep"
                     autoFocus
                     inputMode="numeric"
                     value={data.cep}
@@ -519,48 +520,48 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     placeholder={PLACEHOLDER.cep}
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-endereco">
                   <span>ENDEREÇO *</span>
-                  <input
+                  <input id="cad-endereco"
                     value={data.address}
                     onChange={(event) => update("address", event.target.value)}
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-numero">
                   <span>NÚMERO *</span>
-                  <input
+                  <input id="cad-numero"
                     value={data.number}
                     onChange={(event) => update("number", event.target.value)}
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-complemento">
                   <span>COMPLEMENTO</span>
-                  <input
+                  <input id="cad-complemento"
                     value={data.complement}
                     onChange={(event) =>
                       update("complement", event.target.value)
                     }
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-bairro">
                   <span>BAIRRO</span>
-                  <input
+                  <input id="cad-bairro"
                     value={data.neighborhood}
                     onChange={(event) =>
                       update("neighborhood", event.target.value)
                     }
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-cidade">
                   <span>CIDADE *</span>
-                  <input
+                  <input id="cad-cidade"
                     value={data.city}
                     onChange={(event) => update("city", event.target.value)}
                   />
                 </label>
-                <label>
+                <label htmlFor="cad-estado">
                   <span>ESTADO *</span>
-                  <input
+                  <input id="cad-estado"
                     maxLength={2}
                     value={data.state}
                     onChange={(event) =>
@@ -626,9 +627,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     categoria ele deve aparecer.
                   </p>
                   <div className="registration-form">
-                    <label>
+                    <label htmlFor="cad-nome-do-servico">
                       <span>NOME DO SERVIÇO</span>
-                      <input
+                      <input id="cad-nome-do-servico"
                         value={serviceDraft.name}
                         onChange={(event) =>
                           setServiceDraft((current) => ({
@@ -639,9 +640,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                         placeholder="Ex.: Avaliação inicial"
                       />
                     </label>
-                    <label>
+                    <label htmlFor="cad-categoria-do-servico">
                       <span>CATEGORIA DO SERVIÇO</span>
-                      <select
+                      <select id="cad-categoria-do-servico"
                         value={serviceDraft.category}
                         onChange={(event) =>
                           setServiceDraft((current) => ({
@@ -656,9 +657,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                         ))}
                       </select>
                     </label>
-                    <label>
+                    <label htmlFor="cad-duracao-em-minutos">
                       <span>DURAÇÃO (EM MINUTOS)</span>
-                      <input
+                      <input id="cad-duracao-em-minutos"
                         type="number"
                         min="1"
                         step="1"
@@ -676,9 +677,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                         Considerado em minutos. Ex.: 90 = 1h30.
                       </small>
                     </label>
-                    <label>
+                    <label htmlFor="cad-preco-em-reais">
                       <span>PREÇO (EM REAIS)</span>
-                      <input
+                      <input id="cad-preco-em-reais"
                         inputMode="numeric"
                         placeholder={PLACEHOLDER.money}
                         value={serviceDraft.price}
@@ -693,9 +694,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                         Valor em reais. Digite só os números.
                       </small>
                     </label>
-                    <label className="wide">
+                    <label htmlFor="cad-descricao" className="wide">
                       <span>DESCRIÇÃO</span>
-                      <textarea
+                      <textarea id="cad-descricao"
                         rows={2}
                         value={serviceDraft.description}
                         onChange={(event) =>
@@ -736,17 +737,17 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                 padrão do Prontto.
               </p>
               <div className="registration-form">
-                <label className="wide">
+                <label htmlFor="cad-assinatura-da-marca" className="wide">
                   <span>ASSINATURA DA MARCA *</span>
-                  <input
+                  <input id="cad-assinatura-da-marca"
                     value={data.tagline}
                     onChange={(event) => update("tagline", event.target.value)}
                     placeholder="Ex.: MOVIMENTO & SAÚDE"
                   />
                 </label>
-                <label className="wide">
+                <label htmlFor="cad-titulo-principal" className="wide">
                   <span>TÍTULO PRINCIPAL *</span>
-                  <input
+                  <input id="cad-titulo-principal"
                     value={data.heroTitle}
                     onChange={(event) =>
                       update("heroTitle", event.target.value)
@@ -754,9 +755,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     placeholder="Mensagem principal da vitrine"
                   />
                 </label>
-                <label className="wide">
+                <label htmlFor="cad-apresentacao" className="wide">
                   <span>APRESENTAÇÃO *</span>
-                  <textarea
+                  <textarea id="cad-apresentacao"
                     rows={3}
                     value={data.description}
                     onChange={(event) =>
@@ -766,9 +767,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                 </label>
               </div>
               <div className="registration-uploads">
-                <label>
+                <label htmlFor="cad-logo">
                   <span>LOGO</span>
-                  <input
+                  <input id="cad-logo"
                     type="file"
                     accept="image/*"
                     onChange={(event) =>
@@ -786,9 +787,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     )}
                   </div>
                 </label>
-                <label>
+                <label htmlFor="cad-imagem-da-vitrine">
                   <span>IMAGEM DA VITRINE</span>
-                  <input
+                  <input id="cad-imagem-da-vitrine"
                     type="file"
                     accept="image/*"
                     onChange={(event) =>
@@ -867,11 +868,11 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   <strong style={{ display: "block", marginBottom: 14 }}>
                     Termos e condições
                   </strong>
-                  <label
+                  <label htmlFor="cad-termos-de-atendimento-da"
                     className="pf-check wide"
                     style={{ alignItems: "flex-start", marginBottom: 14 }}
                   >
-                    <input
+                    <input id="cad-termos-de-atendimento-da"
                       type="checkbox"
                       checked={acceptClinicTerms}
                       onChange={(event) =>
@@ -900,11 +901,11 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                       </a>
                     </span>
                   </label>
-                  <label
+                  <label htmlFor="cad-termos-de-uso-do"
                     className="pf-check wide"
                     style={{ alignItems: "flex-start", marginBottom: 14 }}
                   >
-                    <input
+                    <input id="cad-termos-de-uso-do"
                       type="checkbox"
                       checked={acceptPronttoTerms}
                       onChange={(event) =>
@@ -933,11 +934,11 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                       </a>
                     </span>
                   </label>
-                  <label
+                  <label htmlFor="cad-politica-de-privacidade-do"
                     className="pf-check wide"
                     style={{ alignItems: "flex-start", marginBottom: 14 }}
                   >
-                    <input
+                    <input id="cad-politica-de-privacidade-do"
                       type="checkbox"
                       checked={acceptPronttoPrivacy}
                       onChange={(event) =>
@@ -969,7 +970,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   </label>
                   <small
                     style={{
-                      color: "#64748b",
+                      color: "#475569",
                       display: "block",
                       marginBottom: 18,
                     }}
@@ -978,9 +979,9 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     criar a conta da gestora.
                   </small>
                 </div>
-                <label className="wide">
+                <label htmlFor="cad-anexar-termos-de-atendimento" className="wide">
                   <span>ANEXAR TERMOS DE ATENDIMENTO (PDF)</span>
-                  <input
+                  <input id="cad-anexar-termos-de-atendimento"
                     type="file"
                     // Anexo opcional dos termos da clínica: aceita só PDF de até 5 MB.
                     accept="application/pdf,.pdf"
@@ -1036,7 +1037,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     </span>
                   </div>
                 )}
-                <small style={{ color: "#64748b" }}>
+                <small style={{ color: "#475569" }}>
                   Os textos são exemplos editáveis. O PDF é opcional nesta
                   demonstração; se nenhum arquivo for anexado, a cliente verá os
                   termos escritos acima.

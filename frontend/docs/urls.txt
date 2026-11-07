@@ -3,5 +3,5 @@ npm install
 e em seguida npm run dev.
 
 URL	Fluxo
-http://localhost:8443/	---  Gestora-cliente da Prontto (login e cadastro da empresa)
-http://localhost:8443/?clinica=ca-beauty-clinic	--- Cliente da CA Beauty Clinic
+http://localhost:XXXX/	---  Gestora-cliente da Prontto (login e cadastro da empresa)
+http://localhost:XXXX/?clinica=ca-beauty-clinic	--- Cliente da CA Beauty Clinic

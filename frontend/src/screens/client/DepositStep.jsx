@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import Icon from "@/components/ui/Icon"
 import PayIcon from "@/components/ui/PayIcon"
 import { PIX_TTL, SIGNAL_PERCENT } from "@/constants"
-import { brl } from "@/lib/format"
+import { brl, formatDuration } from "@/lib/format"
+import BookingFlowLayout, { BookingStatus, BookingSummary } from "./BookingFlowLayout"
 import {
   buildPixPayload,
   cardBrandOf,
@@ -94,6 +95,8 @@ function DepositStep({
   time,
   recurring,
   merchantName,
+  company,
+  duration,
   onBack,
   onConfirm,
   notify,
@@ -189,17 +192,6 @@ function DepositStep({
     if (phase === "pix" && method === "pix" && secondsLeft === 0)
       setPhase("expired")
   }, [phase, method, secondsLeft])
-  useEffect(() => {
-    if (phase !== "pix") return
-    const id = window.setInterval(
-      () => setSecondsLeft((s) => Math.max(0, s - 1)),
-      1000,
-    )
-    return () => window.clearInterval(id)
-  }, [phase])
-  useEffect(() => {
-    if (phase === "pix" && secondsLeft === 0) setPhase("expired")
-  }, [phase, secondsLeft])
   /** Gera o código Pix (só depois do aceite) e inicia a contagem regressiva. */
   const generatePix = () => {
     if (!accepted) {
@@ -237,50 +229,67 @@ function DepositStep({
       setPhase("paid")
     }, 3000)
   }
-  // Resumo do serviço, repetido no topo de todas as fases.
-  const header = (
-    <dl className="ff-summary">
-      <div>
-        <dt>Procedimento</dt>
-        <dd>{serviceName}</dd>
-      </div>
-      <div>
-        <dt>Data e horário</dt>
-        <dd>
-          {dateLabel} · {time}
-        </dd>
-      </div>
-      <div>
-        <dt>Valor do serviço</dt>
-        <dd>{brl(total)}</dd>
-      </div>
-    </dl>
+  // Resumo do serviço, repetido nas fases (duas colunas, como no layout de referência).
+  const summary = (
+    <BookingSummary
+      items={[
+        ["Procedimento", serviceName],
+        ["Data e horário", `${dateLabel} · ${time}`],
+        ["Duração", formatDuration(duration)],
+        ["Valor total", brl(total)],
+      ]}
+    />
   )
-  /* ----- 1) Revisão ----- */
-  // ===== FASE 1: revisão =====
+  // Botão escuro "Voltar para a vitrine", igual em todas as fases.
+  const backButton = (
+    <button type="button" className="ff-btn ff-dark" onClick={onBack}>
+      Voltar para a vitrine
+    </button>
+  )
+  // Ícone do topo (calendário com check / cartão)
+  const calendarIcon = (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M16 3v4M8 3v4M3 10h18M9 15l2 2 4-4" />
+    </svg>
+  )
+
+  // ===== FASE 1: revisão — "Confirme seu agendamento" =====
   if (phase === "review")
     return (
-      <section className="ff-card ff-deposit" aria-labelledby="ff-dep-title">
-        <h1 id="ff-dep-title">Confirme seu agendamento</h1>
-        {header}
+      <BookingFlowLayout
+        icon={calendarIcon}
+        title="Confirme seu agendamento"
+        titleId="ff-dep-title"
+        subtitle="Verifique e leia as informações com atenção!"
+        company={company}
+        cardLabel="Resumo do agendamento"
+        actions={
+          <>
+            {backButton}
+            <button type="button" className="ff-btn ff-primary" onClick={generatePix}>
+              Confirmar agendamento
+            </button>
+          </>
+        }
+      >
+        {summary}
         {recurring ? (
-          <div className="ff-free" role="status">
-            <strong>Sinal financeiro isento</strong>
-            <span>
-              Benefício de cliente recorrente. Nenhum pagamento antecipado.
-            </span>
-          </div>
+          <BookingStatus
+            title="Pagamento de sinal – isento"
+            text="Realizar pagamento do valor total ao final do procedimento."
+          />
         ) : (
-          <div className="ff-notice">
+          <div className="bf-box">
             <h2>Política de sinal</h2>
             <p>
               Para clientes novas, a clínica cobra um sinal de {SIGNAL_PERCENT}%
               do valor do serviço para garantir o horário. O restante é pago no
               atendimento.
             </p>
-            <dl className="ff-summary">
+            <dl className="bf-rows">
               <div>
-                <dt>Sinal agora (Pix)</dt>
+                <dt>Sinal agora (Pix ou cartão)</dt>
                 <dd>{brl(signal ?? 0)}</dd>
               </div>
               <div>
@@ -290,7 +299,7 @@ function DepositStep({
             </dl>
           </div>
         )}
-        <div className="ff-notice">
+        <div className="bf-box">
           <h2>Condições de cancelamento</h2>
           <p>
             Cancelamentos e reagendamentos devem ser pedidos com no mínimo 24
@@ -298,48 +307,28 @@ function DepositStep({
             arrependimento do Código de Defesa do Consumidor (art. 49).
           </p>
         </div>
-        <div className="ff-check">
+        <label className="bf-check" htmlFor="ff-cancel">
           <input
             id="ff-cancel"
             type="checkbox"
             checked={accepted}
             onChange={(e) => setAccepted(e.target.checked)}
           />
-          <label htmlFor="ff-cancel">Li as condições de cancelamento.</label>
-        </div>
-        <div className="ff-actions">
-          <button
-            type="button"
-            className="ff-btn ff-secondary"
-            onClick={onBack}
-          >
-            Voltar
-          </button>
-          <button
-            type="button"
-            className="ff-btn ff-primary"
-            onClick={generatePix}
-          >
-            {recurring
-              ? "Confirmar agendamento"
-              : `Pagar sinal de ${brl(signal ?? 0)} com Pix`}
-          </button>
-        </div>
-      </section>
+          Li as condições de cancelamento.
+        </label>
+      </BookingFlowLayout>
     )
-  /* ----- 2) Pagamento (Pix ou cartão), tela mockada ----- */
-  // ===== FASE 2: pagamento (Pix ou cartão) =====
+
+  // ===== FASE 2: pagamento (Pix ou cartão) — "Garanta seu horário!" =====
   if (phase === "pix" || phase === "checking") {
     const methods = [
-      { key: "card", label: "cartão de crédito", icon: "card" },
+      { key: "card", label: "Cartão de crédito", icon: "card" },
       { key: "pix", label: "Pix", icon: "pix" },
     ]
     const busy = phase === "checking"
     const pickMethod = (key) => {
       if (busy) return
-      if (key === "pix" || key === "card") setMethod(key)
-      else
-        notify("Nesta demonstração, estão disponíveis cartão de crédito e Pix.")
+      setMethod(key)
     }
     const cardField = (id, label, error, children) => (
       <div className="pay-field">
@@ -353,21 +342,32 @@ function DepositStep({
       </div>
     )
     return (
-      <section className="pay-page" aria-labelledby="pay-title">
-        <h1 id="pay-title" className="pay-heading">
-          formas de pagamento
-        </h1>
-
-        <div className="pay-bonus">
-          <span>
-            sinal de {SIGNAL_PERCENT}% · o restante é pago no atendimento
-          </span>
-        </div>
-        <div
-          className="pay-tabs"
-          role="tablist"
-          aria-label="Formas de pagamento"
-        >
+      <BookingFlowLayout
+        icon={<PayIcon kind="card" size={22} />}
+        kicker="PAGAMENTO DE SINAL"
+        title="Garanta seu horário!"
+        titleId="pay-title"
+        subtitle="Pague o sinal agora e o restante é pago no atendimento."
+        company={company}
+        cardLabel="Resumo do agendamento"
+        actions={
+          <>
+            {backButton}
+            {method === "pix" ? (
+              <button type="button" className="ff-btn ff-primary" onClick={checkPayment} disabled={busy}>
+                {busy ? "Verificando pagamento..." : "Já fiz o pagamento"}
+              </button>
+            ) : (
+              <button type="button" className="ff-btn ff-primary" onClick={payWithCard} disabled={busy}>
+                {busy ? "Processando pagamento..." : `Pagar ${brl(signal ?? 0)}`}
+              </button>
+            )}
+          </>
+        }
+      >
+        <span className="bf-section-label">Formas de pagamento</span>
+        {/* Abas: cartão de crédito | Pix */}
+        <div className="pay-tabs" role="tablist" aria-label="Formas de pagamento">
           {methods.map((m) => (
             <button
               key={m.key}
@@ -387,48 +387,34 @@ function DepositStep({
           {method === "pix" ? (
             <>
               <div className="pay-method-title">
-                <PayIcon kind="pix" size={30} />
-                <strong>pagar com Pix</strong>
+                <PayIcon kind="pix" size={26} />
+                <strong>Pagar com Pix</strong>
               </div>
               <p className="pay-copy">
-                pague com <b>Pix</b> em qualquer dia e a qualquer hora! o
+                Pague com <b>Pix</b> em qualquer dia e a qualquer hora! O
                 pagamento é instantâneo, prático e pode ser feito em poucos
-                segundos. é muito rápido e seguro :)
+                segundos.
               </p>
               <div className="pay-qr-row">
-                <div className="pay-qr">
-                  {payload && <PixQr value={payload} />}
-                </div>
-                <ul className="pay-steps">
+                <div className="pay-qr">{payload && <PixQr value={payload} />}</div>
+                <ol className="pay-steps">
                   <li>
-                    <span className="pay-step-icon">
-                      <PayIcon kind="phone" size={18} />
-                    </span>
-                    <p>
-                      1. abra o app do seu banco ou instituição financeira e
-                      entre no ambiente <b>Pix</b>
-                    </p>
+                    <span className="pay-step-icon"><PayIcon kind="phone" size={18} /></span>
+                    <p>1. Abra o app do seu banco e entre no ambiente <b>Pix</b>.</p>
                   </li>
                   <li>
-                    <span className="pay-step-icon">
-                      <PayIcon kind="qr" size={18} />
-                    </span>
-                    <p>
-                      2. escolha a opção <b>pagar com qr code</b> e escaneie o
-                      código ao lado
-                    </p>
+                    <span className="pay-step-icon"><PayIcon kind="qr" size={18} /></span>
+                    <p>2. Escolha <b>pagar com QR code</b> e escaneie o código ao lado.</p>
                   </li>
                   <li>
-                    <span className="pay-step-icon">
-                      <Icon name="check" size={18} />
-                    </span>
-                    <p>3. confirme as informações e finalize a compra</p>
+                    <span className="pay-step-icon"><Icon name="check" size={18} /></span>
+                    <p>3. Confirme as informações e finalize.</p>
                   </li>
-                </ul>
+                </ol>
               </div>
               <div className="pay-copy-box">
                 <label htmlFor="ff-pix-code">
-                  ou copie o código e cole no app do banco (válido por{" "}
+                  Ou copie o código e cole no app do banco (válido por{" "}
                   <b>{formatClock(secondsLeft)}</b>)
                 </label>
                 <div>
@@ -439,7 +425,7 @@ function DepositStep({
                     onFocus={(e) => e.currentTarget.select()}
                   />
                   <button type="button" onClick={copyPix}>
-                    copiar código
+                    Copiar código
                   </button>
                 </div>
               </div>
@@ -447,17 +433,17 @@ function DepositStep({
           ) : (
             <>
               <div className="pay-method-title">
-                <PayIcon kind="card" size={30} />
-                <strong>pagar com cartão de crédito</strong>
+                <PayIcon kind="card" size={26} />
+                <strong>Pagar com cartão de crédito</strong>
               </div>
               <p className="pay-copy">
-                preencha os dados do cartão para pagar o sinal. o restante é
+                Preencha os dados do cartão para pagar o sinal. O restante é
                 pago no atendimento.
               </p>
               <div className="pay-card-form">
                 {cardField(
                   "pay-number",
-                  "número do cartão",
+                  "Número do cartão",
                   cardErrors.number,
                   <input
                     id="pay-number"
@@ -465,31 +451,27 @@ function DepositStep({
                     autoComplete="off"
                     placeholder="0000 0000 0000 0000"
                     value={card.number}
-                    onChange={(e) =>
-                      setCardField("number", formatCardNumber(e.target.value))
-                    }
+                    onChange={(e) => setCardField("number", formatCardNumber(e.target.value))}
                     aria-invalid={cardErrors.number ? true : undefined}
                   />,
                 )}
                 {cardField(
                   "pay-name",
-                  "nome impresso no cartão",
+                  "Nome impresso no cartão",
                   cardErrors.name,
                   <input
                     id="pay-name"
                     autoComplete="off"
                     placeholder="Como está no cartão"
                     value={card.name}
-                    onChange={(e) =>
-                      setCardField("name", e.target.value.toUpperCase())
-                    }
+                    onChange={(e) => setCardField("name", e.target.value.toUpperCase())}
                     aria-invalid={cardErrors.name ? true : undefined}
                   />,
                 )}
                 <div className="pay-card-row">
                   {cardField(
                     "pay-expiry",
-                    "validade",
+                    "Validade",
                     cardErrors.expiry,
                     <input
                       id="pay-expiry"
@@ -497,15 +479,13 @@ function DepositStep({
                       autoComplete="off"
                       placeholder="MM/AA"
                       value={card.expiry}
-                      onChange={(e) =>
-                        setCardField("expiry", formatExpiry(e.target.value))
-                      }
+                      onChange={(e) => setCardField("expiry", formatExpiry(e.target.value))}
                       aria-invalid={cardErrors.expiry ? true : undefined}
                     />,
                   )}
                   {cardField(
                     "pay-cvv",
-                    "código de segurança (CVV)",
+                    "Código de segurança (CVV)",
                     cardErrors.cvv,
                     <input
                       id="pay-cvv"
@@ -514,23 +494,19 @@ function DepositStep({
                       maxLength={4}
                       placeholder="123"
                       value={card.cvv}
-                      onChange={(e) =>
-                        setCardField("cvv", e.target.value.replace(/\D/g, ""))
-                      }
+                      onChange={(e) => setCardField("cvv", e.target.value.replace(/\D/g, ""))}
                       aria-invalid={cardErrors.cvv ? true : undefined}
                     />,
                   )}
                 </div>
                 {cardField(
                   "pay-inst",
-                  "parcelas",
+                  "Parcelas",
                   undefined,
                   <select
                     id="pay-inst"
                     value={card.installments}
-                    onChange={(e) =>
-                      setCardField("installments", e.target.value)
-                    }
+                    onChange={(e) => setCardField("installments", e.target.value)}
                   >
                     {[1, 2, 3].map((n) => (
                       <option key={n} value={n}>
@@ -544,50 +520,17 @@ function DepositStep({
           )}
 
           <div className="pay-total">
-            <span>total:</span>
+            <span>Total:</span>
             <strong>{brl(signal ?? 0)}</strong>
           </div>
           <p className="pay-balance">
-            sinal do agendamento · {serviceName} · {dateLabel} às {time}. saldo
-            no atendimento: {brl(balance)}
+            Sinal do agendamento · {serviceName} · {dateLabel} às {time}. Saldo
+            no atendimento: {brl(balance)}.
           </p>
           <p className="pay-demo">
-            ambiente de demonstração: nenhum pagamento real é feito. não use
+            Ambiente de demonstração: nenhum pagamento real é feito. Não use
             dados reais de cartão.
           </p>
-
-          <div className="pay-actions">
-            <button
-              type="button"
-              className="ff-btn ff-secondary"
-              onClick={() => setPhase("review")}
-              disabled={busy}
-            >
-              Voltar
-            </button>
-            {method === "pix" ? (
-              <button
-                type="button"
-                className="ff-btn ff-primary"
-                onClick={checkPayment}
-                disabled={busy}
-              >
-                {busy ? "Verificando pagamento..." : "Já fiz o pagamento"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="ff-btn ff-primary"
-                onClick={payWithCard}
-                disabled={busy}
-              >
-                {busy
-                  ? "Processando pagamento..."
-                  : `Pagar ${brl(signal ?? 0)}`}
-              </button>
-            )}
-          </div>
-
           <div className="pay-status" role="status" aria-live="polite">
             <span className={busy ? "checking" : ""} />
             {busy
@@ -597,93 +540,84 @@ function DepositStep({
                 : "Aguardando os dados do cartão"}
           </div>
         </div>
-      </section>
+      </BookingFlowLayout>
     )
   }
-  /* ----- 3) Código expirado ----- */
+
   // ===== FASE 3a: Pix expirado =====
   if (phase === "expired")
     return (
-      <section className="ff-card ff-deposit" aria-labelledby="ff-exp-title">
-        <h1 id="ff-exp-title">O código Pix expirou</h1>
-        <div className="ff-notice" role="alert">
+      <BookingFlowLayout
+        icon={<Icon name="clock" size={22} />}
+        kicker="PAGAMENTO DE SINAL"
+        title="O código Pix expirou"
+        titleId="ff-exp-title"
+        subtitle="Seu horário continua selecionado."
+        company={company}
+        cardLabel="Resumo do agendamento"
+        actions={
+          <>
+            {backButton}
+            <button
+              type="button"
+              className="ff-btn ff-primary"
+              onClick={() => {
+                setTxid(`PRONTTO${Date.now().toString().slice(-9)}${Math.floor(100 + Math.random() * 900)}`)
+                setSecondsLeft(PIX_TTL)
+                setPhase("pix")
+              }}
+            >
+              Gerar novo código
+            </button>
+          </>
+        }
+      >
+        {summary}
+        <div className="bf-box" role="alert">
           <p>
             Por segurança, o código vale por 15 minutos. Gere um novo código
-            para pagar o sinal. Seu horário continua selecionado.
+            para pagar o sinal.
           </p>
         </div>
-        <div className="ff-actions">
-          <button
-            type="button"
-            className="ff-btn ff-secondary"
-            onClick={() => setPhase("review")}
-          >
-            Voltar
-          </button>
+      </BookingFlowLayout>
+    )
+
+  // ===== FASE 3b: pagamento confirmado =====
+  const paidDate = payment
+    ? new Date(payment.paidAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+    : ""
+  return (
+    <BookingFlowLayout
+      icon={<Icon name="check" size={22} />}
+      kicker="PAGAMENTO CONFIRMADO"
+      title="Sinal recebido!"
+      titleId="ff-paid-title"
+      subtitle="Recebemos o sinal do seu agendamento."
+      company={company}
+      cardLabel="Comprovante do sinal"
+      actions={
+        <>
+          <span />
           <button
             type="button"
             className="ff-btn ff-primary"
-            onClick={() => {
-              setTxid(
-                `PRONTTO${Date.now().toString().slice(-9)}${Math.floor(100 + Math.random() * 900)}`,
-              )
-              setSecondsLeft(PIX_TTL)
-              setPhase("pix")
-            }}
+            onClick={() => onConfirm(signal, payment ?? undefined)}
           >
-            Gerar novo código
+            Ver confirmação do agendamento
           </button>
-        </div>
-      </section>
-    )
-  /* ----- 4) Pagamento confirmado ----- */
-  const paidDate = payment
-    ? new Date(payment.paidAt).toLocaleString("pt-BR", {
-        dateStyle: "short",
-        timeStyle: "medium",
-      })
-    : ""
-  return (
-    // ===== FASE 3b: pagamento confirmado =====
-    <section className="ff-card ff-deposit" aria-labelledby="ff-paid-title">
-      <div className="ff-free" role="status">
-        <strong>Pagamento confirmado</strong>
-        <span>Recebemos o sinal do seu agendamento.</span>
-      </div>
-      <h1 id="ff-paid-title">Pix recebido</h1>
-      <dl className="ff-summary">
-        <div>
-          <dt>Valor pago</dt>
-          <dd>{brl(payment?.valor ?? 0)}</dd>
-        </div>
-        <div>
-          <dt>Data e hora</dt>
-          <dd>{paidDate}</dd>
-        </div>
-        <div>
-          <dt>Recebedor</dt>
-          <dd>{merchantName}</dd>
-        </div>
-        <div>
-          <dt>ID da transação</dt>
-          <dd className="ff-mono">{payment?.id}</dd>
-        </div>
-        <div>
-          <dt>Saldo no atendimento</dt>
-          <dd>{brl(balance)}</dd>
-        </div>
-      </dl>
-      <div className="ff-actions">
-        <span />
-        <button
-          type="button"
-          className="ff-btn ff-primary"
-          onClick={() => onConfirm(signal, payment ?? undefined)}
-        >
-          Ver confirmação do agendamento
-        </button>
-      </div>
-    </section>
+        </>
+      }
+    >
+      <BookingSummary
+        items={[
+          ["Valor pago", brl(payment?.valor ?? 0)],
+          ["Data e hora", paidDate],
+          ["Recebedor", merchantName],
+          ["Saldo no atendimento", brl(balance)],
+          ["ID da transação", <span className="mono" key="id">{payment?.id}</span>, true],
+        ]}
+      />
+    </BookingFlowLayout>
   )
 }
 

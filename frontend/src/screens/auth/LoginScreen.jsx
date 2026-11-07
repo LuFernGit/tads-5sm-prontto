@@ -4,6 +4,7 @@ import Brand from "@/components/ui/Brand"
 import Icon from "@/components/ui/Icon"
 import { USE_MOCKS, api } from "@/api"
 import { neutralLoginImage } from "@/constants"
+import { emailError } from "@/lib/validators"
 import CompanyRegistrationPage from "./CompanyRegistrationPage"
 
 /* ---------- Link do Prontto: login e cadastro da GESTORA ---------- */
@@ -25,8 +26,13 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
   /** Clique em 'Entrar' (ou Enter no campo de senha). */
   const signIn = async () => {
     // Validação simples antes de chamar o backend (a validação real é feita lá).
-    if (!email.includes("@") || !password) {
-      notify("Informe um e-mail válido e a sua senha.")
+    // Mensagens com sugestão de correção (WCAG 3.3.3), não só "dados inválidos".
+    if (emailError(email)) {
+      notify(emailError(email))
+      return
+    }
+    if (!password) {
+      notify("Digite a sua senha para entrar. Esqueceu? Use \"Esqueci minha senha\".")
       return
     }
     if (submitting) return

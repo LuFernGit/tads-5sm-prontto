@@ -1,5 +1,5 @@
 /* Estilos de ClientsPage.jsx (importado só por ele). */
 
-.alert-pill.amber { background: var(--amber-bg); color: var(--amber-dark); }
+.alert-pill.amber { background: var(--amber-bg); color: var(--amber-text); }
 .alert-pill.red { background: var(--red-bg); color: var(--red); }
 .af-filter { display: block; }

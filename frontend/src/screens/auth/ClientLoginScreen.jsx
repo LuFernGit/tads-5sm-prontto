@@ -2,6 +2,7 @@ import { useState } from "react"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
 import { USE_MOCKS, api } from "@/api"
+import { emailError } from "@/lib/validators"
 import ClientRegisterPage from "@/screens/client/ClientRegisterPage"
 import "./ClientLoginScreen.css"
 
@@ -11,15 +12,20 @@ import "./ClientLoginScreen.css"
  */
 // Mesma estrutura do LoginScreen (gestora), mas com a identidade da clínica:
 // imagem, nome, logo e textos vêm de 'company' (dados públicos da clínica do link).
-function ClientLoginScreen({ company, notify, onLogin, onRegister }) {
+function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [registering, setRegistering] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   /** Clique em 'Entrar': valida o básico e chama o login da cliente. */
   const signIn = async () => {
-    if (!email.includes("@") || !password) {
-      notify("Informe um e-mail válido e a sua senha.")
+    // Mensagens com sugestão de correção (WCAG 3.3.3), não só "dados inválidos".
+    if (emailError(email)) {
+      notify(emailError(email))
+      return
+    }
+    if (!password) {
+      notify("Digite a sua senha para entrar. Esqueceu? Use \"Esqueci minha senha\".")
       return
     }
     if (submitting) return
@@ -96,6 +102,12 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister }) {
       <section className="login-panel">
         <div className="login-box">
           <div className="login-mobile-brand">{clinicMark}</div>
+          {/* Volta para a vitrine sem fazer login */}
+          {onBack && (
+            <button type="button" className="back-to-store" onClick={onBack}>
+              ← Voltar para a vitrine
+            </button>
+          )}
           <span className="section-kicker">ÁREA DA CLIENTE</span>
           <div className="login-title">Entre na sua conta</div>
           <p>

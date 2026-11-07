@@ -29,16 +29,16 @@ function CustomizationPage({ company, setCompany, notify }) {
   }
   /** Confere os campos obrigatórios e salva (setCompany → PUT /gestora/empresa). */
   const save = () => {
-    if (
-      !draft.name.trim() ||
-      !draft.initials.trim() ||
-      !draft.heroTitle.trim()
-    ) {
-      notify("Preencha o nome, as iniciais e o título principal.")
-      return
-    }
-    if (emailError(draft.email ?? "")) {
-      notify("Informe um e-mail de contato válido.")
+    // Uma mensagem por campo, dizendo como corrigir (WCAG 3.3.3).
+    const missing = !draft.name.trim()
+      ? "Informe o nome da empresa, como ele deve aparecer na vitrine."
+      : !draft.initials.trim()
+        ? "Informe as iniciais da empresa (até 3 letras). Exemplo: CA."
+        : !draft.heroTitle.trim()
+          ? "Informe o título principal da vitrine. Exemplo: Realçando sua beleza com naturalidade."
+          : emailError(draft.email ?? "")
+    if (missing) {
+      notify(missing)
       return
     }
     // O backend confere se o e-mail de contato é diferente do e-mail de acesso.
@@ -55,16 +55,16 @@ function CustomizationPage({ company, setCompany, notify }) {
           clientes visualizam.
         </p>
         <div className="form-grid">
-          <label>
+          <label htmlFor="per-nome-da-empresa">
             <span>NOME DA EMPRESA</span>
-            <input
+            <input id="per-nome-da-empresa"
               value={draft.name}
               onChange={(event) => update("name", event.target.value)}
             />
           </label>
-          <label>
+          <label htmlFor="per-iniciais-monograma">
             <span>INICIAIS / MONOGRAMA</span>
-            <input
+            <input id="per-iniciais-monograma"
               maxLength={3}
               value={draft.initials}
               onChange={(event) =>
@@ -72,41 +72,41 @@ function CustomizationPage({ company, setCompany, notify }) {
               }
             />
           </label>
-          <label className="wide">
+          <label htmlFor="per-assinatura-da-marca" className="wide">
             <span>ASSINATURA DA MARCA</span>
-            <input
+            <input id="per-assinatura-da-marca"
               value={draft.tagline}
               onChange={(event) => update("tagline", event.target.value)}
               placeholder="Ex.: BEAUTY & ESTHETICS"
             />
           </label>
-          <label className="wide">
+          <label htmlFor="per-titulo-principal-da-vitrine" className="wide">
             <span>TÍTULO PRINCIPAL DA VITRINE</span>
-            <input
+            <input id="per-titulo-principal-da-vitrine"
               value={draft.heroTitle}
               onChange={(event) => update("heroTitle", event.target.value)}
             />
           </label>
-          <label className="wide">
+          <label htmlFor="per-texto-de-apresentacao" className="wide">
             <span>TEXTO DE APRESENTAÇÃO</span>
-            <textarea
+            <textarea id="per-texto-de-apresentacao"
               rows={3}
               value={draft.description}
               onChange={(event) => update("description", event.target.value)}
             />
           </label>
-          <label>
+          <label htmlFor="per-whatsapp-publico">
             <span>WHATSAPP PÚBLICO</span>
-            <input
+            <input id="per-whatsapp-publico"
               inputMode="tel"
               value={draft.phone}
               onChange={(event) => update("phone", maskPhone(event.target.value))}
               placeholder={PLACEHOLDER.phone}
             />
           </label>
-          <label>
+          <label htmlFor="per-e-mail-de-contato">
             <span>E-MAIL DE CONTATO</span>
-            <input
+            <input id="per-e-mail-de-contato"
               type="email"
               value={draft.email}
               onChange={(event) => update("email", event.target.value)}
@@ -115,16 +115,16 @@ function CustomizationPage({ company, setCompany, notify }) {
               Aparece na vitrine. Precisa ser diferente do seu e-mail de acesso.
             </small>
           </label>
-          <label>
+          <label htmlFor="per-instagram">
             <span>INSTAGRAM</span>
-            <input
+            <input id="per-instagram"
               value={draft.instagram}
               onChange={(event) => update("instagram", event.target.value)}
             />
           </label>
-          <label className="wide">
+          <label htmlFor="per-endereco-exibido" className="wide">
             <span>ENDEREÇO EXIBIDO</span>
-            <input
+            <input id="per-endereco-exibido"
               value={draft.address}
               onChange={(event) => update("address", event.target.value)}
             />
@@ -132,9 +132,9 @@ function CustomizationPage({ company, setCompany, notify }) {
         </div>
         {/* Envio de imagens: logo, favicon (ícone da aba) e capa da vitrine. */}
         <div className="brand-uploads">
-          <label>
+          <label htmlFor="per-logo-da-empresa">
             <span>LOGO DA EMPRESA</span>
-            <input
+            <input id="per-logo-da-empresa"
               type="file"
               accept="image/*"
               onChange={(event) =>
@@ -152,9 +152,9 @@ function CustomizationPage({ company, setCompany, notify }) {
               )}
             </div>
           </label>
-          <label>
+          <label htmlFor="per-imagem-principal-da-vitrine">
             <span>IMAGEM PRINCIPAL DA VITRINE</span>
-            <input
+            <input id="per-imagem-principal-da-vitrine"
               type="file"
               accept="image/*"
               onChange={(event) =>
@@ -172,9 +172,9 @@ function CustomizationPage({ company, setCompany, notify }) {
               )}
             </div>
           </label>
-          <label>
+          <label htmlFor="per-icone-da-aba-favicon">
             <span>ÍCONE DA ABA (FAVICON)</span>
-            <input
+            <input id="per-icone-da-aba-favicon"
               type="file"
               accept="image/png,image/svg+xml,image/x-icon"
               onChange={(event) =>
@@ -204,7 +204,7 @@ function CustomizationPage({ company, setCompany, notify }) {
         className="brand-preview page-card"
         style={{
           // paleta padrão do Prontto (as cores não são personalizáveis)
-          "--preview-accent": "var(--rose, #b86b77)",
+          "--preview-accent": "var(--rose, #6e3a44)", // branco sobre #6e3a44 = 8,93:1 (AAA)
           "--preview-secondary": "var(--gold)",
           "--preview-base": "var(--navy)",
         }}

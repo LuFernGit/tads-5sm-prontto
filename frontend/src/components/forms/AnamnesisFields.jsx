@@ -9,13 +9,23 @@ import "./AnamnesisFields.css"
 // Props: h = respostas atuais; errors = erros por campo; updateHealth(campo, valor)
 // altera uma resposta. Usado no cadastro da cliente e na edição da ficha (ClientApp).
 // Padrão das perguntas: <YesNo> (Sim/Não) e, se 'Sim', aparece um <Detail> para descrever.
-function AnamnesisFields({ h, errors, updateHealth, defaultName }) {
+// editing = true na edição da ficha (Meu perfil): layout mais limpo e sem os
+// campos de local, nome e assinatura (eles só fazem sentido no cadastro).
+// boxed = true no cadastro da cliente: cada pergunta dentro de uma caixa com borda
+// (o texto de introdução fica num quadro separado, em ClientRegisterPage).
+function AnamnesisFields({ h, errors, updateHealth, defaultName, editing = false, boxed = false }) {
   return (
-    <div className="ff-anamnesis">
+    <div
+      className={`ff-anamnesis ${editing || boxed ? "ff-anamnesis-clean" : ""} ${
+        boxed ? "ff-anamnesis-boxed" : ""
+      }`}
+    >
+      {!boxed && (
       <p className="ff-copy">
         Responda conforme seu conhecimento. As informações ajudam a profissional
         a avaliar os cuidados necessários antes do procedimento.
       </p>
+      )}
       <h2 className="ff-section-heading">2. Histórico de saúde e alergias</h2>
       <YesNo
         id="a1"
@@ -148,7 +158,15 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName }) {
                         ]
                     : h.sinaisAtuais.filter((x) => x !== v)
                   updateHealth("sinaisAtuais", next)
-                  updateHealth("alteracaoAtual", next.length ? "Sim" : "Não")
+                  // 'Não apresento nenhum desses sinais' conta como resposta 'Não'.
+                  updateHealth(
+                    "alteracaoAtual",
+                    next.length === 0
+                      ? ""
+                      : next.includes("Não apresento nenhum desses sinais")
+                        ? "Não"
+                        : "Sim",
+                  )
                 }}
               />
               {v}
@@ -339,8 +357,8 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName }) {
           possíveis riscos.
         </p>
       </div>
-      <label className="ff-check">
-        <input
+      <label htmlFor="fs-li-e-concordo-com" className="ff-check">
+        <input id="fs-li-e-concordo-com"
           type="checkbox"
           checked={h.cienciaInformacoes}
           onChange={(e) => updateHealth("cienciaInformacoes", e.target.checked)}
@@ -350,6 +368,8 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName }) {
       {errors.cienciaInformacoes && (
         <small className="ff-error">{errors.cienciaInformacoes}</small>
       )}
+      {/* Local, nome e assinatura: não aparecem no cadastro nem na edição (layout de referência). */}
+      {!editing && !boxed && (
       <div className="ff-grid ff-signature-fields">
         <Field id="ff-local-data" label="Local e data">
           <input
@@ -375,6 +395,7 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName }) {
           />
         </Field>
       </div>
+      )}
     </div>
   )
 }

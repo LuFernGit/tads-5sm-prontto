@@ -13,6 +13,7 @@ import {
   phoneError,
   validateAnamnesis,
 } from "@/lib/validators"
+import NewTabHint from "@/components/ui/NewTabHint"
 import "./ClientRegisterPage.css"
 
 /**
@@ -104,11 +105,17 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
       },
     })
   }
-  const names = ["Seus dados", "Ficha de saúde", "Termos e privacidade"]
+  const names = ["Dados pessoais", "Ficha de saúde", "Termos e privacidade"]
   return (
     <main className="ff-page">
       <header className="ff-header">
-        <strong>prontto</strong>
+        {/* Marca da clínica do link (logo + nome) */}
+        <div className="ff-clinic-brand">
+          <span className="ff-clinic-logo">
+            {company.logoImage ? <img src={company.logoImage} alt="" /> : company.initials}
+          </span>
+          <strong>{company.name}</strong>
+        </div>
         <button type="button" onClick={onBack}>
           ← Voltar ao login
         </button>
@@ -133,10 +140,6 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
               <span>{name}</span>
             </div>
           ))}
-          <div className="ff-sidebar-note">
-            🔒 Seus dados de saúde são informações pessoais sensíveis e devem
-            ser acessados apenas por pessoas autorizadas.
-          </div>
         </aside>
         <form
           className="ff-card"
@@ -244,12 +247,23 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
             </div>
           )}
           {step === 1 && (
-            <AnamnesisFields
-              h={h}
-              errors={errors}
-              updateHealth={updateHealth}
-              defaultName={d.nome}
-            />
+            <>
+              <section className="ff-why-box" aria-labelledby="ff-why-health">
+                <strong id="ff-why-health">Por que devo preencher esse questionário?</strong>
+                <p>
+                  Essas informações ajudam a profissional a avaliar os cuidados
+                  necessários antes do procedimento. Responda às perguntas
+                  conforme seu conhecimento.
+                </p>
+              </section>
+              <AnamnesisFields
+                h={h}
+                errors={errors}
+                updateHealth={updateHealth}
+                defaultName={d.nome}
+                boxed
+              />
+            </>
           )}
 
           {step === 2 && (
@@ -289,7 +303,7 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Abrir PDF dos termos
+                      Abrir PDF dos termos <NewTabHint />
                     </a>
                     .
                   </p>
@@ -299,11 +313,32 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
                       `Estes são os termos demonstrativos de atendimento da ${company.name}. Ao agendar, a cliente deve conferir as informações do serviço, valores, horários, regras de cancelamento e orientações informadas pela empresa.`}
                   </p>
                 )}
-                <p className="ff-small">
-                  Este documento é fornecido pela própria empresa e é separado
-                  dos termos gerais do Prontto.
-                </p>
               </section>
+              <p className="ff-small ff-terms-note">
+                Este documento é fornecido pela própria empresa e é separado dos
+                termos gerais do Prontto.
+              </p>
+              <div className="ff-check">
+                <input
+                  id="ff-accept"
+                  type="checkbox"
+                  checked={accept}
+                  onChange={(e) => setAccept(e.target.checked)}
+                  aria-invalid={errors.accept ? true : undefined}
+                  aria-describedby={
+                    errors.accept ? "ff-accept-error" : undefined
+                  }
+                />
+                <label htmlFor="ff-accept">
+                  Li e aceito os <a href="#termos">Termos de Uso do Prontto</a>{" "}
+                  e a <a href="#privacidade">Política de Privacidade</a>.
+                </label>
+              </div>
+              {errors.accept && (
+                <small id="ff-accept-error" className="ff-error" role="alert">
+                  {errors.accept}
+                </small>
+              )}
               <div className="ff-check">
                 <input
                   id="ff-clinic-accept"
@@ -330,27 +365,6 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
                   {errors.acceptClinicTerms}
                 </small>
               )}
-              <div className="ff-check">
-                <input
-                  id="ff-accept"
-                  type="checkbox"
-                  checked={accept}
-                  onChange={(e) => setAccept(e.target.checked)}
-                  aria-invalid={errors.accept ? true : undefined}
-                  aria-describedby={
-                    errors.accept ? "ff-accept-error" : undefined
-                  }
-                />
-                <label htmlFor="ff-accept">
-                  Li e aceito os <a href="#termos">Termos de Uso do Prontto</a>{" "}
-                  e a <a href="#privacidade">Política de Privacidade</a>.
-                </label>
-              </div>
-              {errors.accept && (
-                <small id="ff-accept-error" className="ff-error" role="alert">
-                  {errors.accept}
-                </small>
-              )}
             </div>
           )}
           <div className="ff-actions">
@@ -361,8 +375,9 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
             >
               {step === 0 ? "Cancelar" : "Voltar"}
             </button>
-            <button type="submit" className="ff-btn ff-primary">
-              {step < 2 ? "Continuar" : "Criar conta"}
+            <button type="submit" className="ff-btn ff-navy">
+              {step < 2 ? "Continuar" : "Criar conta"}{" "}
+              <span aria-hidden="true">→</span>
             </button>
           </div>
         </form>

@@ -1,4 +1,4 @@
-import { gallery, storefrontCategories } from "@/constants"
+import { DEFAULT_CATEGORY_COVER, storefrontCategories } from "@/constants"
 
 /**
  * Localiza os metadados visuais de uma categoria ou fornece valores padrão.
@@ -8,7 +8,7 @@ function getCategoryMeta(name) {
     storefrontCategories.find((category) => category.name === name) || {
       name,
       copy: "Serviços personalizados para realçar sua beleza e bem-estar.",
-      image: gallery[0],
+      image: DEFAULT_CATEGORY_COVER,
     }
   )
 }

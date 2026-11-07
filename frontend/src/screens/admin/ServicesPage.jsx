@@ -1,5 +1,6 @@
 import { useState } from "react"
 import Action from "@/components/ui/Action"
+import NewTabHint from "@/components/ui/NewTabHint"
 import Icon from "@/components/ui/Icon"
 import Modal from "@/components/ui/Modal"
 import {
@@ -77,14 +78,20 @@ function ServicesPage({
       // "150,00" → 150 (SERVICO.preco, reais) e "60" → 60 (SERVICO.duracao, minutos)
       const numericPrice = parseMoney(formPrice)
       const minutes = Number(formDuration)
-      if (
-        !formName.trim() ||
-        !formDescription.trim() ||
-        !formDuration ||
-        !formPrice ||
-        !formImage
-      ) {
-        notify("Preencha todos os dados e adicione uma foto do serviço.")
+      // Diz qual campo falta e como preencher (WCAG 3.3.3).
+      const missing = !formName.trim()
+        ? "Informe o nome do serviço. Exemplo: Volume Brasileiro."
+        : !formPrice
+          ? "Informe o preço em reais. Exemplo: 150,00."
+          : !formDuration
+            ? "Informe a duração em minutos. Exemplo: 90."
+            : !formDescription.trim()
+              ? "Escreva uma descrição curta do serviço para a vitrine."
+              : !formImage
+                ? "Adicione uma foto do serviço (JPG, PNG ou WEBP de até 5 MB)."
+                : ""
+      if (missing) {
+        notify(missing)
         return
       }
       if (
@@ -252,9 +259,9 @@ function ServicesPage({
         )}
       </div>
       <div className="table-toolbar">
-        <label className="search-box">
+        <label htmlFor="srv-campo" className="search-box">
           <Icon name="search" />
-          <input
+          <input id="srv-campo"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={
@@ -353,11 +360,11 @@ function ServicesPage({
                   <button
                     type="button"
                     className="icon-button whatsapp-icon"
-                    title="Entrar em contato"
+                    title="Conversar no WhatsApp (abre em nova guia)"
                     onClick={() =>
                       openWhatsApp(`Olá, ${client.name}! Tudo bem?`)
                     }
-                    aria-label={`Conversar com ${client.name} no WhatsApp`}
+                    aria-label={`Conversar com ${client.name} no WhatsApp (abre em nova guia)`}
                   >
                     <Icon name="whatsapp" size={16} />
                   </button>
@@ -407,9 +414,9 @@ function ServicesPage({
         >
           {isServices ? (
             <div className="modal-form service-form">
-              <label className="service-upload">
+              <label htmlFor="srv-foto-do-servico" className="service-upload">
                 <span>FOTO DO SERVIÇO</span>
-                <input type="file" accept="image/*" onChange={handleImage} />
+                <input id="srv-foto-do-servico" type="file" accept="image/*" onChange={handleImage} />
                 <div className={formImage ? "has-preview" : ""}>
                   {formImage ? (
                     <img src={formImage} alt="Pré-visualização do serviço" />
@@ -426,18 +433,18 @@ function ServicesPage({
                 )}
               </label>
               <div className="service-form-fields">
-                <label className="wide">
+                <label htmlFor="srv-nome-do-servico" className="wide">
                   <span>NOME DO SERVIÇO</span>
-                  <input
+                  <input id="srv-nome-do-servico"
                     autoFocus
                     value={formName}
                     onChange={(event) => setFormName(event.target.value)}
                     placeholder="Ex.: Alongamento em gel"
                   />
                 </label>
-                <label>
+                <label htmlFor="srv-categoria">
                   <span>CATEGORIA</span>
-                  <select
+                  <select id="srv-categoria"
                     value={formCategory}
                     onChange={(event) => setFormCategory(event.target.value)}
                   >
@@ -446,11 +453,11 @@ function ServicesPage({
                     ))}
                   </select>
                 </label>
-                <label>
+                <label htmlFor="srv-preco-em-reais-r">
                   <span>PREÇO (EM REAIS)</span>
                   <div className="input-prefix">
                     <b>R$</b>
-                    <input
+                    <input id="srv-preco-em-reais-r"
                       inputMode="numeric"
                       value={formPrice}
                       onChange={(event) =>
@@ -463,10 +470,10 @@ function ServicesPage({
                     Valor em reais. Digite só os números.
                   </small>
                 </label>
-                <label>
+                <label htmlFor="srv-duracao-em-minutos">
                   <span>DURAÇÃO (EM MINUTOS)</span>
                   <div className="input-suffix">
-                    <input
+                    <input id="srv-duracao-em-minutos"
                       type="number"
                       min="5"
                       step="5"
@@ -481,9 +488,9 @@ function ServicesPage({
                     Considerado em minutos. Ex.: 90 = 1h30.
                   </small>
                 </label>
-                <label className="wide">
+                <label htmlFor="srv-descricao-do-servico" className="wide">
                   <span>DESCRIÇÃO DO SERVIÇO</span>
-                  <textarea
+                  <textarea id="srv-descricao-do-servico"
                     rows={4}
                     maxLength={280}
                     value={formDescription}
@@ -498,18 +505,18 @@ function ServicesPage({
             </div>
           ) : (
             <div className="modal-form">
-              <label>
+              <label htmlFor="srv-nome">
                 <span>NOME</span>
-                <input
+                <input id="srv-nome"
                   autoFocus
                   value={formName}
                   onChange={(event) => setFormName(event.target.value)}
                   placeholder="Nome completo"
                 />
               </label>
-              <label>
+              <label htmlFor="srv-procedimento-de-interesse">
                 <span>PROCEDIMENTO DE INTERESSE</span>
-                <input
+                <input id="srv-procedimento-de-interesse"
                   value={formDetail}
                   onChange={(event) => setFormDetail(event.target.value)}
                   placeholder="Ex.: Lash Design"
@@ -691,7 +698,7 @@ function ServicesPage({
                   openWhatsApp(`Olá, ${selectedClient.name}! Tudo bem?`)
                 }
               >
-                <Icon name="whatsapp" /> WhatsApp
+                <Icon name="whatsapp" /> WhatsApp <NewTabHint compact />
               </Action>
             )}
           </div>

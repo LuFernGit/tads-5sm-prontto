@@ -1,7 +1,7 @@
 /**
  * MOCK — "banco de dados" em memória que simula o backend.
  * É salvo no localStorage para o protótipo sobreviver a um F5.
- * Para zerar: rode `localStorage.removeItem("prontto.mockdb.v6")` no console
+ * Para zerar: rode `localStorage.removeItem("prontto.mockdb.v9")` no console
  * ou acesse qualquer URL com ?resetMocks.
  */
 import { toHorarioRows } from "@/lib/schedule"
@@ -21,8 +21,8 @@ import {
 import { services } from "./data/services"
 import { demoClientAccounts } from "./data/session"
 
-// O 'v6' é a versão: quando a estrutura muda, troca-se o número e o banco é recriado.
-const STORAGE_KEY = "prontto.mockdb.v6"
+// O número no fim ('v9') é a versão: quando a estrutura muda, troca-se o número e o banco é recriado.
+const STORAGE_KEY = "prontto.mockdb.v9"
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
 

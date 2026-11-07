@@ -105,32 +105,34 @@ export const emptyAnamnesis = {
  * Quando o backend passar a devolver imagem/descrição por categoria, basta
  * preferir esses campos em getCategoryMeta (src/lib/booking.js).
  */
-export const gallery = [
-  "https://images.unsplash.com/photo-1632345031435-8727f6897d53?auto=format&fit=crop&w=900&q=85",
-  "https://images.unsplash.com/photo-1589710751893-f9a6770ad71b?auto=format&fit=crop&w=900&q=85",
-  "https://images.unsplash.com/photo-1631214524115-9942bf927d4a?auto=format&fit=crop&w=900&q=85",
-]
+// Capa de cada categoria: public/images/categorias/<nome-da-categoria>.jpg
+// Para trocar a capa de uma categoria, substitua o arquivo com o mesmo nome.
+// BASE_URL é o endereço base do site ("/" no npm run dev; outro se publicado em subpasta).
+const COVER = `${import.meta.env.BASE_URL}images/categorias/`
+
+/** Capa usada quando uma categoria nova (criada pela gestora) ainda não tem imagem própria. */
+export const DEFAULT_CATEGORY_COVER = `${COVER}nail-design.jpg`
 
 /** Texto e imagem padrão de cada categoria na vitrine da clínica. */
 export const storefrontCategories = [
   {
     name: "Nail Design",
     copy: "Estrutura, proteção e acabamento impecável para suas unhas.",
-    image: gallery[0],
+    image: `${COVER}nail-design.jpg`,
   },
   {
     name: "Lash Design",
     copy: "Técnicas personalizadas para valorizar cada formato de olhar.",
-    image: gallery[1],
+    image: `${COVER}lash-design.jpg`,
   },
   {
     name: "Sobrancelhas",
     copy: "Design e alinhamento que respeitam a sua expressão.",
-    image: gallery[1],
+    image: `${COVER}sobrancelhas.jpg`,
   },
   {
     name: "Estética Labial",
     copy: "Hidratação, cuidado e brilho para lábios saudáveis.",
-    image: gallery[2],
+    image: `${COVER}estetica-labial.jpg`,
   },
 ]

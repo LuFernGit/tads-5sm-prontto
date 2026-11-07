@@ -32,10 +32,10 @@ function HealthPageView({ notify, clientList }) {
       <div className="client-sidebar page-card">
         <span className="section-kicker">FICHAS DE SAÚDE</span>
         <h1 className="section-title">Clientes</h1>
-        <label className="search-box">
+        <label htmlFor="fic-buscar-cliente" className="search-box">
           <span className="sr-only">Buscar cliente</span>
           <Icon name="search" />
-          <input
+          <input id="fic-buscar-cliente"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar cliente..."

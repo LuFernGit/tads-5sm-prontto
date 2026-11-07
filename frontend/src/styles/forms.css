@@ -27,7 +27,7 @@ small.ff-error { color: var(--red); font-weight: 700; font-size: 12px; }
 .ff-small { font-size: 12px !important; }
 .ff-check { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; font-size: 14px; }
 .ff-check input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--amber-dark); }
-.ff-check a { color: var(--amber-dark); font-weight: 700; }
+.ff-check a { color: var(--amber-text); font-weight: 700; }
 .ff-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; }
 .ff-actions.ff-wrap { flex-wrap: wrap; justify-content: flex-start; margin-top: 8px; }
 .ff-btn { min-height: 44px; padding: 0 20px; border-radius: 12px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
@@ -62,16 +62,16 @@ small.ff-error { color: var(--red); font-weight: 700; font-size: 12px; }
 .ff-card.ff-deposit .ff-summary dd { color: #34302d; text-align: right; }
 .ff-card.ff-deposit .ff-notice { margin-top: 14px; padding: 14px; border: 1px solid #eee9e5; border-radius: 9px; background: var(--cream); }
 .ff-card.ff-deposit .ff-notice p { font-size: 12px; line-height: 1.7; color: #6b645e; }
-.ff-badge-demo { display: block; width: fit-content; max-width: 100%; margin: 0 auto; padding: 8px 13px; border: 1px solid #f4dfbd; border-radius: 999px; background: #fff8eb; color: var(--amber-dark); font-size: 11px; font-weight: 800; letter-spacing: 0.035em; text-align: center; }
-.ff-amount { margin: 12px 0 4px; color: var(--amber-dark); font-size: clamp(30px, 6vw, 40px); font-weight: 800; letter-spacing: -0.04em; text-align: center; font-variant-numeric: tabular-nums; }
+.ff-badge-demo { display: block; width: fit-content; max-width: 100%; margin: 0 auto; padding: 8px 13px; border: 1px solid #f4dfbd; border-radius: 999px; background: #fff8eb; color: var(--amber-text); font-size: 12px; font-weight: 800; letter-spacing: 0.035em; text-align: center; }
+.ff-amount { margin: 12px 0 4px; color: var(--amber-text); font-size: clamp(30px, 6vw, 40px); font-weight: 800; letter-spacing: -0.04em; text-align: center; font-variant-numeric: tabular-nums; }
 .ff-timer { margin: 0 0 22px; color: #6b645e; font-size: 13px; text-align: center; }
-.ff-timer strong { color: var(--amber-dark); font-variant-numeric: tabular-nums; }
+.ff-timer strong { color: var(--amber-text); font-variant-numeric: tabular-nums; }
 .ff-card.ff-deposit .ff-pix-box { display: grid; place-items: center; width: min(100%, 250px); margin: 20px auto; padding: 16px; border: 1px solid #eee9e5; border-radius: 10px; background: #fff; }
 .ff-deposit .ff-field { display: grid; gap: 8px; margin: 0 0 12px; }
 .ff-deposit .ff-field label { color: #393247; font-size: 13px; font-weight: 800; }
 .ff-deposit > .ff-btn.ff-secondary { width: 100%; margin: 0 0 18px; }
 .ff-howto { display: grid; gap: 12px; margin: 0; padding: 14px 16px 14px 32px; border-radius: 9px; background: var(--cream); color: #625d58; font-size: 13px; line-height: 1.6; }
-.ff-howto li::marker { color: var(--amber-dark); font-weight: 800; }
+.ff-howto li::marker { color: var(--amber-text); font-weight: 800; }
 .ff-howto strong { color: var(--navy); }
 .ff-status { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 18px; padding: 12px 14px; border: 1px solid #f2dfbd; border-radius: 12px; background: #fff9ed; color: #89570f; font-size: 13px; font-weight: 700; text-align: center; }
 .ff-status i { display: inline-block; width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--amber); }
@@ -94,18 +94,18 @@ small.ff-error { color: var(--red); font-weight: 700; font-size: 12px; }
 .af-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
 .af-req > span { display: grid; gap: 4px; }
 .af-status { display: inline-block; width: max-content; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-.af-status.pending { background: var(--amber-bg); color: var(--amber-dark); }
+.af-status.pending { background: var(--amber-bg); color: var(--amber-text); }
 .af-status.done { background: var(--green-bg); color: var(--green); }
 .af-newtpl { display: flex; align-items: flex-end; gap: 10px; }
 .legal h2 { margin: 22px 0 6px; font-size: 16px; color: var(--navy); }
 .legal p,
 .legal li { font-size: 14px; line-height: 1.75; color: var(--muted); }
-.legal a { color: var(--amber-dark); font-weight: 700; }
+.legal a { color: var(--amber-text); font-weight: 700; }
 @media (max-width: 700px) {
   /* Fluxo da cliente */
   .ff-card { margin: 16px 12px; padding: 22px 18px; }
   .ff-grid { grid-template-columns: 1fr; }
-  .ff-actions { flex-direction: column-reverse; }
+  .ff-actions { flex-direction: column; } /* mesma ordem visual e do Tab (WCAG 2.4.3) */
   .ff-btn { width: 100%; }
   .ff-card.ff-deposit { width: calc(100% - 22px); margin: 18px auto 30px; padding: 20px 15px; }
   .ff-radio-row .ff-radio { flex: 1 1 auto; }

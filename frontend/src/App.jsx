@@ -73,7 +73,7 @@ export default function App() {
           minHeight: "100vh",
           display: "grid",
           placeItems: "center",
-          color: "#64748b",
+          color: "#475569",
         }}
         aria-live="polite"
       >
@@ -111,6 +111,7 @@ export default function App() {
               notify={notify}
               onLogin={loginClient}
               onRegister={registerClient}
+              onBack={() => setMode("guest")}
             />
           )
         ) : (
@@ -141,6 +142,7 @@ export default function App() {
           serviceCategories={clientView.categories}
           company={clientView.company}
           preview={mode === "preview"}
+          guest={mode === "guest"}
         />
       )}
       {toast}

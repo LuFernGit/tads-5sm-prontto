@@ -17,7 +17,7 @@ function AsyncState({ query, children, fullPage = false }) {
         padding: 40,
         minHeight: fullPage ? "100vh" : 220,
         textAlign: "center",
-        color: "#64748b",
+        color: "#475569",
       }}
       aria-live="polite"
     >

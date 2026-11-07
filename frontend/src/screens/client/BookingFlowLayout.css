@@ -1,0 +1,95 @@
+/* Estilos de BookingFlowLayout.jsx — telas de confirmação, pagamento e "Tudo certo".
+   Contraste (WCAG AAA): títulos #0f172a; textos auxiliares #475569 (7,58:1 no branco,
+   7,24:1 no #f8fafc); kicker #78350f (9,07:1); faixa verde #14532d × #dcfce7 = 8,30:1. */
+
+.bf-page {
+  width: min(100% - 32px, 560px);
+  margin: 40px auto 64px;
+  font-family: var(--font-body);
+}
+
+/* ----- Topo: ícone, kicker, título e subtítulo ----- */
+.bf-head { display: grid; justify-items: center; gap: 6px; text-align: center; margin-bottom: 22px; }
+.bf-icon {
+  width: 52px; height: 52px; margin-bottom: 8px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--green-bg);
+  color: var(--green);
+}
+.bf-kicker { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; color: var(--amber-text); }
+.bf-head h1 {
+  margin: 2px 0 0;
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--navy);
+}
+.bf-head p { margin: 0; font-size: 13px; color: #334155; } /* sobre o fundo #f6f8fa = 9,8:1 */
+
+/* ----- Cartão ----- */
+.bf-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+.bf-clinic { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px dashed var(--line); }
+.bf-logo {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border: 2px solid var(--brand-frame);
+  background: #fff;
+  font-family: var(--font-heading); font-size: 16px; color: var(--navy);
+  overflow: hidden;
+}
+.bf-logo img { width: 100%; height: 100%; object-fit: contain; }
+.bf-clinic strong { display: block; font-size: 16px; font-weight: 800; color: var(--navy); letter-spacing: -0.01em; }
+.bf-clinic span { display: block; margin-top: 2px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.bf-body { display: grid; gap: 16px; padding: 20px; }
+.bf-section-label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+/* ----- Resumo em duas colunas ----- */
+.bf-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin: 0; }
+.bf-summary .wide { grid-column: 1 / -1; }
+.bf-summary dt { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.bf-summary dd { margin: 3px 0 0; font-size: 14px; font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+.bf-summary .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
+/* ----- Caixas de informação (política de sinal, cancelamento) ----- */
+.bf-box { padding: 14px 16px; border: 1px solid #dbe4ee; border-radius: 12px; background: #f8fafc; }
+.bf-box h2 { margin: 0 0 6px; font-size: 14px; font-weight: 800; color: var(--navy); }
+.bf-box p { margin: 0; font-size: 13px; line-height: 1.65; color: var(--muted); }
+.bf-rows { display: grid; margin: 10px 0 0; }
+.bf-rows div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #dbe4ee; font-size: 13px; }
+.bf-rows div:last-child { border-bottom: 0; padding-bottom: 0; }
+.bf-rows dt { color: var(--navy); }
+.bf-rows dd { margin: 0; font-weight: 800; color: var(--navy); }
+
+/* ----- Faixa verde de status ----- */
+.bf-status { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--green-bg); color: var(--green); }
+.bf-status svg { flex: none; }
+.bf-status strong { display: block; font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.bf-status span { display: block; margin-top: 2px; font-size: 13px; }
+
+/* ----- Caixa de seleção "Li as condições" ----- */
+.bf-check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; color: var(--navy); cursor: pointer; }
+.bf-check input { width: 20px; height: 20px; margin: 0; accent-color: var(--amber-dark); }
+
+/* ----- Botões fora do cartão ----- */
+.bf-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; }
+.bf-actions .ff-btn { min-height: 46px; padding: 0 24px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+.bf-actions .ff-primary { min-width: 46%; }
+/* Botão escuro "Voltar para a vitrine": branco × navy = 17,85:1 */
+.ff-dark { background: var(--navy); color: #fff; border-color: var(--navy); }
+.ff-dark:hover { background: #1e293b; }
+
+@media (max-width: 600px) {
+  .bf-page { margin-top: 24px; }
+  .bf-summary { grid-template-columns: 1fr; }
+  /* No celular, um botão por linha, na mesma ordem do Tab */
+  .bf-actions { flex-direction: column; }
+  .bf-actions .ff-btn { width: 100%; }
+}

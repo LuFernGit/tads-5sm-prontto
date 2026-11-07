@@ -21,7 +21,7 @@
 .client-brand { display: flex; align-items: center; gap: 11px; }
 .client-brand > div:last-child { display: flex; flex-direction: column; }
 .client-brand strong { font-family: var(--font-body); font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: var(--navy); }
-.client-brand span { font-size: 6px; letter-spacing: 0.2em; color: var(--amber-dark); font-weight: 800; }
+.client-brand span { font-size: 12px; letter-spacing: 0.2em; color: var(--amber-text); font-weight: 800; }
 .client-nav button.active:after { content: ""; height: 2px; background: var(--amber); position: absolute; inset: auto 0 0; }
 .pf-next-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 /* Ficha de saúde (cliente) e caixas de aceite */
@@ -29,10 +29,10 @@
 .pf-health-form .wide { grid-column: 1 / -1; }
 @media (max-width: 700px) {
   .client-brand strong { font-size: 15px; }
-  .client-brand span { font-size: 5px; }
+  .client-brand span { font-size: 12px; }
   .ca-monogram { width: 38px; height: 38px; flex-basis: 38px; }
   .client-head-actions .action-ghost { display: none; }
-  .client-head-actions .action-primary { font-size: 8px; min-height: 36px; padding: 0 12px; }
+  .client-head-actions .action-primary { font-size: 12px; min-height: 36px; padding: 0 12px; }
   .pf-health-form { grid-template-columns: 1fr; }
-  .mobile-nav button.active { color: var(--amber-dark); }
+  .mobile-nav button.active { color: var(--amber-text); }
 }

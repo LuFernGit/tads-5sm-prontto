@@ -1,12 +1,15 @@
+import Icon from "@/components/ui/Icon"
+import NewTabHint from "@/components/ui/NewTabHint"
 import { brl, formatDuration } from "@/lib/format"
+import BookingFlowLayout, { BookingStatus, BookingSummary } from "./BookingFlowLayout"
 import "./BookingConfirmation.css"
 
 /* ============================================================
    Confirmação — RF11, RF12, RF13, RF22, RF23 (CDC art. 30/35)
-   Agora mostra o pagamento do sinal e leva os dados ao WhatsApp.
+   Mostra o resumo, a situação do sinal e leva os dados ao WhatsApp.
    ============================================================ */
 /**
- * Exibe o comprovante final do agendamento e os dados do pagamento do sinal.
+ * Tela final do agendamento: "Tudo certo, <nome>!".
  */
 function BookingConfirmation({
   service,
@@ -24,12 +27,9 @@ function BookingConfirmation({
   // Texto da forma de pagamento: 'Pix', 'cartão' ou 'cartão em 3x'.
   const payLabel =
     payment?.method === "card"
-      ? `cartão${
-          payment.installments && payment.installments > 1
-            ? ` em ${payment.installments}x`
-            : ""
-        }`
+      ? `cartão${payment.installments > 1 ? ` em ${payment.installments}x` : ""}`
       : "Pix"
+  const balance = payment ? total - payment.valor : total
   const signalText = recurring
     ? "Isento (cliente recorrente)"
     : payment
@@ -37,83 +37,70 @@ function BookingConfirmation({
       : signal === null
         ? "A definir"
         : `${brl(signal)} (pendente)`
+  // Mensagem do comprovante enviada pelo WhatsApp
   const text = [
     `Olá! Meu agendamento na ${company.name} está confirmado.`,
     `Procedimento: ${service.name}`,
     `Data e horário: ${date} às ${time}`,
     `Valor: ${brl(total)}`,
     `Sinal: ${signalText}`,
-    payment
-      ? `${
-          payment.method === "card" ? "Comprovante" : "ID do Pix"
-        }: ${payment.id}`
-      : "",
+    payment ? `${payment.method === "card" ? "Comprovante" : "ID do Pix"}: ${payment.id}` : "",
     `Local: ${company.address}`,
   ]
     .filter(Boolean)
     .join("\n")
   const href = `https://wa.me/55${company.phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`
+
   return (
-    <section
-      className="ff-card ff-deposit confirmation"
-      aria-labelledby="ff-ok-title"
+    <BookingFlowLayout
+      icon={<Icon name="check" size={22} />}
+      kicker="AGENDAMENTO CONFIRMADO"
+      title={`Tudo certo, ${clientName}!`}
+      titleId="ff-ok-title"
+      subtitle="Seu horário está reservado. Agora é só se preparar para o seu momento."
+      company={company}
+      cardLabel="Confirmação de agendamento"
+      actions={
+        <>
+          <button type="button" className="ff-btn ff-dark" onClick={onBack}>
+            Voltar para a vitrine
+          </button>
+          <a className="ff-btn ff-primary" href={href} target="_blank" rel="noopener noreferrer">
+            Enviar comprovante via WhatsApp{" "}
+            <NewTabHint compact text="abre o WhatsApp em nova guia" />
+          </a>
+        </>
+      }
     >
-      <div className="ff-free" role="status">
-        <strong>Agendamento confirmado</strong>
-        <span>Seu horário está reservado.</span>
-      </div>
-      <h1 id="ff-ok-title">Tudo certo, {clientName}!</h1>
-      <dl className="ff-summary">
-        <div>
-          <dt>Procedimento</dt>
-          <dd>{service.name}</dd>
+      <BookingSummary
+        items={[
+          ["Procedimento", service.name],
+          ["Data e horário", `${date} · ${time}`],
+          ["Duração", formatDuration(service.duration)],
+          ["Valor total", brl(total)],
+          // Com sinal pago: mostra o que já foi pago e o que falta pagar
+          payment && ["Sinal pago", brl(payment.valor)],
+          payment && ["Saldo restante a pagar", brl(balance)],
+        ]}
+      />
+      {/* Situação do sinal: isento, pago ou pendente */}
+      {recurring ? (
+        <BookingStatus
+          title="Pagamento de sinal – isento"
+          text="Realizar pagamento do valor total ao final do procedimento."
+        />
+      ) : payment ? (
+        <BookingStatus
+          title="Pagamento de sinal – aprovado"
+          text="Realizar pagamento do saldo restante ao final do procedimento."
+        />
+      ) : (
+        <div className="bf-box">
+          <h2>Sinal</h2>
+          <p>{signalText}</p>
         </div>
-        <div>
-          <dt>Data e horário</dt>
-          <dd>
-            {date} · {time}
-          </dd>
-        </div>
-        <div>
-          <dt>Duração</dt>
-          <dd>{formatDuration(service.duration)}</dd>
-        </div>
-        <div>
-          <dt>Valor</dt>
-          <dd>{brl(total)}</dd>
-        </div>
-        <div>
-          <dt>Sinal</dt>
-          <dd>{signalText}</dd>
-        </div>
-        {payment && (
-          <div>
-            <dt>{payment.method === "card" ? "Comprovante" : "ID do Pix"}</dt>
-            <dd className="ff-mono">{payment.id}</dd>
-          </div>
-        )}{" "}
-        <div>
-          <dt>Local</dt>
-          <dd>{company.address}</dd>
-        </div>
-      </dl>
-      <p className="ff-small">
-        Cancelamentos e reagendamentos: com no mínimo 24 horas de antecedência.
-      </p>
-      <div className="ff-actions">
-        <button type="button" className="ff-btn ff-secondary" onClick={onBack}>
-          Voltar para a vitrine
-        </button>
-        <a
-          className="ff-btn ff-primary ff-link-btn"
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Enviar comprovante por WhatsApp <small>(abre em nova guia)</small>
-        </a>
-      </div>
-    </section>
+      )}
+    </BookingFlowLayout>
   )
 }
 

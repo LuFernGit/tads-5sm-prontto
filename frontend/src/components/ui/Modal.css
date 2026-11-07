@@ -29,16 +29,37 @@
   border-bottom: 1px solid var(--line);
   margin-bottom: 18px;
 }
-.modal-head button {
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 10px;
-  background: #f1f5f9;
-  color: var(--navy);
-  font-size: 22px;
-  cursor: pointer;
+/* Cabeçalho fixo no topo: o botão de fechar continua visível ao rolar modais longos. */
+.modal-head {
+  position: sticky;
+  top: -24px;
+  z-index: 2;
+  margin: -24px -24px 18px;
+  padding: 22px 24px 16px;
+  background: #fff;
 }
+/* Botão de fechar: círculo com borda fina e X desenhado (44px = área de clique AAA). */
+.modal-close {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: #334155;                 /* sobre branco = 10,35:1 */
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.modal-close:hover { background: #f1f5f9; border-color: #cbd5e1; color: var(--navy); }
 @media (max-width: 700px) {
   .modal-card { padding: 18px; }
+  .modal-head { top: -18px; margin: -18px -18px 16px; padding: 16px 18px 14px; }
 }
+
+/* O modal recebe o foco ao abrir só para o leitor de tela anunciar o título.
+   A caixa em si não é um controle, então não mostra contorno; o contorno de foco
+   aparece normalmente em cada botão e campo dentro dela ao usar o Tab. */
+.modal-card:focus,
+.modal-card:focus-visible { outline: none !important; }
