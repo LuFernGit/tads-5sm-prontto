@@ -32,12 +32,25 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Rotas públicas (autenticação e vitrine pública da clínica)
+                        // 1. Swagger UI e documentação da API
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs"
+                        ).permitAll()
+
+                        // 2. Rotas públicas de autenticação e recuperação de senha
                         .requestMatchers("/auth/**").permitAll()
+
+                        // 3. Rotas públicas da vitrine da clínica (incluindo login e cadastro de cliente por slug)
                         .requestMatchers("/clinicas/**").permitAll()
-                        // Controle por perfil conforme contrato (ROLE_GESTORA e ROLE_CLIENTE)
+
+                        // 4. Controle de acesso estrito por perfil (ROLE_GESTORA e ROLE_CLIENTE)
                         .requestMatchers("/gestora/**").hasRole("GESTORA")
                         .requestMatchers("/cliente/**").hasRole("CLIENTE")
+
+                        // Qualquer outro endpoint exige autenticação
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
