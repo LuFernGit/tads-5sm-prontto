@@ -15,3 +15,8 @@
 @media (max-width: 700px) {
   .login-mobile-brand .brand { color: #fff; }
 }
+
+/* Brand usa <span> (pode ficar dentro de um botão): os blocos de texto ficam em linha própria */
+.brand > span,
+.brand-name,
+.brand-tagline { display: block; }

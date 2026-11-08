@@ -209,9 +209,11 @@
 .bk-cal-legend small { display: inline-flex; align-items: center; gap: 6px; }
 .bk-cal-legend small { margin-left: auto; font-size: 12px; color: #475569; }
 .bk-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.bk-dot.free { background: #22c55e; }
-.bk-dot.busy { background: var(--amber); }
-.bk-dot.chosen { background: var(--navy); }
+/* Cores das bolinhas = cores dos dias no calendário */
+.bk-dot.free { background: var(--green); }       /* texto "Livre" verde */
+.bk-dot.busy { background: var(--amber); }       /* dia lotado (fundo âmbar claro) */
+.bk-dot.closed { background: #64748b; }          /* dia fechado ou passado (cinza) */
+.bk-dot.chosen { background: var(--amber-dark); } /* dia selecionado (marrom) */
 .bk-cal-weekdays,
 .bk-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; padding-inline: 22px; }
 .bk-cal-weekdays { padding-top: 18px; padding-bottom: 8px; }
@@ -224,13 +226,15 @@
 .bk-cal-cell.free:hover { border-color: var(--amber); background: #fffaf3; transform: translateY(-1px); box-shadow: 0 6px 14px rgba(217, 119, 6, 0.1); }
 .bk-cal-cell.full { background: #fdf6ec; border-color: #f3dcc0; cursor: not-allowed; }
 .bk-cal-cell.full small { color: var(--amber-text); }
-.bk-cal-cell.closed { background: var(--cream); border-color: var(--line); cursor: not-allowed; }
+.bk-cal-cell.closed { background: #e2e8f0; border-color: #e2e8f0; cursor: not-allowed; }
 /* Dia que já passou: bloqueado, com o número riscado */
-.bk-cal-cell.past { background: var(--cream); border-color: var(--line); cursor: not-allowed; }
-.bk-cal-cell.past strong { color: #475569; text-decoration: line-through; }
-.bk-cal-cell.past small { color: #475569; }
+.bk-cal-cell.past { background: #e2e8f0; border-color: #e2e8f0; cursor: not-allowed; }
+.bk-cal-cell.past strong { color: #334155; text-decoration: line-through; }
+.bk-cal-cell.past small { color: #334155; }
 .bk-cal-cell.closed strong,
-.bk-cal-cell.closed small { color: #475569; }
+.bk-cal-cell.closed small { color: #334155; } /* #334155 × #e2e8f0 = 8,4:1 */
+/* Dias livres com borda mais marcada (parecem clicáveis); fechados/passados em cinza (#e2e8f0) */
+.bk-cal-cell.free { border-color: #cbd5e1; }
 .bk-cal-cell.selected { background: var(--amber-dark); border-color: var(--amber-dark); box-shadow: 0 8px 18px rgba(146, 64, 14, 0.28); }
 .bk-cal-cell.selected strong,
 .bk-cal-cell.selected small { color: #fff; }

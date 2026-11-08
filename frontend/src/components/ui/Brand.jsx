@@ -6,7 +6,7 @@ import "./Brand.css"
 // compact = true mostra só o símbolo (dois losangos), sem o nome 'prontto'.
 function Brand({ compact = false }) {
   return (
-    <div className="brand" style={{ height: 70 }}>
+    <span className="brand" style={{ height: 70 }}>
       <svg
         className="brand-mark"
         viewBox="0 0 64 64"
@@ -35,12 +35,12 @@ function Brand({ compact = false }) {
         />
       </svg>
       {!compact && (
-        <div>
-          <div className="brand-name">prontto</div>
-          <div className="brand-tagline">agendou, confirmou, pronto</div>
-        </div>
+        <span>
+          <span className="brand-name">prontto</span>
+          <span className="brand-tagline">agendou, confirmou, pronto</span>
+        </span>
       )}
-    </div>
+    </span>
   )
 }
 

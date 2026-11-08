@@ -71,3 +71,7 @@ a.icon-button { text-decoration: none; }
 /* Aviso de nova guia (components/ui/NewTabHint.jsx): ícone ↗ + texto pequeno */
 .new-tab-hint { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
 .new-tab-hint small { font-size: max(12px, 0.85em); font-weight: 500; color: inherit; }
+
+/* Logo/nome clicável (leva à página inicial): sem aparência de botão */
+.brand-home { display: flex; align-items: center; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.brand-home:hover { opacity: 0.85; }

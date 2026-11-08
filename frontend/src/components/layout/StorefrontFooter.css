@@ -1,6 +1,13 @@
 /* Estilos de StorefrontFooter.jsx (importado só por ele). */
 
-.storefront-footer { background: var(--navy); color: #fff; padding: 55px 7vw 20px; display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 35px; text-align: left; }
+/* Colunas: marca e localização (textos longos) ganham mais espaço;
+   contato e informações ocupam só o que precisam (auto). */
+.storefront-footer { background: var(--navy); color: #fff; padding: 55px 7vw 20px; display: grid; grid-template-columns: minmax(240px, 1.5fr) auto minmax(200px, 1.2fr) auto; gap: 35px 56px; text-align: left; }
+/* Telefone e e-mail sempre em uma linha só */
+.storefront-footer > div:nth-child(2) a { white-space: nowrap; }
+/* O aviso de nova guia não usa o estilo dos títulos das colunas (spans laranja) */
+.storefront-footer .new-tab-hint,
+.storefront-footer .new-tab-hint small { font-weight: 400; letter-spacing: 0; color: #cbd5e1; }
 .storefront-footer > div:not(.footer-brand):not(.footer-bottom) { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; }
 .storefront-footer span { font-size: 12px; letter-spacing: 0.15em; color: var(--gold); font-weight: 800; }
 .storefront-footer a { color: #cbd5e1; text-decoration: none; font-size: 12px; display: flex; align-items: center; gap: 5px; }
@@ -9,8 +16,12 @@
 .storefront-footer small { color: #cbd5e1; font-size: 12px; line-height: 1.7; margin: 0; }
 .footer-brand { display: flex; gap: 12px; }
 .footer-brand > div:last-child { display: flex; flex-direction: column; gap: 5px; }
-.footer-brand strong { font-family: var(--font-heading); font-size: 18px; }
+.footer-brand strong { font-family: var(--font-body); font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
 .footer-bottom { grid-column: 1/-1; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px; color: #cbd5e1; font-size: 12px; text-align: center; }
+/* Telas médias (tablet): duas colunas */
+@media (max-width: 1100px) {
+  .storefront-footer { grid-template-columns: 1fr 1fr; gap: 32px 40px; }
+}
 @media (max-width: 700px) {
   .storefront-footer { grid-template-columns: 1fr; padding: 42px 22px 95px; gap: 27px; }
   .footer-bottom { grid-column: 1; }

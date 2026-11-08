@@ -25,6 +25,8 @@ export const navigation = [
 
 /** Percentual do sinal cobrado de clientes não recorrentes. */
 export const SIGNAL_PERCENT = 30
+/** Quantos meses a cliente pode ver/agendar: o mês atual e o seguinte. */
+export const BOOKING_MONTHS = 2
 /** Validade do Pix gerado, em segundos. */
 export const PIX_TTL = 15 * 60
 /** Rótulo de exibição para os status de AGENDAMENTO.status do banco. */

@@ -40,6 +40,22 @@ const getClinic = (slug) => {
 /** Dados da empresa que são devolvidos às telas (com o slug junto). */
 const companyOut = (slug) => ({ ...db.clinics[slug].company, slug })
 
+/**
+ * Campos da empresa liberados na vitrine PÚBLICA (sem login).
+ * BACKEND: não expor cpf_cnpj (pode ser o CPF pessoal da profissional autônoma),
+ * nome da gestora nem status — princípio da necessidade da LGPD (art. 6º, III).
+ */
+const PUBLIC_COMPANY_FIELDS = [
+  "slug", "name", "initials", "logoImage", "heroImage", "favicon",
+  "tagline", "heroTitle", "description",
+  "phone", "email", "instagram", "address",
+  "termsOfUse", "privacyPolicy", "clinicTermsDocument", "clinicTermsFileName",
+]
+const publicCompanyOut = (slug) => {
+  const full = companyOut(slug)
+  return Object.fromEntries(PUBLIC_COMPANY_FIELDS.map((key) => [key, full[key]]))
+}
+
 /** Exige token de gestora e devolve a clínica dela. */
 const manager = (ctx) => {
   const s = session(ctx)
@@ -305,7 +321,7 @@ router.get("/clinicas/:slug", ({ params }) => {
   const clinic = getClinic(params.slug)
   if (clinic.company.status === "ENCERRADA") fail(404, "Clínica não encontrada.")
   return {
-    empresa: companyOut(params.slug),
+    empresa: publicCompanyOut(params.slug), // só os campos públicos (sem CPF/CNPJ)
     servicos: clinic.services.filter((s) => s.active),
     categorias: clinic.categories,
   }
@@ -695,6 +711,13 @@ router.post("/cliente/agendamentos", (ctx) => {
   // BACKEND: não aceitar agendamento no passado (a tela também bloqueia, mas a regra vale aqui).
   if (new Date(`${data}T${String(hora).slice(0, 5)}:00`) <= new Date())
     fail(400, "Essa data ou horário já passou. Escolha um horário futuro.")
+  // BACKEND: agenda aberta só para o mês atual e o seguinte (2 meses).
+  {
+    const now = new Date()
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0) // último dia do mês seguinte
+    if (new Date(`${data}T00:00:00`) > lastDay)
+      fail(400, "A agenda está aberta só para este mês e o próximo. Escolha uma data mais próxima.")
+  }
   const appointment = {
     id: `a${Date.now()}`,
     servicoId,

@@ -110,12 +110,17 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
     <main className="ff-page">
       <header className="ff-header">
         {/* Marca da clínica do link (logo + nome) */}
-        <div className="ff-clinic-brand">
+        <button
+          type="button"
+          className="ff-clinic-brand brand-home"
+          aria-label={`${company.name} — voltar`}
+          onClick={onBack}
+        >
           <span className="ff-clinic-logo">
             {company.logoImage ? <img src={company.logoImage} alt="" /> : company.initials}
           </span>
           <strong>{company.name}</strong>
-        </div>
+        </button>
         <button type="button" onClick={onBack}>
           ← Voltar ao login
         </button>

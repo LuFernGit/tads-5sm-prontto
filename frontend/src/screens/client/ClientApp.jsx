@@ -16,6 +16,7 @@ import {
   PREVIEW_CLIENT,
   badgeClass,
   emptyAnamnesis,
+  BOOKING_MONTHS,
 } from "@/constants"
 import { clearToken } from "@/api/session"
 import { toHealthRecord } from "@/lib/anamnesis"
@@ -55,6 +56,15 @@ const formatUpdatedAt = (iso) =>
 
 // pad(5) → '05' (completa com zero à esquerda).
 const pad = (n) => String(n).padStart(2, "0")
+
+/**
+ * true se hoje não cabe mais nenhum atendimento com esta duração antes do
+ * fechamento (19h, veja fitsBusinessHours). Nesse caso hoje conta como "Passado".
+ */
+const todayIsOver = (duration) => {
+  const now = new Date()
+  return !fitsBusinessHours(`${pad(now.getHours())}:${pad(now.getMinutes())}`, duration)
+}
 
 /** true se a data (AAAA-MM-DD) é hoje e o horário (HH:mm) já passou. */
 const isPastTime = (dateIso, time) => {
@@ -168,13 +178,13 @@ function ClientAppView({
     new Date().getMonth() + bookingMonthOffset,
     1,
   )
-  const bookingMonth = bookingDate
-    .toLocaleDateString("pt-BR", { month: "long" })
-    .toUpperCase()
-  const bookingYear = bookingDate.getFullYear()
+  const todayOver = todayIsOver(durationInMinutes(service.duration))
+  // Primeiro dia que ainda dá para agendar no mês mostrado.
+  const firstBookableDay =
+    bookingMonthOffset === 0 ? new Date().getDate() + (todayOver ? 1 : 0) : 1
   // Dia escolhido, ajustado para existir no mês mostrado e, no mês atual,
   // nunca ser anterior a hoje (não dá para agendar no passado).
-  const selectedDaySafe = Math.max(
+  const requestedDay = Math.max(
     Math.min(
       selectedDay,
       new Date(
@@ -183,9 +193,8 @@ function ClientAppView({
         0,
       ).getDate(),
     ),
-    bookingMonthOffset === 0 ? new Date().getDate() : 1,
+    firstBookableDay,
   )
-  const selectedDateLabel = `${selectedDaySafe} de ${bookingDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`
   const firstWeekday = bookingDate.getDay()
   const daysInMonth = new Date(
     bookingDate.getFullYear(),
@@ -211,6 +220,14 @@ function ClientAppView({
   )
   const busyDays = calendarQuery.data?.diasLotados ?? []
   const closedWeekdays = calendarQuery.data?.diasSemanaFechados ?? [0]
+  // Se o dia pedido estiver fechado ou lotado, a seleção vai para o próximo dia livre.
+  const dayIsBookable = (day) =>
+    !closedWeekdays.includes(new Date(bookingDate.getFullYear(), bookingDate.getMonth(), day).getDay()) &&
+    !busyDays.includes(day)
+  let selectedDaySafe = requestedDay
+  while (selectedDaySafe <= daysInMonth && !dayIsBookable(selectedDaySafe)) selectedDaySafe++
+  if (selectedDaySafe > daysInMonth) selectedDaySafe = requestedDay // nenhum dia livre no mês
+  const selectedDateLabel = `${selectedDaySafe} de ${bookingDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`
   const selectedDateIso = `${bookingDate.getFullYear()}-${pad(
     bookingDate.getMonth() + 1,
   )}-${pad(selectedDaySafe)}`
@@ -237,8 +254,10 @@ function ClientAppView({
     // Dia que já passou: só existe no mês atual (meses anteriores não são exibidos).
     const past =
       inMonth &&
-      new Date(bookingDate.getFullYear(), bookingDate.getMonth(), day) <
-        new Date(new Date().setHours(0, 0, 0, 0))
+      (new Date(bookingDate.getFullYear(), bookingDate.getMonth(), day) <
+        new Date(new Date().setHours(0, 0, 0, 0)) ||
+        // hoje, quando não cabe mais nenhum horário
+        (bookingMonthOffset === 0 && day === new Date().getDate() && todayOver))
     const closed = inMonth && !past && closedWeekdays.includes(index % 7)
     const full = inMonth && !past && busyDays.includes(day)
     return {
@@ -425,16 +444,25 @@ function ClientAppView({
 
       {/* Cabeçalho: logo da clínica e menu das abas (computador). */}
       <header className="client-header">
-        <div className="client-brand">
-          <div className="ca-monogram">
+        {/* Logo e nome levam para a página inicial (aba Início) */}
+        <button
+          type="button"
+          className="client-brand brand-home"
+          aria-label={`${company.name} — ir para a página inicial`}
+          onClick={() => {
+            setCategory("")
+            setTab("home")
+          }}
+        >
+          <span className="ca-monogram">
             {company.logoImage ? (
               <img src={company.logoImage} alt="" />
             ) : (
               company.initials
             )}
-          </div>
+          </span>
           <strong>{company.name}</strong>
-        </div>
+        </button>
         <div className="client-nav">
           <button
             type="button"
@@ -514,14 +542,6 @@ function ClientAppView({
               <Action onClick={() => setTab("services")}>
                 Conheça nossos serviços <Icon name="arrow" />
               </Action>
-            </div>
-            <div className="hero-badge">
-              <Icon name="sparkle" />
-              <span>
-                ATENDIMENTO
-                <br />
-                PERSONALIZADO
-              </span>
             </div>
           </section>
           <section className="specialties">
@@ -686,10 +706,6 @@ function ClientAppView({
                   {preview ? "VISUALIZAÇÃO DA AGENDA" : "AGENDE SEU HORÁRIO"}
                 </span>
                 <h1>Quando você quer se cuidar?</h1>
-                <p>
-                  Os horários exibidos são demonstrativos e devem respeitar o
-                  expediente e a duração configurados pela clínica.
-                </p>
               </div>
 
               <div className="bk-layout">
@@ -718,10 +734,18 @@ function ClientAppView({
 
                       <button
                         type="button"
-                        aria-label="Próximo mês"
+                        aria-label={
+                          bookingMonthOffset >= BOOKING_MONTHS - 1
+                            ? `Próximo mês (agenda aberta só para ${BOOKING_MONTHS} meses)`
+                            : "Próximo mês"
+                        }
                         className="bk-arrow"
+                        // Agenda limitada ao mês atual e ao seguinte
+                        disabled={bookingMonthOffset >= BOOKING_MONTHS - 1}
                         onClick={() => {
-                          setBookingMonthOffset((value) => value + 1)
+                          setBookingMonthOffset((value) =>
+                            Math.min(BOOKING_MONTHS - 1, value + 1),
+                          )
                           setSelectedTime("")
                         }}
                       >
@@ -730,14 +754,19 @@ function ClientAppView({
                     </div>
                   </div>
 
+                  {/* Legenda: mesmos nomes e cores que aparecem nos dias do calendário */}
                   <div className="bk-cal-legend">
                     <span>
                       <i className="bk-dot free" />
-                      Disponível
+                      Livre
                     </span>
                     <span>
                       <i className="bk-dot busy" />
-                      Indisponível
+                      Lotado
+                    </span>
+                    <span>
+                      <i className="bk-dot closed" />
+                      Fechado ou passado
                     </span>
                     <span>
                       <i className="bk-dot chosen" />
@@ -799,7 +828,9 @@ function ClientAppView({
                           aria-disabled={cell.past || undefined}
                         >
                           <strong>{cell.day}</strong>
-                          <small>{tag}</small>
+                          {/* Dia passado: só o número riscado, sem texto. O leitor de tela
+                              continua ouvindo "Passado" pelo aria-label do botão. */}
+                          {!cell.past && <small>{tag}</small>}
                         </button>
                       )
                     })}

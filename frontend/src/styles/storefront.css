@@ -22,7 +22,9 @@
 .client-brand > div:last-child { display: flex; flex-direction: column; }
 .client-brand strong { font-family: var(--font-body); font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: var(--navy); }
 .client-brand span { font-size: 12px; letter-spacing: 0.2em; color: var(--amber-text); font-weight: 800; }
-.client-nav button.active:after { content: ""; height: 2px; background: var(--amber); position: absolute; inset: auto 0 0; }
+/* Indicador da aba ativa: logo abaixo do texto (antes ficava colado na borda do topo).
+   #d97706 sobre branco = 3,19:1 (mínimo para elementos gráficos: 3:1) */
+.client-nav button.active:after { content: ""; height: 3px; border-radius: 3px; background: var(--amber); position: absolute; inset: auto 0 22px; }
 .pf-next-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 /* Ficha de saúde (cliente) e caixas de aceite */
 .pf-health-form { grid-template-columns: 1fr 1fr; }
@@ -36,3 +38,7 @@
   .pf-health-form { grid-template-columns: 1fr; }
   .mobile-nav button.active { color: var(--amber-text); }
 }
+
+/* O logo do topo virou <span> dentro de um botão: a regra ".client-brand span" (subtítulo laranja)
+   não pode mudar as iniciais da clínica dentro do quadro do logo */
+.client-brand .ca-monogram { font-size: 14px; letter-spacing: 0; color: var(--navy); font-weight: 800; }

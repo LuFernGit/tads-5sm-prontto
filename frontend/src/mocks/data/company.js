@@ -4,7 +4,7 @@ const defaultCompany = {
   name: "CA Beauty Clinic",
   ownerName: "Camille Oli",
   initials: "CA",
-  tagline: "BEAUTY & ESTHETICS",
+  tagline: "Estética Premium em São Paulo",
   heroTitle: "Realçando sua beleza com excelência e naturalidade.",
   description:
     "Atendimentos exclusivos, técnicas atuais e todo o cuidado que você merece.",

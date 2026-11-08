@@ -77,7 +77,7 @@ function CustomizationPage({ company, setCompany, notify }) {
             <input id="per-assinatura-da-marca"
               value={draft.tagline}
               onChange={(event) => update("tagline", event.target.value)}
-              placeholder="Ex.: BEAUTY & ESTHETICS"
+              placeholder="Ex.: Estética Premium em São Paulo"
             />
           </label>
           <label htmlFor="per-titulo-principal-da-vitrine" className="wide">

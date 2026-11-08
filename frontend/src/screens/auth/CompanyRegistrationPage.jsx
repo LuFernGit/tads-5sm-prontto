@@ -202,7 +202,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
       return "Crie pelo menos uma categoria de serviço."
     if (step === 4) {
       if (!data.tagline.trim())
-        return "Informe a assinatura da marca. Exemplo: BEAUTY & ESTHETICS."
+        return "Informe a assinatura da marca. Exemplo: Estética Premium em São Paulo."
       if (!data.heroTitle.trim())
         return "Informe o título principal da vitrine. Exemplo: Realçando sua beleza com naturalidade."
       if (!data.description.trim())
@@ -301,7 +301,15 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
     <main className="registration-page">
       {/* Topo: logo do Prontto e botão para voltar ao login. */}
       <header className="registration-header">
-        <Brand />
+        {/* Logo leva para a página inicial (login da gestora) */}
+        <button
+          type="button"
+          className="brand-home"
+          aria-label="Prontto — ir para a página inicial"
+          onClick={onBack}
+        >
+          <Brand />
+        </button>
         <button type="button" onClick={onBack}>
           ← Voltar ao login
         </button>

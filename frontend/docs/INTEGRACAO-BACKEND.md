@@ -318,6 +318,11 @@ explicando o passo a passo em `src/mocks/handlers.js` e em `src/api/services/*.j
   já passou. Escolha um horário futuro."), conferir disponibilidade (409 se
   ocupado/bloqueado) e copiar `nome_procedimento` e `valor_servico` do SERVICO
   (snapshot). O front também bloqueia o passado, mas a regra precisa valer no backend.
+- **Agenda aberta só para 2 meses**: o mês atual e o seguinte. Data depois do último
+  dia do mês seguinte → **400** ("A agenda está aberta só para este mês e o próximo.").
+  O front trava a seta de "próximo mês" no segundo mês (`BOOKING_MONTHS` em `src/constants`).
+- **Fechamento às 19h**: um horário só é oferecido se o serviço **terminar** até 19h
+  (ex.: serviço de 2h → último horário 17:00).
 - Cancelamento (gestora ou cliente): `status = 'CANCELADO'`, `cancelado_por`,
   `motivo_cancelamento`, `data_cancelamento`, e LOG_AUDITORIA.
 
@@ -328,7 +333,7 @@ explicando o passo a passo em `src/mocks/handlers.js` e em `src/api/services/*.j
 | **Livre** | dia | Tem pelo menos um horário em que o serviço escolhido cabe inteiro (HORARIO − BLOQUEIO_HORARIO − AGENDAMENTO não cancelados). |
 | **Lotado** | dia | Dia de expediente sem nenhum horário livre para o serviço escolhido, por agendamentos e/ou bloqueios parciais. Vem em `diasLotados`. |
 | **Fechado** | dia | Dia da semana sem expediente em HORARIO (`diasSemanaFechados`) **ou** dia inteiro bloqueado pela gestora (BLOQUEIO_HORARIO com `hora_inicio`/`hora_fim` `NULL`). |
-| **Passado** | dia | Data anterior a hoje. Calculado no front; o backend recusa agendar no passado. |
+| **Passado** | dia | Data anterior a hoje, **ou hoje** quando não cabe mais nenhum horário do serviço antes das 19h. Calculado no front; o backend recusa agendar no passado. A seleção pula sozinha para o próximo dia livre. |
 | **Indisponível** | horário | Horário ocupado por agendamento **ou** bloqueado (`occupied: true`). A cliente não vê o motivo, por privacidade. Horários de hoje que já passaram também aparecem como indisponíveis ("Já passou"). |
 
 No painel da gestora os mesmos dados aparecem com mais detalhe (`free`, `busy` com
@@ -389,6 +394,6 @@ quanto uma data URL.
 1. Subir o Spring em `http://localhost:8080` com as rotas acima sob `/api`.
 2. Criar `.env.local` com `VITE_USE_MOCKS=false`.
 3. `npm run dev` e testar os dois fluxos:
-   - Gestora: `http://localhost:8443/`
-   - Cliente: `http://localhost:8443/?clinica=<slug>`
+   - Gestora: `http://localhost:5173/`
+   - Cliente: `http://localhost:5173/?clinica=<slug>`
 4. Quando tudo funcionar, apagar a pasta `src/mocks` (veja `src/mocks/README.md`).

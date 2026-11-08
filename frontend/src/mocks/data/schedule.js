@@ -128,22 +128,36 @@ const sampleBlocks = [
 ]
 
 /** Horários livres de exemplo mostrados à cliente no agendamento. */
+// A clínica fecha às 19h: a tela só mostra o horário se o serviço TERMINAR até 19h
+// (fitsBusinessHours em src/lib/booking.js). Por isso não há horário às 19:00.
 const timePeriods = [
   {
     label: "MANHÃ",
     slots: [
       { time: "09:00", occupied: false },
+      { time: "10:00", occupied: false },
+      { time: "11:00", occupied: false },
       { time: "11:30", occupied: true },
     ],
   },
   {
     label: "TARDE",
     slots: [
+      { time: "13:00", occupied: false },
       { time: "14:00", occupied: false },
-      { time: "16:30", occupied: false },
+      { time: "15:00", occupied: true },
+      { time: "16:00", occupied: false },
     ],
   },
-  { label: "NOITE", slots: [{ time: "19:00", occupied: false }] },
+  {
+    label: "NOITE",
+    slots: [
+      { time: "17:00", occupied: false },
+      { time: "17:30", occupied: false },
+      { time: "18:00", occupied: false },
+      { time: "18:30", occupied: false },
+    ],
+  },
 ]
 
 export {

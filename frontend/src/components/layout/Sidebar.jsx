@@ -13,7 +13,15 @@ import "./Sidebar.css"
 function Sidebar({ page, setPage, setMode, notify, company }) {
   return (
     <aside className="sidebar" style={{ paddingBottom: 9 }}>
-      <Brand />
+      {/* Logo do Prontto leva para a página inicial do painel */}
+      <button
+        type="button"
+        className="brand-home"
+        aria-label="Prontto — ir para o painel (página inicial)"
+        onClick={() => setPage("dashboard")}
+      >
+        <Brand />
+      </button>
       <div className="clinic-pill">
         {/* Logo da clínica; se não houver imagem, mostra as iniciais do nome. */}
         <div className="clinic-logo">
