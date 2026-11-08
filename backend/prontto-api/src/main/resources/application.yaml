@@ -1,0 +1,48 @@
+# Configurações gerais da aplicação
+spring:
+  application:
+    name: prontto-api
+
+  # Conexão com o banco de dados MySQL
+  datasource:
+    url: jdbc:mysql://localhost:3306/prontto?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # Configuração do JPA / Hibernate (mantendo o schema.sql gerenciado manualmente)
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Execução automática do script SQL ao iniciar a aplicação
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+  # Configuração de upload via JSON (suporte a imagens em Base64)
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 15MB
+      max-request-size: 25MB
+
+# Configuração da documentação Swagger UI
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+# Porta em que o servidor backend vai rodar
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Chave secreta para assinatura dos tokens JWT
+jwt:
+  secret: prontto_secret_key_sprint_2026_sdm_token_auth
