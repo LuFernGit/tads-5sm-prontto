@@ -3,34 +3,29 @@ package prontto_api.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import prontto_api.domain.BloqueioHorario;
-import prontto_api.domain.Clinica;
-import prontto_api.domain.Horario;
-import prontto_api.domain.Usuario;
+import prontto_api.domain.*;
 import prontto_api.domain.enums.DiaSemana;
+import prontto_api.domain.enums.StatusAgendamento;
 import prontto_api.dto.BloqueioHorarioDto;
 import prontto_api.dto.HorarioFuncionamentoDto;
 import prontto_api.infra.exceptions.RecursoNaoEncontradoException;
+import prontto_api.repository.AgendamentoRepository;
 import prontto_api.repository.BloqueioHorarioRepository;
 import prontto_api.repository.ClinicaRepository;
 import prontto_api.repository.HorarioRepository;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class HorarioService {
 
-    @Autowired
-    private HorarioRepository horarioRepository;
-
-    @Autowired
-    private BloqueioHorarioRepository bloqueioHorarioRepository;
-
-    @Autowired
-    private ClinicaRepository clinicaRepository;
+    @Autowired private HorarioRepository horarioRepository;
+    @Autowired private BloqueioHorarioRepository bloqueioHorarioRepository;
+    @Autowired private ClinicaRepository clinicaRepository;
+    @Autowired private AgendamentoRepository agendamentoRepository;
 
     public List<HorarioFuncionamentoDto> listarHorariosFuncionamento(Usuario gestoraAutenticada) {
         Clinica clinica = validarClinicaGestora(gestoraAutenticada);
@@ -42,7 +37,7 @@ public class HorarioService {
                         h.getHoraFim().toString(),
                         h.getAtivo()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
@@ -52,6 +47,7 @@ public class HorarioService {
         List<Horario> horariosExistentes = horarioRepository.findByClinicaId(clinica.getId());
         horarioRepository.deleteAll(horariosExistentes);
 
+        List<Horario> novos = new ArrayList<>();
         for (var req : requests) {
             Horario horario = new Horario();
             horario.setClinica(clinica);
@@ -59,8 +55,9 @@ public class HorarioService {
             horario.setHoraInicio(LocalTime.parse(req.hora_inicio()));
             horario.setHoraFim(LocalTime.parse(req.hora_fim()));
             horario.setAtivo(req.ativo());
-            horarioRepository.save(horario);
+            novos.add(horario);
         }
+        horarioRepository.saveAll(novos);
 
         return listarHorariosFuncionamento(gestoraAutenticada);
     }
@@ -77,30 +74,46 @@ public class HorarioService {
                         b.getData().toString(),
                         b.getHoraInicio() != null ? b.getHoraInicio().toString() : null,
                         b.getHoraFim() != null ? b.getHoraFim().toString() : null,
-                        b.getMotivo()
+                        b.getMotivo(),
+                        List.of()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
     public BloqueioHorarioDto criarBloqueio(Usuario gestoraAutenticada, BloqueioHorarioDto request) {
         Clinica clinica = validarClinicaGestora(gestoraAutenticada);
+        LocalDate data = LocalDate.parse(request.data());
+        LocalTime inicio = (request.inicio() != null && !request.inicio().isBlank()) ? LocalTime.parse(request.inicio()) : null;
+        LocalTime fim = (request.fim() != null && !request.fim().isBlank()) ? LocalTime.parse(request.fim()) : null;
 
         BloqueioHorario bloqueio = new BloqueioHorario();
         bloqueio.setClinica(clinica);
-        bloqueio.setData(LocalDate.parse(request.data()));
-        bloqueio.setHoraInicio(request.inicio() != null ? LocalTime.parse(request.inicio()) : null);
-        bloqueio.setHoraFim(request.fim() != null ? LocalTime.parse(request.fim()) : null);
+        bloqueio.setData(data);
+        bloqueio.setHoraInicio(inicio);
+        bloqueio.setHoraFim(fim);
         bloqueio.setMotivo(request.motivo());
-
         bloqueio = bloqueioHorarioRepository.save(bloqueio);
+
+        List<Agendamento> agendamentos = agendamentoRepository.findByServicoClinicaIdAndData(clinica.getId(), data);
+        List<BloqueioHorarioDto.ConflitoAgendamentoDto> conflitos = agendamentos.stream()
+                .filter(a -> a.getStatus() != StatusAgendamento.CANCELADO)
+                .filter(a -> {
+                    if (inicio == null || fim == null) return true;
+                    LocalTime agIni = a.getHora();
+                    LocalTime agFim = agIni.plusMinutes(a.getServico().getDuracao());
+                    return agIni.isBefore(fim) && agFim.isAfter(inicio);
+                })
+                .map(a -> new BloqueioHorarioDto.ConflitoAgendamentoDto(a.getId().toString(), a.getCliente().getNome(), a.getHora().toString()))
+                .toList();
 
         return new BloqueioHorarioDto(
                 bloqueio.getId(),
                 bloqueio.getData().toString(),
                 bloqueio.getHoraInicio() != null ? bloqueio.getHoraInicio().toString() : null,
                 bloqueio.getHoraFim() != null ? bloqueio.getHoraFim().toString() : null,
-                bloqueio.getMotivo()
+                bloqueio.getMotivo(),
+                conflitos
         );
     }
 
@@ -118,9 +131,7 @@ public class HorarioService {
     }
 
     private Clinica validarClinicaGestora(Usuario gestora) {
-        if (gestora.getClinica() == null) {
-            throw new RecursoNaoEncontradoException("A gestora não está vinculada a nenhuma clínica.");
-        }
-        return gestora.getClinica();
+        return clinicaRepository.findByGestoraId(gestora.getId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Clínica da gestora não encontrada."));
     }
 }

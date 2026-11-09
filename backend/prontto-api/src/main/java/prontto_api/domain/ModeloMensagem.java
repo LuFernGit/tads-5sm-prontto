@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "modelo_mensagem")
+@Table(name = "MODELO_MENSAGEM")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,6 +14,7 @@ public class ModeloMensagem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_modelo")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -21,11 +22,14 @@ public class ModeloMensagem {
     private Clinica clinica;
 
     @Column(nullable = false, length = 100)
-    private String titulo;
+    private String nome;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String conteudo;
+    @Column(nullable = false, length = 1000)
+    private String texto;
+
+    @Column(nullable = false)
+    private Boolean ativo = true;
 
     @Column(nullable = false, length = 50)
-    private String gatilho;
+    private String finalidade = "PERSONALIZADA";
 }

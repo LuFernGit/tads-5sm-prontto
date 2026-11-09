@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "aceite_documento")
+@Table(name = "ACEITE_DOCUMENTO")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,6 +16,7 @@ public class AceiteDocumento {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_aceite")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -26,9 +27,12 @@ public class AceiteDocumento {
     @JoinColumn(name = "id_documento", nullable = false)
     private DocumentoTermo documento;
 
+    @Column(name = "papel_no_aceite", nullable = false, length = 20)
+    private String papelNoAceite;
+
     @Column(name = "data_hora_aceite", nullable = false)
     private LocalDateTime dataHoraAceite = LocalDateTime.now();
 
-    @Column(length = 45)
-    private String ip;
+    @Column(name = "ip_origem", length = 45)
+    private String ipOrigem;
 }

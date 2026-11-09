@@ -25,32 +25,13 @@ public class AuthController {
     @PostMapping("/gestora/cadastro")
     public ResponseEntity<TokenResponse> cadastrarGestora(@RequestBody @Valid CadastroClinicaRequest request) {
         TokenResponse response = authService.cadastrarGestoraEClinica(request);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/clinicas/{slug}/auth/login")
-    public ResponseEntity<TokenResponse> loginCliente(@PathVariable String slug, @RequestBody @Valid LoginRequest request) {
-        TokenResponse response = authService.autenticarCliente(slug, request);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/clinicas/{slug}/clientes")
-    public ResponseEntity<TokenResponse> cadastrarCliente(@PathVariable String slug, @RequestBody @Valid CadastroClienteRequest request) {
-        TokenResponse response = authService.cadastrarCliente(slug, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.status(201).body(response);
     }
 
     @GetMapping("/me")
     public ResponseEntity<UsuarioSessaoResponse> obterUsuarioAutenticado(Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
-        UsuarioSessaoResponse response = new UsuarioSessaoResponse(
-                usuario.getId().toString(),
-                usuario.getNome(),
-                usuario.getEmail(),
-                usuario.getTipo().name(),
-                usuario.getClinica() != null ? usuario.getClinica().getSlug() : null
-        );
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(authService.obterSessaoAtual(usuario));
     }
 
     @PostMapping("/recuperar-senha")

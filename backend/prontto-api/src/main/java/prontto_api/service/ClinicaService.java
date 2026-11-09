@@ -4,32 +4,29 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import prontto_api.domain.Clinica;
-import prontto_api.domain.enums.StatusClinica;
+import prontto_api.domain.Horario;
 import prontto_api.domain.Usuario;
+import prontto_api.domain.enums.DiaSemana;
+import prontto_api.domain.enums.StatusClinica;
 import prontto_api.dto.CalendarioDisponibilidadeResponse;
 import prontto_api.dto.ClinicaVitrineResponse;
 import prontto_api.dto.EmpresaResponse;
 import prontto_api.dto.ServicoResponse;
 import prontto_api.infra.exceptions.RecursoNaoEncontradoException;
 import prontto_api.infra.exceptions.RegraNegocioException;
-import prontto_api.repository.CategoriaRepository;
-import prontto_api.repository.ClinicaRepository;
-import prontto_api.repository.ServicoRepository;
+import prontto_api.repository.*;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class ClinicaService {
 
-    @Autowired
-    private ClinicaRepository clinicaRepository;
-
-    @Autowired
-    private ServicoRepository servicoRepository;
-
-    @Autowired
-    private CategoriaRepository categoriaRepository;
+    @Autowired private ClinicaRepository clinicaRepository;
+    @Autowired private ServicoRepository servicoRepository;
+    @Autowired private CategoriaRepository categoriaRepository;
+    @Autowired private HorarioRepository horarioRepository;
+    @Autowired private LogAuditoriaRepository logAuditoriaRepository;
 
     public ClinicaVitrineResponse obterVitrinePorSlug(String slug) {
         Clinica clinica = clinicaRepository.findBySlug(slug)
@@ -51,12 +48,12 @@ public class ClinicaService {
                         servico.getDescricao(),
                         servico.getFotoServico()
                 ))
-                .collect(Collectors.toList());
+                .toList();
 
         var categorias = categoriaRepository.findByClinicaId(clinica.getId())
                 .stream()
                 .map(cat -> cat.getNome())
-                .collect(Collectors.toList());
+                .toList();
 
         var empresaPublica = new ClinicaVitrineResponse.EmpresaPublicaResponse(
                 clinica.getSlug(),
@@ -72,18 +69,28 @@ public class ClinicaService {
                 clinica.getEmailContato(),
                 clinica.getInstagram(),
                 clinica.getEndereco(),
-                null, // termsOfUse
-                null, // privacyPolicy
-                null, // clinicTermsDocument
-                null  // clinicTermsFileName
+                null,
+                null,
+                null,
+                null
         );
 
         return new ClinicaVitrineResponse(empresaPublica, servicosAtivos, categorias);
     }
 
     public CalendarioDisponibilidadeResponse obterCalendarioMensal(String slug, String mes) {
-        buscarClinicaPorSlugAtiva(slug);
-        return new CalendarioDisponibilidadeResponse(List.of(), List.of(0));
+        Clinica clinica = buscarClinicaPorSlugAtiva(slug);
+        List<Horario> horarios = horarioRepository.findByClinicaId(clinica.getId());
+
+        List<Integer> fechados = new ArrayList<>();
+        for (DiaSemana dia : DiaSemana.values()) {
+            boolean ativo = horarios.stream().anyMatch(h -> h.getDiaSemana() == dia && h.getAtivo());
+            if (!ativo) {
+                fechados.add(converterDiaSemanaParaIndice(dia));
+            }
+        }
+
+        return new CalendarioDisponibilidadeResponse(List.of(), fechados);
     }
 
     public EmpresaResponse obterEmpresaGestora(Usuario gestoraAutenticada) {
@@ -121,6 +128,12 @@ public class ClinicaService {
         Clinica clinica = validarClinicaGestora(gestoraAutenticada);
         clinica.setStatus(StatusClinica.ENCERRAMENTO_SOLICITADO);
         clinicaRepository.save(clinica);
+
+        var log = new prontto_api.domain.LogAuditoria();
+        log.setUsuario(gestoraAutenticada);
+        log.setAcao("ENCERRAMENTO_CLINICA_SOLICITADO");
+        log.setIpOrigem("127.0.0.1");
+        logAuditoriaRepository.save(log);
     }
 
     private Clinica buscarClinicaPorSlugAtiva(String slug) {
@@ -133,10 +146,8 @@ public class ClinicaService {
     }
 
     private Clinica validarClinicaGestora(Usuario gestora) {
-        if (gestora.getClinica() == null) {
-            throw new RecursoNaoEncontradoException("A gestora não está vinculada a nenhuma clínica.");
-        }
-        return gestora.getClinica();
+        return clinicaRepository.findByGestoraId(gestora.getId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Clínica não encontrada para a gestora logada."));
     }
 
     private EmpresaResponse converterParaEmpresaResponse(Clinica clinica) {
@@ -171,5 +182,17 @@ public class ClinicaService {
             return partes[0].substring(0, Math.min(partes[0].length(), 2)).toUpperCase();
         }
         return (partes[0].substring(0, 1) + partes[partes.length - 1].substring(0, 1)).toUpperCase();
+    }
+
+    private int converterDiaSemanaParaIndice(DiaSemana dia) {
+        return switch (dia) {
+            case DOMINGO -> 0;
+            case SEGUNDA -> 1;
+            case TERCA -> 2;
+            case QUARTA -> 3;
+            case QUINTA -> 4;
+            case SEXTA -> 5;
+            case SABADO -> 6;
+        };
     }
 }

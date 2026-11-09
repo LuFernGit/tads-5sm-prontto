@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "documento_termo")
+@Table(name = "DOCUMENTO_TERMO")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,27 +16,32 @@ public class DocumentoTermo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_documento")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_clinica")
     private Clinica clinica;
 
-    @Column(nullable = false, length = 50)
-    private String tipo;
+    @Column(nullable = false, length = 100)
+    private String titulo;
+
+    @Column(name = "tipo_documento", nullable = false, length = 30)
+    private String tipoDocumento;
 
     @Column(nullable = false, length = 20)
     private String versao;
 
-    @Column(nullable = false, length = 20)
-    private String status = "RASCUNHO";
+    @Lob
+    @Column(name = "caminho_arquivo", columnDefinition = "LONGTEXT")
+    private String caminhoArquivo;
 
     @Column(columnDefinition = "TEXT")
     private String conteudo;
 
-    @Column(name = "caminho_arquivo", length = 255)
-    private String caminhoArquivo;
+    @Column(name = "data_publicacao")
+    private LocalDateTime dataPublicacao;
 
-    @Column(name = "criado_em", nullable = false)
-    private LocalDateTime criadoEm = LocalDateTime.now();
+    @Column(nullable = false, length = 20)
+    private String status = "RASCUNHO";
 }

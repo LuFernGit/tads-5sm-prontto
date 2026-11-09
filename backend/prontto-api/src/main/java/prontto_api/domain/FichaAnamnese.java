@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ficha_anamnese")
+@Table(name = "FICHA_ANAMNESE")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,21 +16,25 @@ public class FichaAnamnese {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_anamnese")
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_cliente", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_usuario", nullable = false, unique = true)
     private Usuario cliente;
 
-    @Column(length = 255)
+    @Column(nullable = false, length = 255)
     private String alergias;
 
-    @Column(name = "observacoes_medicas", columnDefinition = "TEXT")
+    @Column(name = "observacoes_medicas", nullable = false, length = 500)
     private String observacoesMedicas;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
+    @Column(columnDefinition = "JSON")
     private String respostas;
 
-    @Column(name = "atualizada_em", nullable = false)
-    private LocalDateTime atualizadaEm = LocalDateTime.now();
+    @Column(name = "notas_gestora", length = 500)
+    private String notasGestora;
+
+    @Column(name = "data_atualizacao", nullable = false)
+    private LocalDateTime dataAtualizacao = LocalDateTime.now();
 }

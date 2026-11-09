@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "log_auditoria")
+@Table(name = "LOG_AUDITORIA")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,6 +16,7 @@ public class LogAuditoria {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_log")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -25,11 +26,8 @@ public class LogAuditoria {
     @Column(nullable = false, length = 100)
     private String acao;
 
-    @Column(columnDefinition = "TEXT")
-    private String detalhe;
-
-    @Column(length = 45)
-    private String ip;
+    @Column(name = "ip_origem", length = 45)
+    private String ipOrigem;
 
     @Column(name = "data_hora", nullable = false)
     private LocalDateTime dataHora = LocalDateTime.now();

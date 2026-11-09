@@ -1,7 +1,5 @@
 package prontto_api.domain;
 
-import prontto_api.domain.enums.StatusUsuario;
-import prontto_api.domain.enums.TipoUsuario;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,13 +7,15 @@ import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import prontto_api.domain.enums.StatusUsuario;
+import prontto_api.domain.enums.TipoUsuario;
 
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "usuario")
+@Table(name = "USUARIO")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,52 +23,45 @@ public class Usuario implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_usuario")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_clinica")
     private Clinica clinica;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, length = 100)
     private String nome;
 
     @Column(name = "data_nascimento", nullable = false)
     private LocalDate dataNascimento;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, unique = true, length = 20)
     private String whatsapp;
 
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(name = "senha_hash", nullable = false, length = 255)
-    private String senhaHash;
+    @Column(name = "senha", nullable = false, length = 255)
+    private String senha;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private TipoUsuario tipo;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private StatusUsuario status = StatusUsuario.ATIVO;
-
     @Column(nullable = false)
     private Boolean recorrente = false;
-
-    @Column(name = "notas_gestora", columnDefinition = "TEXT")
-    private String notasGestora;
 
     @Column(name = "solicitou_exclusao", nullable = false)
     private Boolean solicitouExclusao = false;
 
-    @Column(name = "data_solicitacao_exclusao")
-    private LocalDate dataSolicitacaoExclusao;
-
-    // Métodos obrigatórios da interface UserDetails para o Spring Security
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private StatusUsuario status = StatusUsuario.ATIVO;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (this.tipo != null && this.tipo.name().equals("GESTORA")) {
+        if (this.tipo == TipoUsuario.GESTORA) {
             return List.of(new SimpleGrantedAuthority("ROLE_GESTORA"));
         }
         return List.of(new SimpleGrantedAuthority("ROLE_CLIENTE"));
@@ -76,7 +69,7 @@ public class Usuario implements UserDetails {
 
     @Override
     public String getPassword() {
-        return this.senhaHash;
+        return this.senha;
     }
 
     @Override
@@ -101,6 +94,6 @@ public class Usuario implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return this.status == StatusUsuario.ATIVO;
     }
 }

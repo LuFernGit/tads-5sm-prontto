@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "categoria")
+@Table(name = "CATEGORIA")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,6 +14,7 @@ public class Categoria {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_categoria")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
