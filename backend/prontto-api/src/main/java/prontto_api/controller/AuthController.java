@@ -2,6 +2,7 @@ package prontto_api.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -25,12 +26,14 @@ public class AuthController {
     @PostMapping("/gestora/cadastro")
     public ResponseEntity<TokenResponse> cadastrarGestora(@RequestBody @Valid CadastroClinicaRequest request) {
         TokenResponse response = authService.cadastrarGestoraEClinica(request);
-        return ResponseEntity.status(201).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/me")
     public ResponseEntity<UsuarioSessaoResponse> obterUsuarioAutenticado(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        if (authentication == null || !(authentication.getPrincipal() instanceof Usuario usuario)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         return ResponseEntity.ok(authService.obterSessaoAtual(usuario));
     }
 

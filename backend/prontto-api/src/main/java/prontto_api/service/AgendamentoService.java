@@ -89,9 +89,10 @@ public class AgendamentoService {
 
             PeriodoHorarioResponse.SlotDto slot = new PeriodoHorarioResponse.SlotDto(slotIni.toString().substring(0, 5), occupied);
 
+            // Divisão conforme padrão do front: Manhã (<12h), Tarde (12h-17h), Noite (17h+)
             if (slotIni.isBefore(LocalTime.of(12, 0))) {
                 slotsManha.add(slot);
-            } else if (slotIni.isBefore(LocalTime.of(18, 0))) {
+            } else if (slotIni.isBefore(LocalTime.of(17, 0))) {
                 slotsTarde.add(slot);
             } else {
                 slotsNoite.add(slot);

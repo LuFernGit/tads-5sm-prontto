@@ -134,8 +134,18 @@ public class GestoraAdminService {
     @Transactional
     public void salvarNotasCliente(Usuario gestora, Long idCliente, String notas) {
         FichaAnamnese ficha = fichaAnamneseRepository.findByClienteId(idCliente)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Ficha da cliente não encontrada."));
+                .orElseGet(() -> {
+                    Usuario cliente = usuarioRepository.findById(idCliente)
+                            .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrada."));
+                    FichaAnamnese f = new FichaAnamnese();
+                    f.setCliente(cliente);
+                    f.setAlergias("Nenhuma");
+                    f.setObservacoesMedicas("Nenhuma");
+                    f.setRespostas("{}");
+                    return f;
+                });
         ficha.setNotasGestora(notas);
+        ficha.setDataAtualizacao(LocalDateTime.now());
         fichaAnamneseRepository.save(ficha);
     }
 
