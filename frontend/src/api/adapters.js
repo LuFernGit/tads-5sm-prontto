@@ -53,6 +53,12 @@ export function toClientAppointment(a) {
     badge: apptLabel[status] ?? status,
     cancelledBy: a.canceladoPor,
     cancellationReason: a.motivoCancelamento,
+    // PENDENTE: prazo para a cliente confirmar ("2026-11-13T14:00" → "13/11 às 14:00")
+    needsConfirmation: status === "PENDENTE",
+    confirmBy: a.confirmarAte ?? null,
+    confirmByLabel: a.confirmarAte
+      ? `${a.confirmarAte.slice(8, 10)}/${a.confirmarAte.slice(5, 7)} às ${a.confirmarAte.slice(11, 16)}`
+      : "",
   }
 }
 

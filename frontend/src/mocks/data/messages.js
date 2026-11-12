@@ -3,11 +3,11 @@
 const defaultTemplates = [
   {
     id: "confirmacao",
-    nome: "Confirmação de agendamento",
+    nome: "Pedido de confirmação",
     finalidade: "CONFIRMACAO",
     ativo: true,
     texto:
-      "Olá, {nome}! Seu agendamento de {procedimento}, marcado para {data} às {horario}, está confirmado. Será um prazer receber você! — {clinica}",
+      "Olá, {nome}! Seu horário de {procedimento} está reservado para {data} às {horario}. Para garantir a sua vaga, confirme sua presença pelo nosso site até {prazo}: {link} Sem a confirmação, o horário é liberado para outra cliente. Te esperamos! — {clinica}",
   },
   {
     id: "cancelamento",

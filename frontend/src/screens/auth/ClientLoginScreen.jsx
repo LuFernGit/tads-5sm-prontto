@@ -2,6 +2,7 @@ import { useState } from "react"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
 import { USE_MOCKS, api } from "@/api"
+import { useFieldErrors } from "@/hooks/useFieldErrors"
 import { emailError } from "@/lib/validators"
 import ClientRegisterPage from "@/screens/client/ClientRegisterPage"
 import "./ClientLoginScreen.css"
@@ -17,33 +18,47 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
   const [password, setPassword] = useState("")
   const [registering, setRegistering] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Erros mostrados embaixo de cada campo (borda vermelha + orientação).
+  const { a11y, errorFor, showErrors, clearOnInput } = useFieldErrors(notify)
   /** Clique em 'Entrar': valida o básico e chama o login da cliente. */
   const signIn = async () => {
     // Mensagens com sugestão de correção (WCAG 3.3.3), não só "dados inválidos".
-    if (emailError(email)) {
-      notify(emailError(email))
+    if (
+      showErrors({
+        "cl-email": email.trim()
+          ? emailError(email)
+          : "Digite o seu e-mail para entrar.",
+        "cl-senha":
+          !password &&
+          "Digite a sua senha para entrar. Esqueceu? Use “Esqueci minha senha”.",
+      })
+    )
       return
-    }
-    if (!password) {
-      notify("Digite a sua senha para entrar. Esqueceu? Use \"Esqueci minha senha\".")
-      return
-    }
     if (submitting) return
     setSubmitting(true)
     try {
       await onLogin(email.trim().toLowerCase(), password)
       notify("Acesso de cliente identificado.")
     } catch (error) {
-      notify(error.message)
+      // Resposta do backend embaixo do campo: e-mail de gestora (403) ou de
+      // outra clínica (400) → e-mail; e-mail ou senha incorretos (401) → senha.
+      showErrors({
+        [error.status === 403 || error.status === 400 ? "cl-email" : "cl-senha"]:
+          error.message,
+      })
       setSubmitting(false)
     }
   }
   /** 'Esqueci minha senha': envia o e-mail digitado para recuperação. */
   const forgotPassword = async () => {
-    if (!email.includes("@")) {
-      notify("Digite seu e-mail para recuperar a senha.")
+    if (
+      showErrors({
+        "cl-email": email.trim()
+          ? emailError(email)
+          : "Para recuperar a senha, digite aqui o e-mail da sua conta.",
+      })
+    )
       return
-    }
     try {
       await api.auth.forgotPassword(email.trim().toLowerCase())
       notify("Enviaremos as instruções de recuperação para o seu e-mail.")
@@ -114,11 +129,11 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
             Acesse para agendar na {company.name} e acompanhar seus
             atendimentos.
           </p>
-          <div className="login-form">
+          <div className="login-form" onInput={clearOnInput}>
             <label htmlFor="cl-email">
               <span>E-MAIL</span>
               <input
-                id="cl-email"
+                {...a11y("cl-email")}
                 autoFocus
                 type="email"
                 autoComplete="email"
@@ -126,11 +141,12 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="seu@email.com"
               />
+              {errorFor("cl-email")}
             </label>
             <label htmlFor="cl-senha">
               <span>SENHA</span>
               <input
-                id="cl-senha"
+                {...a11y("cl-senha")}
                 type="password"
                 autoComplete="current-password"
                 value={password}
@@ -138,6 +154,7 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
                 onKeyDown={(event) => event.key === "Enter" && signIn()}
                 placeholder="Digite sua senha"
               />
+              {errorFor("cl-senha")}
             </label>
             <button
               type="button"

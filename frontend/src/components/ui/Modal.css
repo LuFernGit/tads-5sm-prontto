@@ -14,29 +14,50 @@
 .modal-card {
   width: min(470px, 100%);
   max-height: calc(100vh - 40px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #fff;
   border-radius: 20px;
-  padding: 24px;
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
 }
 .modal-card-wide { width: min(680px, 100%); }
+/* Cabeçalho fixo no topo: o botão de fechar continua visível ao rolar modais longos. */
 .modal-head {
+  flex: none;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 18px;
-}
-/* Cabeçalho fixo no topo: o botão de fechar continua visível ao rolar modais longos. */
-.modal-head {
-  position: sticky;
-  top: -24px;
-  z-index: 2;
-  margin: -24px -24px 18px;
   padding: 22px 24px 16px;
+  border-bottom: 1px solid var(--line);
   background: #fff;
+}
+/* Conteúdo rolável. A margem à direita afasta a barra de rolagem da borda
+   arredondada do cartão (antes ela encostava nos cantos). */
+.modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 18px 18px 24px;
+  margin: 0 6px 6px 0;
+}
+
+/* BARRA DE ROLAGEM DO MODAL — mesmo padrão do menu lateral (Sidebar.css):
+   6px, arredondada, sem trilho. Cursor #64748b sobre branco = 4,76:1 e #475569
+   ao passar o mouse = 7,58:1 (mínimo 3:1, WCAG 1.4.11). O dourado do menu no
+   hover não é usado aqui: sobre branco ele teria só 2:1.
+   "scrollbar-width: auto" é necessário para o Chrome usar as regras abaixo
+   (com "thin", o Chrome ignora ::-webkit-scrollbar e desenha a barra larga). */
+.modal-card .modal-body,
+.modal-card .modal-body:hover { scrollbar-width: auto !important; scrollbar-color: auto !important; }
+.modal-card .modal-body::-webkit-scrollbar { width: 6px; }
+.modal-card .modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-card .modal-body::-webkit-scrollbar-thumb { background: #64748b; border-radius: 999px; border: 0; }
+.modal-card .modal-body::-webkit-scrollbar-thumb:hover { background: #475569; }
+/* Firefox não tem ::-webkit-scrollbar: usa a versão fina padrão. */
+@supports not selector(::-webkit-scrollbar) {
+  .modal-card .modal-body,
+  .modal-card .modal-body:hover { scrollbar-width: thin !important; scrollbar-color: #64748b transparent !important; }
 }
 /* Botão de fechar: círculo com borda fina e X desenhado (44px = área de clique AAA). */
 .modal-close {
@@ -54,8 +75,8 @@
 }
 .modal-close:hover { background: #f1f5f9; border-color: #cbd5e1; color: var(--navy); }
 @media (max-width: 700px) {
-  .modal-card { padding: 18px; }
-  .modal-head { top: -18px; margin: -18px -18px 16px; padding: 16px 18px 14px; }
+  .modal-head { padding: 16px 18px 14px; }
+  .modal-body { padding: 16px 12px 18px 18px; }
 }
 
 /* O modal recebe o foco ao abrir só para o leitor de tela anunciar o título.

@@ -16,6 +16,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
 import java.util.List;
 
 @Configuration
@@ -31,6 +34,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Sem token (ou token inválido/expirado) -> 401, para o front descartar a sessão.
+                // Logado com perfil errado -> 403.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                escreverErro(response, 401, "Sua sessão expirou. Entre novamente."))
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                escreverErro(response, 403, "Acesso negado para este perfil."))
+                )
                 .authorizeHttpRequests(auth -> auth
                         // 1. Swagger / OpenAPI
                         .requestMatchers(
@@ -39,6 +50,9 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/v3/api-docs"
                         ).permitAll()
+
+                        // Página de erro do Spring: sem isso, qualquer exceção vira 401 genérico
+                        .requestMatchers("/error").permitAll()
 
                         // 2. Rotas públicas de autenticação da gestora e recuperação de senha
                         .requestMatchers("/auth/**").permitAll()
@@ -57,6 +71,12 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private static void escreverErro(HttpServletResponse response, int status, String mensagem) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"status\":" + status + ",\"message\":\"" + mensagem + "\"}");
     }
 
     @Bean

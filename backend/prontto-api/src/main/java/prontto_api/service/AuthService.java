@@ -35,6 +35,7 @@ public class AuthService {
     @Autowired private DocumentoTermoRepository documentoTermoRepository;
     @Autowired private AceiteDocumentoRepository aceiteDocumentoRepository;
     @Autowired private LogAuditoriaRepository logAuditoriaRepository;
+    @Autowired private ModeloMensagemRepository modeloMensagemRepository;
     @Autowired private TokenService tokenService;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuthenticationManager authenticationManager;
@@ -130,6 +131,10 @@ public class AuthService {
         clinica.setStatus(StatusClinica.ATIVA);
         clinica.setGestora(gestora);
         clinica = clinicaRepository.save(clinica);
+
+        // Modelos de mensagem padrão (confirmação, cancelamento, lembrete...):
+        // criados uma única vez, aqui no cadastro da clínica.
+        modeloMensagemRepository.saveAll(GestoraAdminService.modelosPadraoFaltantes(clinica, List.of()));
 
         if (request.categorias() != null) {
             for (String nomeCat : request.categorias()) {

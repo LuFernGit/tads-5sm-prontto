@@ -16,6 +16,7 @@ import ServicesPage from "./ServicesPage"
 import SettingsPage from "./SettingsPage"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import { openWhatsApp } from "@/lib/whatsapp"
+import { appointmentMessage } from "@/lib/messageTemplates"
 import "./AdminApp.css"
 
 /* ---------- Painel da GESTORA (área administrativa) ---------- */
@@ -41,6 +42,12 @@ function AdminApp({
     initialData: [],
   })
   const managerAppointments = appointmentsQuery.data ?? []
+  // Modelos de mensagem da clínica: usados no Painel, na Agenda e na Central de
+  // Mensagens (o texto editado lá vale em todo o painel).
+  const templatesQuery = useApiQuery(() => api.messages.listTemplates(), [], {
+    initialData: [],
+  })
+  const messageTemplates = templatesQuery.data ?? []
   // true = mostra o modal de confirmação para excluir a conta da clínica.
   const [confirmClinicDeletion, setConfirmClinicDeletion] = useState(false)
   /**
@@ -59,19 +66,24 @@ function AdminApp({
       return null
     }
   }
-  /** Cancelamento feito pela Agenda: cancela no backend e abre o WhatsApp com aviso pronto para a cliente. */
-  const cancelManagerAppointment = async (id) => {
+  /**
+   * Cancelamento feito pela Agenda: cancela no backend com o motivo informado e
+   * abre o WhatsApp com o modelo "Cancelamento" da clínica já preenchido.
+   */
+  const cancelManagerAppointment = async (id, motivo) => {
     const appointment = managerAppointments.find((item) => item.id === id)
-    if (!appointment || appointment.status === "CANCELADO") return
-    const updated = await cancelAppointmentOnServer(id, "Cancelado pela gestora")
-    if (!updated) return
+    if (!appointment || appointment.status === "CANCELADO") return false
+    const updated = await cancelAppointmentOnServer(id, motivo)
+    if (!updated) return false
     openWhatsApp(
-      `Olá, ${appointment.cliente}! Informamos que seu agendamento de ${appointment.servico}, marcado para ${appointment.data} às ${appointment.horario}, foi cancelado pela clínica. Entre em contato para combinarmos um novo horário.`,
+      appointmentMessage(messageTemplates, "CANCELAMENTO", appointment, company, { motivo }),
       appointment.whatsapp,
     )
     notify(
       "Agendamento cancelado. O WhatsApp foi aberto com uma mensagem pronta para a cliente.",
+      "success",
     )
+    return true
   }
   // Título mostrado no Topbar para cada página.
   const titles = {
@@ -113,7 +125,13 @@ function AdminApp({
         <Topbar title={titles[page]} setMode={setMode} />
         <div className="admin-content">
           {/* Só a página escolhida é mostrada: cada linha testa page === '<nome>'. */}
-          {page === "dashboard" && <DashboardPage notify={notify} />}
+          {page === "dashboard" && (
+            <DashboardPage
+              notify={notify}
+              company={company}
+              messageTemplates={messageTemplates}
+            />
+          )}
           {page === "clients" && <ClientsPage notify={notify} />}
           {page === "services" && (
             <ServicesPage
@@ -148,7 +166,8 @@ function AdminApp({
               notify={notify}
               company={company}
               appointments={managerAppointments}
-              onCancelAppointment={cancelAppointmentOnServer}
+              // Mantém os modelos do painel iguais aos da Central de Mensagens.
+              onTemplatesChange={templatesQuery.setData}
             />
           )}
           {page === "documents" && <DocumentsPage notify={notify} />}

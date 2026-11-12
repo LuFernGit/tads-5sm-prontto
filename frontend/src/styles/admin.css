@@ -119,6 +119,9 @@
 .settings-save { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
 .settings-save small { font-size: 12px; color: var(--muted); }
 .clinic-pill .eyebrow { font-size: 12px; color: #475569; }
+/* Seletor segmentado (ex.: Semana | Mês no Painel; Todos | Ativos | Inativos em Serviços) */
+.segmented { background: #f1f5f9; border-radius: 10px; padding: 3px; display: flex; font-size: 12px; font-weight: 700; color: #334155; }
+.segmented button { min-height: 32px; padding: 7px 11px; border: 0; background: transparent; color: inherit; cursor: pointer; border-radius: 8px; font: inherit; }
 .segmented .selected { background: #fff; color: var(--amber-text); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06); }
 .large-avatar {
   width: 48px;
@@ -178,3 +181,12 @@
 .settings-shortcuts button svg:last-child { margin-left: auto; color: #475569; }
 .settings-shortcuts button:hover { border-color: var(--amber-light); background: var(--cream); }
 .settings-subtitle { margin-top: 24px; }
+
+/* MODAL DA CLIENTE (Clientes) — histórico no mesmo visual dos cartões de dados
+   acima dele: fundo branco, borda cinza fina e título como os rótulos
+   ("E-MAIL", "WHATSAPP"), sem o bloco cinza e o título âmbar de antes. */
+.client-details span:last-child { grid-column: auto; }   /* 4 cartões em 2×2, sem buraco */
+.client-history { margin-top: 18px; }
+.client-history h3 { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #475569; }
+.client-history .af-list { margin-top: 10px; }
+.client-history .af-list li { background: #fff; font-size: 13px; color: var(--navy); }

@@ -13,6 +13,7 @@ import {
   cpfCnpjError,
   sameEmailsError,
 } from "@/lib/validators"
+import { defaultTemplates } from "./data/messages"
 import { createClinic, db } from "./db"
 import { createRouter, fail } from "./router"
 
@@ -485,7 +486,11 @@ const SLOT_MINUTES = 60
  */
 router.get("/gestora/painel", (ctx) => {
   const { clinic } = manager(ctx)
-  const monday = new Date()
+  // ?semana=YYYY-MM-DD (qualquer dia da semana desejada); sem ele = semana atual.
+  const semana = /^\d{4}-\d{2}-\d{2}$/.test(ctx.query?.semana || "")
+    ? ctx.query.semana.split("-").map(Number)
+    : null
+  const monday = semana ? new Date(semana[0], semana[1] - 1, semana[2]) : new Date()
   monday.setHours(0, 0, 0, 0)
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
   const pad = (n) => String(n).padStart(2, "0")
@@ -656,6 +661,61 @@ router.put("/gestora/mensagens/modelos", (ctx) => {
   const { clinic } = manager(ctx)
   clinic.modelos = Array.isArray(ctx.body) ? ctx.body : clinic.modelos
   return clinic.modelos
+})
+
+/** CRUD de um modelo por vez (mesmas regras do backend). */
+const templateFromBody = (body) => {
+  requireText(body?.nome, "Informe o nome do modelo. Exemplo: Aviso de feriado.")
+  requireText(body?.texto, "Escreva o texto da mensagem. Exemplo: Olá, {nome}! ...")
+  return {
+    nome: body.nome.trim(),
+    texto: body.texto.trim(),
+    finalidade: body.finalidade || "PERSONALIZADA",
+    ativo: body.ativo ?? true,
+  }
+}
+const findTemplate = (clinic, id) =>
+  clinic.modelos.find((m) => String(m.id) === String(id)) ||
+  fail(404, "Modelo de mensagem não encontrado.")
+
+router.post("/gestora/mensagens/modelos", (ctx) => {
+  const { clinic } = manager(ctx)
+  const created = { id: `modelo-${Date.now()}`, ...templateFromBody(ctx.body) }
+  clinic.modelos.push(created)
+  return created
+})
+
+router.put("/gestora/mensagens/modelos/:id", (ctx) => {
+  const { clinic } = manager(ctx)
+  const item = findTemplate(clinic, ctx.params.id)
+  Object.assign(item, templateFromBody(ctx.body))
+  return item
+})
+
+router.delete("/gestora/mensagens/modelos/:id", (ctx) => {
+  const { clinic } = manager(ctx)
+  const item = findTemplate(clinic, ctx.params.id)
+  clinic.modelos = clinic.modelos.filter((m) => m !== item)
+  return null
+})
+
+router.post("/gestora/mensagens/modelos/padrao", (ctx) => {
+  const { clinic } = manager(ctx)
+  const existing = new Set(clinic.modelos.map((m) => m.finalidade))
+  defaultTemplates
+    .filter((t) => !existing.has(t.finalidade))
+    .forEach((t) => clinic.modelos.push({ ...t, id: `modelo-${t.finalidade}-${Date.now()}` }))
+  return clinic.modelos
+})
+
+router.post("/gestora/mensagens/modelos/:id/restaurar", (ctx) => {
+  const { clinic } = manager(ctx)
+  const item = findTemplate(clinic, ctx.params.id)
+  const original = defaultTemplates.find((t) => t.finalidade === item.finalidade)
+  if (!original) fail(400, "Modelos personalizados não têm texto padrão para restaurar.")
+  item.nome = original.nome
+  item.texto = original.texto
+  return item
 })
 
 router.get("/gestora/mensagens/destinatarios", (ctx) => manager(ctx).clinic.destinatarios)

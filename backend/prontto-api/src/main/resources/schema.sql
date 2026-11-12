@@ -1,8 +1,21 @@
--- Schema V2 - Alteração na forma de armazenamento de imagens
--- Varchar(255) -> Longtext
+-- ============================================
+-- PRONTTO - Schema do banco de dados (MySQL 8)
+--
+-- V2 - Imagens passam de VARCHAR(255) para LONGTEXT (Base64).
+-- V3 - Script idempotente: não apaga mais o banco a cada start.
+--      * CREATE DATABASE / CREATE TABLE com IF NOT EXISTS
+--      * FK circular USUARIO -> CLINICA adicionada só se não existir
+--      * Dados iniciais inseridos só se ainda não existirem
+--
+-- Executado automaticamente pelo Spring a cada start
+-- (spring.sql.init.mode: always). Cria só o que ainda não existe e
+-- mantém os dados entre execuções.
+--
+-- Atenção: o script NÃO altera tabelas já existentes. Se mudar uma
+-- coluna aqui, recrie o banco manualmente: DROP DATABASE prontto;
+-- ============================================
 
-DROP DATABASE IF EXISTS prontto;
-CREATE DATABASE prontto
+CREATE DATABASE IF NOT EXISTS prontto
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
@@ -14,7 +27,7 @@ USE prontto;
 -- Armazena clientes e gestoras.
 -- ============================================
 
-CREATE TABLE USUARIO (
+CREATE TABLE IF NOT EXISTS USUARIO (
     id_usuario INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NULL,
     nome VARCHAR(100) NOT NULL,
@@ -54,7 +67,7 @@ CREATE TABLE USUARIO (
 -- Armazena os dados cadastrais da clínica.
 -- ============================================
 
-CREATE TABLE CLINICA (
+CREATE TABLE IF NOT EXISTS CLINICA (
     id_clinica INT PRIMARY KEY AUTO_INCREMENT,
     id_gestora INT NOT NULL,
     slug VARCHAR(100) NOT NULL UNIQUE,
@@ -90,10 +103,16 @@ CREATE TABLE CLINICA (
 ) ENGINE=InnoDB;
 
 
-ALTER TABLE USUARIO
-    ADD CONSTRAINT fk_usuario_clinica
-        FOREIGN KEY (id_clinica)
-        REFERENCES CLINICA(id_clinica);
+-- FK circular (USUARIO <-> CLINICA): só adiciona se ainda não existir.
+SET @fk_existe = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+                  WHERE CONSTRAINT_SCHEMA = DATABASE()
+                    AND CONSTRAINT_NAME = 'fk_usuario_clinica');
+SET @sql_fk = IF(@fk_existe = 0,
+    'ALTER TABLE USUARIO ADD CONSTRAINT fk_usuario_clinica FOREIGN KEY (id_clinica) REFERENCES CLINICA(id_clinica)',
+    'SELECT 1');
+PREPARE stmt_fk FROM @sql_fk;
+EXECUTE stmt_fk;
+DEALLOCATE PREPARE stmt_fk;
 
 
 -- ============================================
@@ -101,7 +120,7 @@ ALTER TABLE USUARIO
 -- Grupos do catálogo de cada clínica.
 -- ============================================
 
-CREATE TABLE CATEGORIA (
+CREATE TABLE IF NOT EXISTS CATEGORIA (
     id_categoria INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NOT NULL,
     nome VARCHAR(100) NOT NULL,
@@ -122,7 +141,7 @@ CREATE TABLE CATEGORIA (
 -- Armazena os procedimentos oferecidos.
 -- ============================================
 
-CREATE TABLE SERVICO (
+CREATE TABLE IF NOT EXISTS SERVICO (
     id_servico INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NOT NULL,
     id_categoria INT NOT NULL,
@@ -159,7 +178,7 @@ CREATE TABLE SERVICO (
 -- Define os horários de funcionamento.
 -- ============================================
 
-CREATE TABLE HORARIO (
+CREATE TABLE IF NOT EXISTS HORARIO (
     id_horario INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NOT NULL,
     hora_inicio TIME NOT NULL,
@@ -193,7 +212,7 @@ CREATE TABLE HORARIO (
 -- Bloqueios de dias e períodos na agenda.
 -- ============================================
 
-CREATE TABLE BLOQUEIO_HORARIO (
+CREATE TABLE IF NOT EXISTS BLOQUEIO_HORARIO (
     id_bloqueio INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NOT NULL,
     data DATE NOT NULL,
@@ -226,7 +245,7 @@ CREATE TABLE BLOQUEIO_HORARIO (
 -- Registra os agendamentos dos clientes.
 -- ============================================
 
-CREATE TABLE AGENDAMENTO (
+CREATE TABLE IF NOT EXISTS AGENDAMENTO (
     id_agendamento INT PRIMARY KEY AUTO_INCREMENT,
     id_usuario INT NOT NULL,
     id_servico INT NOT NULL,
@@ -235,7 +254,7 @@ CREATE TABLE AGENDAMENTO (
     data DATE NOT NULL,
     hora TIME NOT NULL,
     valor_sinal DECIMAL(10,2) NULL,
-    cancelado_por ENUM('GESTORA', 'CLIENTE') NULL,
+    cancelado_por ENUM('GESTORA', 'CLIENTE', 'SISTEMA') NULL,  -- SISTEMA = sem confirmação até 24h antes
     motivo_cancelamento VARCHAR(255) NULL,
     data_cancelamento DATETIME NULL,
     status ENUM(
@@ -277,7 +296,7 @@ CREATE TABLE AGENDAMENTO (
 -- 8. TABELA FICHA_ANAMNESE
 -- ============================================
 
-CREATE TABLE FICHA_ANAMNESE (
+CREATE TABLE IF NOT EXISTS FICHA_ANAMNESE (
     id_anamnese INT PRIMARY KEY AUTO_INCREMENT,
     id_usuario INT NOT NULL,
     alergias VARCHAR(255) NOT NULL,
@@ -302,7 +321,7 @@ CREATE TABLE FICHA_ANAMNESE (
 -- 9. TABELA HISTORICO_ANAMNESE
 -- ============================================
 
-CREATE TABLE HISTORICO_ANAMNESE (
+CREATE TABLE IF NOT EXISTS HISTORICO_ANAMNESE (
     id_historico INT PRIMARY KEY AUTO_INCREMENT,
     id_anamnese INT NOT NULL,
     campo_alterado VARCHAR(100) NOT NULL,
@@ -326,7 +345,7 @@ CREATE TABLE HISTORICO_ANAMNESE (
 -- 10. TABELA LOG_AUDITORIA
 -- ============================================
 
-CREATE TABLE LOG_AUDITORIA (
+CREATE TABLE IF NOT EXISTS LOG_AUDITORIA (
     id_log INT PRIMARY KEY AUTO_INCREMENT,
     id_usuario INT NULL,
     acao VARCHAR(100) NOT NULL,
@@ -349,7 +368,7 @@ CREATE TABLE LOG_AUDITORIA (
 -- 11. TABELA DOCUMENTO_TERMO
 -- ============================================
 
-CREATE TABLE DOCUMENTO_TERMO (
+CREATE TABLE IF NOT EXISTS DOCUMENTO_TERMO (
     id_documento INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NULL,
     titulo VARCHAR(100) NOT NULL,
@@ -379,7 +398,7 @@ CREATE TABLE DOCUMENTO_TERMO (
 -- 12. TABELA ACEITE_DOCUMENTO
 -- ============================================
 
-CREATE TABLE ACEITE_DOCUMENTO (
+CREATE TABLE IF NOT EXISTS ACEITE_DOCUMENTO (
     id_aceite INT PRIMARY KEY AUTO_INCREMENT,
     id_usuario INT NOT NULL,
     id_documento INT NOT NULL,
@@ -411,7 +430,7 @@ CREATE TABLE ACEITE_DOCUMENTO (
 -- 13. TABELA MODELO_MENSAGEM
 -- ============================================
 
-CREATE TABLE MODELO_MENSAGEM (
+CREATE TABLE IF NOT EXISTS MODELO_MENSAGEM (
     id_modelo INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NOT NULL,
     nome VARCHAR(100) NOT NULL,
@@ -438,14 +457,32 @@ CREATE TABLE MODELO_MENSAGEM (
 
 
 -- ============================================
+-- AJUSTES EM TABELAS JÁ EXISTENTES (V4)
+-- O CREATE TABLE IF NOT EXISTS não altera tabelas antigas; estes comandos
+-- podem rodar a cada start sem problema (o resultado é sempre o mesmo).
+-- ============================================
+
+-- V4: cancelamento automático pelo SISTEMA (cliente não confirmou até 24h antes).
+ALTER TABLE AGENDAMENTO
+    MODIFY COLUMN cancelado_por ENUM('GESTORA', 'CLIENTE', 'SISTEMA') NULL;
+
+
+-- ============================================
 -- DADOS INICIAIS
 -- Documentos gerais do Prontto (id_clinica NULL).
 -- ============================================
 
+-- Só insere se ainda não existir (evita duplicar a cada start).
 INSERT INTO DOCUMENTO_TERMO
     (id_clinica, titulo, tipo_documento, versao, caminho_arquivo, conteudo, status, data_publicacao)
-VALUES
-    (NULL, 'Termos de Uso do Prontto', 'TERMOS_USO', '1.0', NULL,
-     'Texto dos Termos de Uso do Prontto.', 'PUBLICADO', NOW()),
-    (NULL, 'Política de Privacidade do Prontto', 'POLITICA_PRIVACIDADE', '1.0', NULL,
-     'Texto da Política de Privacidade do Prontto.', 'PUBLICADO', NOW());
+SELECT NULL, 'Termos de Uso do Prontto', 'TERMOS_USO', '1.0', NULL,
+       'Texto dos Termos de Uso do Prontto.', 'PUBLICADO', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM DOCUMENTO_TERMO
+                  WHERE id_clinica IS NULL AND tipo_documento = 'TERMOS_USO');
+
+INSERT INTO DOCUMENTO_TERMO
+    (id_clinica, titulo, tipo_documento, versao, caminho_arquivo, conteudo, status, data_publicacao)
+SELECT NULL, 'Política de Privacidade do Prontto', 'POLITICA_PRIVACIDADE', '1.0', NULL,
+       'Texto da Política de Privacidade do Prontto.', 'PUBLICADO', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM DOCUMENTO_TERMO
+                  WHERE id_clinica IS NULL AND tipo_documento = 'POLITICA_PRIVACIDADE');

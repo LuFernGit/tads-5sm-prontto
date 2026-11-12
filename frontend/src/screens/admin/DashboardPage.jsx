@@ -1,13 +1,75 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useFieldErrors } from "@/hooks/useFieldErrors"
 import Action from "@/components/ui/Action"
 import NewTabHint from "@/components/ui/NewTabHint"
 import Icon from "@/components/ui/Icon"
 import Modal from "@/components/ui/Modal"
 import { openWhatsApp } from "@/lib/whatsapp"
+import { appointmentMessage, reminderFor } from "@/lib/messageTemplates"
 import "./DashboardPage.css"
+
+/* ---- Datas (sempre no fuso local; ISO = "YYYY-MM-DD") ---- */
+const toIso = (date) => date.toLocaleDateString("sv-SE")
+const parseIso = (iso) => {
+  const [y, m, d] = iso.split("-").map(Number)
+  return new Date(y, m - 1, d)
+}
+/** Segunda-feira (ISO) da semana que contém a data. */
+const mondayOf = (date) => {
+  const monday = new Date(date)
+  monday.setHours(0, 0, 0, 0)
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+  return toIso(monday)
+}
+const addDays = (iso, days) => {
+  const date = parseIso(iso)
+  date.setDate(date.getDate() + days)
+  return toIso(date)
+}
+const capitalize = (text) => text.replace(/^./, (letter) => letter.toUpperCase())
+const monthName = (date) => date.toLocaleDateString("pt-BR", { month: "long" })
+/** "2 a 8 de novembro de 2026" ou "30 de novembro a 6 de dezembro de 2026". */
+const weekRangeLabel = (startIso) => {
+  const start = parseIso(startIso)
+  const end = parseIso(addDays(startIso, 6))
+  const sameMonth = start.getMonth() === end.getMonth()
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const from = sameMonth
+    ? start.getDate()
+    : `${start.getDate()} de ${monthName(start)}${sameYear ? "" : ` de ${start.getFullYear()}`}`
+  return `${from} a ${end.getDate()} de ${monthName(end)} de ${end.getFullYear()}`
+}
+/** "09:00" + 90 min → "10:30". */
+const addMinutes = (hhmm, minutes) => {
+  const [h, m] = hhmm.split(":").map(Number)
+  const total = h * 60 + m + (Number(minutes) || 60)
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`
+}
+const MONTH_WEEKDAYS = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"]
+const SHORT_WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+/** "2026-11-11" → "Hoje" | "Amanhã" | "Sex, 13/11". */
+const dayLabel = (iso, now = new Date()) => {
+  if (!iso) return ""
+  const today = toIso(now)
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  if (iso === today) return "Hoje"
+  if (iso === toIso(tomorrow)) return "Amanhã"
+  const date = parseIso(iso)
+  return `${SHORT_WEEKDAYS[date.getDay()]}, ${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
+/** Item de "próximos atendimentos" (backend) → dados usados nos modelos de mensagem. */
+const nextToAppt = (item) => ({
+  cliente: item.name,
+  servico: item.service || item.detail,
+  dataIso: item.data,
+  horario: item.time,
+  status: item.status,
+})
+const STATUS_LABEL ={ CONFIRMADO: "Confirmado", PENDENTE: "Aguardando confirmação da cliente" }
 
 /**
  * Visão geral da operação com métricas, agenda semanal e próximos atendimentos.
@@ -20,31 +82,165 @@ import "./DashboardPage.css"
  * Não há horário avulso: para abrir mais horários, a gestora muda o horário de
  * funcionamento em "Agenda". Depois de cada ação o painel é recarregado.
  */
-function DashboardPageView({ notify, dashboard, reload }) {
-  // Dados que vieram do backend (GET /gestora/painel).
+function DashboardPageView({
+  notify,
+  dashboard,
+  appointments,
+  clientsTotal,
+  company,
+  messageTemplates = [],
+  reload,
+  weekStart,
+  setWeekStart,
+}) {
+  // Dados que vieram do backend (GET /gestora/painel?semana=...).
   const nextAppointments = dashboard.proximos
   const slots = dashboard.horarios
   const days = dashboard.dias
   const dates = dashboard.datas
-  const todayIso = new Date().toLocaleDateString("sv-SE") // YYYY-MM-DD local
-  // view = 'Semana' ou 'Mês'; monthOffset = quantos meses avançou/voltou no calendário.
+  const todayIso = toIso(new Date())
+  const currentWeek = mondayOf(new Date())
+  // view = 'Semana' ou 'Mês'; monthCursor = 1º dia do mês mostrado no calendário.
   const [view, setView] = useState("Semana")
-  const [monthOffset, setMonthOffset] = useState(0)
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const start = parseIso(weekStart)
+    return new Date(start.getFullYear(), start.getMonth(), 1)
+  })
   // Estados dos modais: horário clicado, motivo do cancelamento, dia sendo
   // gerenciado e ações esperando confirmação.
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [cancelReason, setCancelReason] = useState("")
+  // Erro do motivo do cancelamento, mostrado embaixo do campo.
+  const { a11y, errorFor, showErrors, clearOnInput, setErrors } =
+    useFieldErrors(notify)
+  const REASON_ID = "pai-motivo-do-cancelamento"
   const [confirmSlotCancellation, setConfirmSlotCancellation] = useState(false)
   const [managingDay, setManagingDay] = useState(null)
   const [pendingBlock, setPendingBlock] = useState(null)
   const [pendingCalendarAction, setPendingCalendarAction] = useState(null)
-  // Mês mostrado no calendário (base: outubro de 2026; o mês 9 é outubro porque começa em 0).
-  const monthDate = new Date(2026, 9 + monthOffset, 1)
-  const monthLabel = monthDate
-    .toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
-    .replace(/^./, (letter) => letter.toUpperCase())
+  const monthLabel = capitalize(
+    monthCursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
+  )
+  const isCurrentMonth =
+    monthCursor.getFullYear() === new Date().getFullYear() &&
+    monthCursor.getMonth() === new Date().getMonth()
+  /** Troca para o mês: começa no mês da semana que está aberta. */
+  const openMonth = () => {
+    const start = parseIso(weekStart)
+    setMonthCursor(new Date(start.getFullYear(), start.getMonth(), 1))
+    setView("Mês")
+  }
+  /** Clique num dia do mês: abre a semana daquele dia com os detalhes. */
+  const openWeekOf = (iso) => {
+    setWeekStart(mondayOf(parseIso(iso)))
+    setView("Semana")
+  }
+  /** Setas: na semana andam 7 dias; no mês, um mês. */
+  const step = (direction) => {
+    if (view === "Semana") {
+      setWeekStart(addDays(weekStart, 7 * direction))
+      return
+    }
+    setMonthCursor(
+      (current) =>
+        new Date(current.getFullYear(), current.getMonth() + direction, 1),
+    )
+  }
+  const goToday = () => {
+    setWeekStart(currentWeek)
+    setMonthCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  }
+  const showingToday = view === "Semana" ? weekStart === currentWeek : isCurrentMonth
+  // MÉTRICAS DO TOPO — calculadas com dados reais do backend (nada fixo):
+  //   hoje / confirmados → GET /gestora/agendamentos (data de hoje, sem cancelados)
+  //   horários livres    → GET /gestora/painel (slots "free" da semana exibida)
+  //   total de clientes  → GET /gestora/clientes
+  // O backend não guarda histórico para comparar com ontem/meses anteriores,
+  // por isso não há porcentagens nem variações.
+  const todayAppointments = appointments.filter(
+    (item) => item.dataIso === todayIso && item.status !== "CANCELADO",
+  )
+  const confirmedToday = todayAppointments.filter(
+    (item) => item.status === "CONFIRMADO",
+  ).length
+  const freeSlots = slots.flat().filter((slot) => slot.status === "free").length
+  const pad2 = (n) => String(n).padStart(2, "0")
+  // Agendamentos (não cancelados) agrupados por dia, em ordem de horário.
+  const appointmentsByDay = {}
+  appointments
+    .filter((item) => item.status !== "CANCELADO")
+    .sort((a, b) => a.horario.localeCompare(b.horario))
+    .forEach((item) => {
+      ;(appointmentsByDay[item.dataIso] ||= []).push(item)
+    })
+  // Células do mês: espaços vazios até a 1ª segunda-feira + os dias do mês.
+  const leadingBlanks = (monthCursor.getDay() + 6) % 7
+  const daysInMonth = new Date(
+    monthCursor.getFullYear(),
+    monthCursor.getMonth() + 1,
+    0,
+  ).getDate()
+  // Dias do mês + espaços completados com o fim do mês anterior e o começo do
+  // seguinte (apagados, igual à agenda da cliente). null = dia de outro mês.
+  const daysInPrevMonth = new Date(
+    monthCursor.getFullYear(),
+    monthCursor.getMonth(),
+    0,
+  ).getDate()
+  const monthDays = [
+    ...Array.from({ length: leadingBlanks }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) =>
+      toIso(
+        new Date(monthCursor.getFullYear(), monthCursor.getMonth(), index + 1),
+      ),
+    ),
+  ]
+  const monthCells = [
+    ...monthDays,
+    ...Array.from({ length: (7 - (monthDays.length % 7)) % 7 }, () => null),
+  ]
+  /** Número a mostrar num espaço de outro mês (anterior ou seguinte). */
+  const outsideDayLabel = (index) =>
+    index < leadingBlanks
+      ? daysInPrevMonth - leadingBlanks + index + 1
+      : index - leadingBlanks - daysInMonth + 1
+  const monthRows = Math.ceil(monthCells.length / 7)
+  // Disponibilidade do mês — a MESMA rota que a agenda da cliente usa
+  // (GET /clinicas/{slug}/calendario?mes=YYYY-MM): lotados, fechados e bloqueados.
+  const monthKey = toIso(monthCursor).slice(0, 7)
+  const availabilityQuery = useApiQuery(
+    () => api.clinic.getCalendar(company.slug, monthKey),
+    [company?.slug, monthKey],
+    { enabled: Boolean(company?.slug) },
+  )
+  const fullDays = availabilityQuery.data?.diasLotados ?? []
+  const closedWeekdays = availabilityQuery.data?.diasSemanaFechados ?? []
+  const blockedDays = availabilityQuery.data?.diasBloqueados ?? []
+  /**
+   * Situação do dia, com as MESMAS cores da agenda da cliente:
+   * passado/fechado = cinza · lotado = âmbar claro · livre = branco com "Livre"
+   * verde · hoje = âmbar escuro preenchido.
+   */
+  const dayState = (iso) => {
+    if (iso === todayIso) return { cls: "today", tag: "Hoje" }
+    if (iso < todayIso) return { cls: "past", tag: "" }
+    const day = Number(iso.slice(8, 10))
+    const weekday = parseIso(iso).getDay()
+    if (closedWeekdays.includes(weekday) || blockedDays.includes(day))
+      return { cls: "closed", tag: "Fechado" }
+    if (fullDays.includes(day)) return { cls: "full", tag: "Lotado" }
+    return { cls: "free", tag: "Livre" }
+  }
   // Qual item da lista 'Próximos atendimentos' está aberto (sanfona).
   const [openNext, setOpenNext] = useState("main")
+  // Atualiza a cada minuto o selo "EM X MIN" da próxima cliente.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000)
+    return () => window.clearInterval(timer)
+  }, [])
+  // Próximos atendimentos (backend): o 1º é a "Próxima cliente", os outros vão na lista.
+  const [firstNext, ...otherNext] = nextAppointments ?? []
   const toggleNext = (key) =>
     setOpenNext((current) => (current === key ? null : key))
   /** Executa a ação no backend, recarrega o painel e avisa o resultado. */
@@ -71,8 +267,9 @@ function DashboardPageView({ notify, dashboard, reload }) {
    *   livre             → pergunta se quer bloquear
    */
   const handleSlot = (slot, dayIndex) => {
-    if (slot.status === "busy" || slot.status === "cancelled") {
+    if (slot.status === "busy") {
       setCancelReason("")
+      setErrors({})
       setSelectedSlot({ ...slot, day: days[dayIndex], dayIndex })
       return
     }
@@ -139,10 +336,8 @@ function DashboardPageView({ notify, dashboard, reload }) {
   }
   /** Cancela o atendimento selecionado (motivo obrigatório) e abre o WhatsApp para avisar a cliente. */
   const confirmCalendarCancellation = async () => {
-    if (!selectedSlot || !cancelReason.trim()) {
-      notify("Informe o motivo do cancelamento.")
-      return
-    }
+    if (!selectedSlot) return
+    if (showErrors({ [REASON_ID]: !cancelReason.trim() && "Informe o motivo do cancelamento. Ele vai na mensagem para a cliente. Exemplo: indisponibilidade da profissional." })) return
     const reason = cancelReason.trim()
     const slot = selectedSlot
     const ok = await run(
@@ -151,7 +346,13 @@ function DashboardPageView({ notify, dashboard, reload }) {
     )
     if (!ok) return
     openWhatsApp(
-      `Olá, ${slot.client}! Informamos que seu agendamento de ${slot.service}, marcado para ${slot.day} às ${slot.time}, precisou ser cancelado. Motivo: ${reason}. Pedimos desculpas pelo transtorno.`,
+      appointmentMessage(
+        messageTemplates,
+        "CANCELAMENTO",
+        { cliente: slot.client, servico: slot.service, dataIso: dates[slot.dayIndex], horario: slot.time },
+        company,
+        { motivo: reason },
+      ),
       slot.whatsapp,
     )
     setConfirmSlotCancellation(false)
@@ -162,18 +363,19 @@ function DashboardPageView({ notify, dashboard, reload }) {
     <>
       {/* Cartões de números no topo (atendimentos, faturamento etc.). */}
       <section className="metrics">
-        <div className="metric-card accent">
+        <div className="metric-card">
           <div className="metric-icon rose">
             <Icon name="calendar" />
           </div>
           <div>
             <small>AGENDAMENTOS HOJE</small>
-            <strong>06</strong>
+            <strong>{pad2(todayAppointments.length)}</strong>
             <span>
-              <b>+2</b> em relação a ontem
+              {todayAppointments.length === 0
+                ? "Nenhum atendimento hoje"
+                : "Sem contar os cancelados"}
             </span>
           </div>
-          <div className="metric-decoration" />
         </div>
         <div className="metric-card">
           <div className="metric-icon green">
@@ -181,8 +383,12 @@ function DashboardPageView({ notify, dashboard, reload }) {
           </div>
           <div>
             <small>CONFIRMADOS</small>
-            <strong>05</strong>
-            <span>83% de confirmação</span>
+            <strong>{pad2(confirmedToday)}</strong>
+            <span>
+              {todayAppointments.length === 0
+                ? "Nenhum atendimento hoje"
+                : `de ${todayAppointments.length} agendados hoje`}
+            </span>
           </div>
         </div>
         <div className="metric-card">
@@ -191,8 +397,12 @@ function DashboardPageView({ notify, dashboard, reload }) {
           </div>
           <div>
             <small>HORÁRIOS LIVRES</small>
-            <strong>08</strong>
-            <span>Disponíveis esta semana</span>
+            <strong>{pad2(freeSlots)}</strong>
+            <span>
+              {weekStart === currentWeek
+                ? "Disponíveis esta semana"
+                : "Disponíveis na semana exibida"}
+            </span>
           </div>
         </div>
         <div className="metric-card">
@@ -201,10 +411,8 @@ function DashboardPageView({ notify, dashboard, reload }) {
           </div>
           <div>
             <small>TOTAL DE CLIENTES</small>
-            <strong>120</strong>
-            <span>
-              <b>+12%</b> desde abril
-            </span>
+            <strong>{clientsTotal == null ? "—" : pad2(clientsTotal)}</strong>
+            <span>Cadastradas na clínica</span>
           </div>
         </div>
       </section>
@@ -214,7 +422,9 @@ function DashboardPageView({ notify, dashboard, reload }) {
           <div className="card-heading">
             <div>
               <span className="section-kicker">AGENDA INTELIGENTE</span>
-              <div className="section-title">{monthLabel}</div>
+              <div className="section-title" aria-live="polite">
+                {view === "Semana" ? weekRangeLabel(weekStart) : monthLabel}
+              </div>
             </div>
             <div className="calendar-tools">
               <div className="segmented">
@@ -222,49 +432,58 @@ function DashboardPageView({ notify, dashboard, reload }) {
                   <button
                     type="button"
                     key={v}
-                    onClick={() => setView(v)}
+                    onClick={() => (v === "Mês" ? openMonth() : setView(v))}
                     className={view === v ? "selected" : ""}
+                    aria-pressed={view === v}
                   >
                     {v}
                   </button>
                 ))}
               </div>
+              {!showingToday && (
+                <button type="button" className="today-control" onClick={goToday}>
+                  Hoje
+                </button>
+              )}
               <button
                 type="button"
-                aria-label="Mês anterior"
+                aria-label={view === "Semana" ? "Semana anterior" : "Mês anterior"}
                 className="circle-control rotate"
-                onClick={() => setMonthOffset((value) => value - 1)}
+                onClick={() => step(-1)}
               >
                 <Icon name="chevron" />
               </button>
               <button
                 type="button"
-                aria-label="Próximo mês"
+                aria-label={view === "Semana" ? "Próxima semana" : "Próximo mês"}
                 className="circle-control"
-                onClick={() => setMonthOffset((value) => value + 1)}
+                onClick={() => step(1)}
               >
                 <Icon name="chevron" />
               </button>
             </div>
           </div>
-          <div className="calendar-legend">
-            <span>
-              <i className="dot free" />
-              Disponível
-            </span>
-            <span>
-              <i className="dot busy" />
-              Agendado
-            </span>
-            <span>
-              <i className="dot blocked" />
-              Bloqueado
-            </span>
-            <small>
-              <Icon name="lock" size={13} /> Clique em um horário livre para
-              bloquear
-            </small>
-          </div>
+          {/* Legenda da SEMANA (a do mês fica junto da grade do mês, mais abaixo). */}
+          {view === "Semana" && (
+            <div className="calendar-legend">
+              <span>
+                <i className="dot free" />
+                Disponível
+              </span>
+              <span>
+                <i className="dot busy" />
+                Agendado
+              </span>
+              <span>
+                <i className="dot blocked" />
+                Bloqueado
+              </span>
+              <small>
+                <Icon name="lock" size={13} /> Clique em um horário livre para
+                bloquear
+              </small>
+            </div>
+          )}
           {view === "Semana" ? (
             <div className="week-grid">
               {days.map((day, dayIndex) => (
@@ -283,56 +502,53 @@ function DashboardPageView({ notify, dashboard, reload }) {
                     </button>
                   </div>
                   <div className="day-slots">
-                    {slots[dayIndex].map((slot, index) => (
-                      // O slot contém um botão de WhatsApp no tooltip; por isso,
-                      // o contêiner interativo não pode ser outro <button>.
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        key={slot.time}
+                    {slots[dayIndex].map((slot) => (
+                      // ACESSIBILIDADE (WCAG 4.1.2): o horário é um <button> de verdade e o
+                      // balão (com o botão do WhatsApp) fica AO LADO dele, não dentro.
+                      // O balão abre ao passar o mouse ou ao focar pelo teclado (Tab).
+                      <div className="time-slot-wrap" key={slot.time}>
+                      <button
+                        type="button"
                         onClick={() => handleSlot(slot, dayIndex)}
                         className={`time-slot ${slot.status}`}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault()
-                            handleSlot(slot, dayIndex)
-                          }
-                        }}
                         aria-label={`${days[dayIndex]} ${slot.time}: ${
                           slot.status === "busy"
-                            ? "agendado"
-                            : slot.status === "cancelled"
-                              ? "cancelado"
-                              : slot.status === "blocked"
+                            ? `agendado com ${slot.client}${
+                                slot.appointmentStatus === "PENDENTE"
+                                  ? ", aguardando confirmação"
+                                  : ", confirmado"
+                              }`
+                            : slot.status === "blocked"
                                 ? "bloqueado"
                                 : "livre"
                         }`}
                       >
                         <span>{slot.time}</span>
-                        {(slot.status === "busy" ||
-                          slot.status === "cancelled") && <i />}
+                        {slot.status === "busy" && <i />}
+                        {slot.status === "blocked" && (
+                          <Icon name="lock" size={12} />
+                        )}
+                      </button>
                         {slot.status === "busy" && (
-                          <div
-                            className="slot-tooltip"
-                            style={
-                              dayIndex === 2 && index === 1
-                                ? {
-                                    opacity: 1,
-                                    visibility: "visible",
-                                    transform: "translateY(0)",
-                                  }
-                                : undefined
-                            }
-                          >
+                          <div className="slot-tooltip">
                             <div className="tooltip-head">
                               <div className="client-avatar">
                                 {slot.client?.slice(0, 1)}
                               </div>
                               <div>
                                 <strong>{slot.client}</strong>
-                                <span>Cliente confirmada</span>
+                                <span>
+                                  {slot.appointmentStatus === "PENDENTE"
+                                    ? "Aguardando confirmação"
+                                    : "Cliente confirmada"}
+                                </span>
                               </div>
-                              <div className="status-dot" />
+                              <div
+                                className={`status-dot ${
+                                  slot.appointmentStatus === "PENDENTE" ? "pending" : ""
+                                }`}
+                                aria-hidden="true"
+                              />
                             </div>
                             <div className="tooltip-detail">
                               <Icon name="sparkle" />
@@ -344,19 +560,36 @@ function DashboardPageView({ notify, dashboard, reload }) {
                             <div className="tooltip-row">
                               <span>
                                 <Icon name="clock" size={14} /> {slot.time} —{" "}
-                                {slot.time === "09:00" ? "10:00" : "15:00"}
+                                {slot.end}
                               </span>
-                              <span className="confirmed">
-                                {dayIndex === 2 && index === 1
-                                  ? "CONFIRMADO"
+                              <span
+                                className={
+                                  slot.appointmentStatus === "PENDENTE"
+                                    ? "pending"
+                                    : "confirmed"
+                                }
+                              >
+                                {slot.appointmentStatus === "PENDENTE"
+                                  ? "Pendente"
                                   : "Confirmado"}
                               </span>
                             </div>
-                            <div onClick={(event) => event.stopPropagation()}>
+                            <div>
                               <Action
                                 onClick={() =>
                                   openWhatsApp(
-                                    `Olá, ${slot.client}! Confirmando seu atendimento de ${slot.service} às ${slot.time}.`,
+                                    reminderFor(
+                                      messageTemplates,
+                                      {
+                                        cliente: slot.client,
+                                        servico: slot.service,
+                                        dataIso: dates[dayIndex],
+                                        horario: slot.time,
+                                        status: slot.appointmentStatus,
+                                      },
+                                      company,
+                                    ),
+                                    slot.whatsapp,
                                   )
                                 }
                               >
@@ -366,12 +599,6 @@ function DashboardPageView({ notify, dashboard, reload }) {
                             </div>
                           </div>
                         )}
-                        {slot.status === "blocked" && (
-                          <Icon name="lock" size={12} />
-                        )}
-                        {slot.status === "cancelled" && (
-                          <small>Cancelado</small>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -379,36 +606,108 @@ function DashboardPageView({ notify, dashboard, reload }) {
               ))}
             </div>
           ) : (
+            <>
+            {/* Legenda: mesmas cores do calendário que a cliente vê na vitrine. */}
+            <div className="month-legend" aria-hidden="true">
+              <span><i className="month-dot free" /> Livre</span>
+              <span><i className="month-dot full" /> Lotado</span>
+              <span><i className="month-dot closed" /> Fechado ou passado</span>
+              <span><i className="month-dot today" /> Hoje</span>
+              <small>
+                <Icon name="calendar" size={14} /> Clique em um dia para abrir a semana
+              </small>
+            </div>
             <div className="month-overview">
-              {Array.from({ length: 35 }, (_, index) => {
-                const day = index + 1
-                const hasBooking = [2, 6, 9, 14, 18, 23, 27, 30].includes(day)
+              {MONTH_WEEKDAYS.map((label) => (
+                <span className="month-weekday" key={label} aria-hidden="true">
+                  {label}
+                </span>
+              ))}
+              {monthCells.map((iso, index) => {
+                if (!iso)
+                  return (
+                    <span
+                      className="month-out"
+                      key={`out-${index}`}
+                      aria-hidden="true"
+                    >
+                      {outsideDayLabel(index)}
+                    </span>
+                  )
+                const state = dayState(iso)
+                const dayNumber = Number(iso.slice(8, 10))
+                const list = appointmentsByDay[iso] || []
+                const column = index % 7
+                const row = Math.floor(index / 7)
+                // Posição do balão: não sair pelas bordas do calendário.
+                const tooltipPosition = [
+                  column === 0 ? "edge-left" : column >= 5 ? "edge-right" : "",
+                  row >= monthRows - 2 && monthRows > 3 ? "above" : "",
+                ].join(" ")
+                const summary = list.length
+                  ? list
+                      .map((item) => `${item.horario} ${item.cliente}, ${item.servico}`)
+                      .join("; ")
+                  : "nenhum agendamento"
                 return (
                   <button
                     type="button"
-                    key={day}
-                    className={hasBooking ? "has-booking" : ""}
-                    onClick={() =>
-                      notify(
-                        hasBooking
-                          ? `${day} de ${monthLabel}: há atendimento agendado.`
-                          : `${day} de ${monthLabel}: agenda livre.`,
-                      )
-                    }
+                    key={iso}
+                    className={`month-day ${state.cls}`}
+                    onClick={() => openWeekOf(iso)}
+                    aria-label={`${dayNumber} de ${monthName(monthCursor)}, ${state.tag || "dia passado"}: ${summary}. Abrir a semana.`}
+                    aria-current={iso === todayIso ? "date" : undefined}
                   >
-                    <span>{day}</span>
-                    {hasBooking && <small>Agendado</small>}
+                    <span className="month-day-number">{dayNumber}</span>
+                    {list.slice(0, 2).map((item) => (
+                      <small className="month-chip" key={item.id}>
+                        <b>{item.horario}</b> {item.cliente.split(" ")[0]}
+                      </small>
+                    ))}
+                    {list.length > 2 && (
+                      // <span> (e não <small>): o painel força todo <small> a ficar cinza
+                      // (.admin-main small em AdminApp.css), o que apagava a cor no dia de hoje.
+                      <span className="month-more">+{list.length - 2} mais</span>
+                    )}
+                    {state.tag && <span className="month-tag">{state.tag}</span>}
+                    {list.length > 0 && (
+                      <span
+                        className={`month-tooltip ${tooltipPosition}`}
+                        aria-hidden="true"
+                      >
+                        <span className="month-tooltip-title">
+                          {dayNumber} de {monthName(monthCursor)} ·{" "}
+                          {list.length}{" "}
+                          {list.length === 1 ? "atendimento" : "atendimentos"}
+                        </span>
+                        {list.map((item) => (
+                          <span className="month-tooltip-item" key={item.id}>
+                            <span className="month-tooltip-time">
+                              {item.horario}–{addMinutes(item.horario, item.duracao)}
+                            </span>
+                            <span className="month-tooltip-info">
+                              <strong>{item.cliente}</strong>
+                              <small>{item.servico}</small>
+                            </span>
+                          </span>
+                        ))}
+                        <span className="month-tooltip-hint">
+                          Clique para ver a semana
+                        </span>
+                      </span>
+                    )}
                   </button>
                 )
               })}
             </div>
+            </>
           )}
           <div className="calendar-foot">
             <span>
               <Icon name="sparkle" size={14} /> Dica Prontto: passe o mouse nos
               agendamentos para ver detalhes.
             </span>
-            <Action variant="ghost" onClick={() => setView("Mês")}>
+            <Action variant="ghost" onClick={openMonth}>
               Abrir agenda completa <Icon name="arrow" size={14} />
             </Action>
           </div>
@@ -419,143 +718,177 @@ function DashboardPageView({ notify, dashboard, reload }) {
         >
           <div className="next-top">
             <span className="section-kicker">PRÓXIMA CLIENTE</span>
-            <span className="live-dot">EM 25 MIN</span>
           </div>
 
-          <div className="next-profile">
-            <div className="large-avatar">J</div>
-            <div>
-              <strong>Jamily Souza</strong>
-              <span>Cliente recorrente</span>
-            </div>
-            <button
-              type="button"
-              className={`expand-btn ${openNext === "main" ? "open" : ""}`}
-              aria-expanded={openNext === "main"}
-              aria-controls="next-main"
-              aria-label="Detalhes do atendimento de Jamily Souza"
-              onClick={() => toggleNext("main")}
-            >
-              <Icon name="chevron" />
-            </button>
-          </div>
-
-          <div
-            id="next-main"
-            className={`expand-panel ${openNext === "main" ? "open" : ""}`}
-          >
-            <div>
-              <div className="appointment-time">
+          {!firstNext ? (
+            <p className="next-empty">
+              Nenhum atendimento agendado a partir de agora. Quando uma cliente
+              agendar, ela aparece aqui.
+            </p>
+          ) : (
+            <>
+              <div className="next-profile">
+                <div className="large-avatar">{firstNext.initial}</div>
                 <div>
-                  <Icon name="clock" />
-                  <span>Hoje, 09:00</span>
+                  <strong>{firstNext.name}</strong>
+                  <span>
+                    {firstNext.recorrente ? "Cliente recorrente" : "Cliente nova"}
+                  </span>
                 </div>
-                <small>150 min</small>
+                <button
+                  type="button"
+                  className={`expand-btn ${openNext === "main" ? "open" : ""}`}
+                  aria-expanded={openNext === "main"}
+                  aria-controls="next-main"
+                  aria-label={`Detalhes do atendimento de ${firstNext.name}`}
+                  onClick={() => toggleNext("main")}
+                >
+                  <Icon name="chevron" />
+                </button>
               </div>
-              <div className="procedure">
-                <span>PROCEDIMENTO</span>
-                <strong>Lash Design</strong>
-                <small>Volume brasileiro</small>
-              </div>
-              <div className="next-tags">
-                <span>
-                  <Icon name="check" size={13} /> CONFIRMADO
-                </span>
-                <span>ISENTA DE SINAL</span>
-              </div>
-              <Action
-                className="full"
-                onClick={() =>
-                  openWhatsApp(
-                    "Olá, Jamily! Seu atendimento está confirmado para hoje às 09:00.",
-                  )
-                }
-              >
-                <Icon name="whatsapp" /> Ir para o WhatsApp <NewTabHint compact />
-              </Action>
-            </div>
-          </div>
 
-          <div className="mini-list">
-            <span className="section-kicker">PRÓXIMOS ATENDIMENTOS</span>
-            {nextAppointments.map((item) => {
-              const open = openNext === item.id
-              return (
-                <div className="mini-item" key={item.id}>
-                  <button
-                    type="button"
-                    className="mini-row"
-                    aria-expanded={open}
-                    aria-controls={`next-${item.id}`}
-                    onClick={() => toggleNext(item.id)}
-                  >
-                    <span className="mini-time">{item.time}</span>
-                    <span className={`tiny-avatar ${item.alt ? "alt" : ""}`}>
-                      {item.initial}
-                    </span>
-                    <span className="mini-name">
-                      <strong>{item.name}</strong>
-                      <small>{item.service}</small>
-                    </span>
-                    <span
-                      className={`expand-btn ${open ? "open" : ""}`}
-                      aria-hidden="true"
-                    >
-                      <Icon name="chevron" />
-                    </span>
-                  </button>
-                  <div
-                    id={`next-${item.id}`}
-                    className={`expand-panel ${open ? "open" : ""}`}
-                  >
+              <div
+                id="next-main"
+                className={`expand-panel ${openNext === "main" ? "open" : ""}`}
+              >
+                <div>
+                  <div className="appointment-time">
                     <div>
-                      <dl className="mini-facts">
-                        <div>
-                          <dt>Horário</dt>
-                          <dd>
-                            {item.time} — {item.end}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Procedimento</dt>
-                          <dd>{item.detail}</dd>
-                        </div>
-                        <div>
-                          <dt>Situação</dt>
-                          <dd>{item.status}</dd>
-                        </div>
-                        <div>
-                          <dt>Sinal</dt>
-                          <dd>{item.signal}</dd>
-                        </div>
-                      </dl>
-                      <Action
-                        variant="secondary"
-                        className="full"
-                        onClick={() =>
-                          openWhatsApp(
-                            `Olá, ${item.name.split(" ")[0]}! Falando sobre seu atendimento de ${item.detail} às ${item.time}.`,
-                          )
-                        }
+                      <Icon name="clock" />
+                      <span>
+                        {dayLabel(firstNext.data, now)}, {firstNext.time}
+                      </span>
+                    </div>
+                    {firstNext.duracao && <small>{firstNext.duracao} min</small>}
+                  </div>
+                  <div className="procedure">
+                    <span>PROCEDIMENTO</span>
+                    <strong>{firstNext.service}</strong>
+                    <small>
+                      {firstNext.time} — {firstNext.end}
+                    </small>
+                  </div>
+                  <div className="next-tags">
+                    <span>
+                      <Icon
+                        name={firstNext.status === "CONFIRMADO" ? "check" : "clock"}
+                        size={13}
+                      />{" "}
+                      {firstNext.status === "PENDENTE"
+                        ? "AGUARDANDO CONFIRMAÇÃO"
+                        : firstNext.status}
+                    </span>
+                    {firstNext.signal && (
+                      <span>{firstNext.signal.toUpperCase()}</span>
+                    )}
+                  </div>
+                  <Action
+                    className="full"
+                    onClick={() =>
+                      openWhatsApp(
+                        reminderFor(messageTemplates, nextToAppt(firstNext), company),
+                        firstNext.whatsapp,
+                      )
+                    }
+                  >
+                    <Icon name="whatsapp" />{" "}
+                    {firstNext.status === "PENDENTE"
+                      ? "Lembrar de confirmar"
+                      : "Ir para o WhatsApp"}{" "}
+                    <NewTabHint compact />
+                  </Action>
+                </div>
+              </div>
+            </>
+          )}
+
+          {otherNext.length > 0 && (
+            <div className="mini-list">
+              <span className="section-kicker">PRÓXIMOS ATENDIMENTOS</span>
+              {otherNext.map((item, index) => {
+                const open = openNext === item.id
+                // Subtítulo do dia ("Amanhã", "Sáb, 14/11") quando o dia muda.
+                const newDay = index === 0 || otherNext[index - 1].data !== item.data
+                return (
+                  <div className="mini-item" key={item.id}>
+                    {newDay && (
+                      <span className="mini-day">{dayLabel(item.data, now)}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="mini-row"
+                      aria-expanded={open}
+                      aria-controls={`next-${item.id}`}
+                      onClick={() => toggleNext(item.id)}
+                    >
+                      <span className="mini-time">{item.time}</span>
+                      <span className={`tiny-avatar ${item.alt ? "alt" : ""}`}>
+                        {item.initial}
+                      </span>
+                      <span className="mini-name">
+                        <strong>{item.name}</strong>
+                        <small>{item.service}</small>
+                      </span>
+                      <span
+                        className={`expand-btn ${open ? "open" : ""}`}
+                        aria-hidden="true"
                       >
-                        <Icon name="whatsapp" size={15} /> Chamar no WhatsApp{" "}
-                        <NewTabHint compact />
-                      </Action>
+                        <Icon name="chevron" />
+                      </span>
+                    </button>
+                    <div
+                      id={`next-${item.id}`}
+                      className={`expand-panel ${open ? "open" : ""}`}
+                    >
+                      <div>
+                        <dl className="mini-facts">
+                          <div>
+                            <dt>Dia e horário</dt>
+                            <dd>
+                              {dayLabel(item.data, now)}, {item.time} — {item.end}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Procedimento</dt>
+                            <dd>{item.detail}</dd>
+                          </div>
+                          <div>
+                            <dt>Situação</dt>
+                            <dd>{STATUS_LABEL[item.status] ?? item.status}</dd>
+                          </div>
+                          <div>
+                            <dt>Sinal</dt>
+                            <dd>{item.signal}</dd>
+                          </div>
+                        </dl>
+                        <Action
+                          variant="secondary"
+                          className="full"
+                          onClick={() =>
+                            openWhatsApp(
+                              reminderFor(messageTemplates, nextToAppt(item), company),
+                              item.whatsapp,
+                            )
+                          }
+                        >
+                          <Icon name="whatsapp" size={15} />{" "}
+                          {item.status === "PENDENTE"
+                            ? "Lembrar de confirmar"
+                            : "Chamar no WhatsApp"}{" "}
+                          <NewTabHint compact />
+                        </Action>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </aside>
       </section>
       {selectedSlot && (
         <Modal
-          title={
-            selectedSlot.status === "cancelled"
-              ? "Agendamento cancelado"
-              : "Detalhes do atendimento"
-          }
+          title="Detalhes do atendimento"
           onClose={() => setSelectedSlot(null)}
         >
           <div className="modal-details">
@@ -576,27 +909,26 @@ function DashboardPageView({ notify, dashboard, reload }) {
             <span>
               <small>SITUAÇÃO</small>
               <strong>
-                {selectedSlot.status === "cancelled"
-                  ? "Cancelado pela gestora"
-                  : "Agendado"}
+                {selectedSlot.appointmentStatus === "PENDENTE"
+                  ? "Aguardando confirmação da cliente"
+                  : "Confirmado"}
               </strong>
             </span>
-            {selectedSlot.cancelReason && (
-              <span>
-                <small>MOTIVO</small>
-                <strong>{selectedSlot.cancelReason}</strong>
-              </span>
-            )}
           </div>
           {selectedSlot.status === "busy" && (
-            <label htmlFor="pai-motivo-do-cancelamento" className="manager-cancel-reason">
-              <span>MOTIVO DO CANCELAMENTO</span>
-              <textarea id="pai-motivo-do-cancelamento"
+            <label
+              htmlFor={REASON_ID}
+              className="manager-cancel-reason"
+              onInput={clearOnInput}
+            >
+              <span>MOTIVO DO CANCELAMENTO *</span>
+              <textarea {...a11y(REASON_ID)}
                 rows={2}
                 value={cancelReason}
                 onChange={(event) => setCancelReason(event.target.value)}
                 placeholder="Ex.: indisponibilidade da profissional"
               />
+              {errorFor(REASON_ID)}
             </label>
           )}
           <div className="modal-actions">
@@ -608,10 +940,12 @@ function DashboardPageView({ notify, dashboard, reload }) {
                 <Action
                   variant="danger"
                   onClick={() => {
-                    if (!cancelReason.trim()) {
-                      notify("Informe o motivo do cancelamento.")
+                    if (
+                      showErrors({
+                        [REASON_ID]: !cancelReason.trim() && "Informe o motivo do cancelamento. Ele vai na mensagem para a cliente. Exemplo: indisponibilidade da profissional.",
+                      })
+                    )
                       return
-                    }
                     setConfirmSlotCancellation(true)
                   }}
                 >
@@ -620,7 +954,17 @@ function DashboardPageView({ notify, dashboard, reload }) {
                 <Action
                   onClick={() =>
                     openWhatsApp(
-                      `Olá, ${selectedSlot.client}! Falando sobre seu atendimento de ${selectedSlot.service}.`,
+                      reminderFor(
+                        messageTemplates,
+                        {
+                          cliente: selectedSlot.client,
+                          servico: selectedSlot.service,
+                          dataIso: dates[selectedSlot.dayIndex],
+                          horario: selectedSlot.time,
+                          status: selectedSlot.appointmentStatus,
+                        },
+                        company,
+                      ),
                       selectedSlot.whatsapp,
                     )
                   }
@@ -663,10 +1007,10 @@ function DashboardPageView({ notify, dashboard, reload }) {
               variant="secondary"
               onClick={() => setConfirmSlotCancellation(false)}
             >
-              Voltar
+              Não, manter agendamento
             </Action>
             <Action variant="danger" onClick={confirmCalendarCancellation}>
-              Sim, cancelar compromisso{" "}
+              Sim, cancelar agendamento{" "}
               <NewTabHint compact text="abre o WhatsApp em nova guia para avisar a cliente" />
             </Action>
           </div>
@@ -802,18 +1146,33 @@ function DashboardPageView({ notify, dashboard, reload }) {
   )
 }
 
-/** Carrega a grade semanal e os próximos atendimentos (GET /gestora/painel). */
-// Busca o painel e, quando chegar, mostra o DashboardPageView. 'reload' é repassado
-// para o painel se atualizar depois de cada ação.
+/**
+ * Carrega a grade da semana escolhida (GET /gestora/painel?semana=...) e os
+ * agendamentos usados no calendário do mês (GET /gestora/agendamentos).
+ * 'weekStart' fica aqui porque muda a busca; trocar de semana refaz o GET.
+ */
 function DashboardPage(props) {
-  const query = useApiQuery(() => api.schedule.getDashboard(), [])
+  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()))
+  const query = useApiQuery(
+    () => api.schedule.getDashboard(weekStart),
+    [weekStart],
+  )
+  const appointmentsQuery = useApiQuery(() => api.appointments.list(), [])
+  // Só para o cartão "Total de clientes" (GET /gestora/clientes).
+  const clientsQuery = useApiQuery(() => api.clients.list(), [])
+  // Depois de bloquear/cancelar, atualiza a semana e o mês juntos.
+  const reload = () => Promise.all([query.reload(), appointmentsQuery.reload()])
   return (
     <AsyncState query={query}>
       {(dashboard) => (
         <DashboardPageView
           {...props}
           dashboard={dashboard}
-          reload={query.reload}
+          appointments={appointmentsQuery.data ?? []}
+          clientsTotal={clientsQuery.data?.length}
+          reload={reload}
+          weekStart={weekStart}
+          setWeekStart={setWeekStart}
         />
       )}
     </AsyncState>

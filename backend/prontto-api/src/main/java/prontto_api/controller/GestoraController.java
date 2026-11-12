@@ -2,6 +2,7 @@ package prontto_api.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +11,7 @@ import prontto_api.domain.Usuario;
 import prontto_api.dto.*;
 import prontto_api.service.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -43,9 +45,11 @@ public class GestoraController {
     }
 
     @GetMapping("/painel")
-    public ResponseEntity<PainelSemanalResponse> obterPainel(Authentication authentication) {
+    public ResponseEntity<PainelSemanalResponse> obterPainel(
+            Authentication authentication,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate semana) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
-        return ResponseEntity.ok(gestoraAdminService.obterPainelSemanal(gestora));
+        return ResponseEntity.ok(gestoraAdminService.obterPainelSemanal(gestora, semana));
     }
 
     @GetMapping("/horarios-funcionamento")
@@ -186,6 +190,37 @@ public class GestoraController {
     public ResponseEntity<List<ModeloMensagemDto>> salvarModelosMensagem(Authentication authentication, @RequestBody List<ModeloMensagemDto> modelos) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(gestoraAdminService.salvarModelosMensagem(gestora, modelos));
+    }
+
+    @PostMapping("/mensagens/modelos")
+    public ResponseEntity<ModeloMensagemDto> criarModeloMensagem(Authentication authentication, @RequestBody ModeloMensagemDto modelo) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.status(201).body(gestoraAdminService.criarModeloMensagem(gestora, modelo));
+    }
+
+    @PostMapping("/mensagens/modelos/padrao")
+    public ResponseEntity<List<ModeloMensagemDto>> adicionarModelosPadrao(Authentication authentication) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.adicionarModelosPadrao(gestora));
+    }
+
+    @PutMapping("/mensagens/modelos/{id}")
+    public ResponseEntity<ModeloMensagemDto> atualizarModeloMensagem(Authentication authentication, @PathVariable Long id, @RequestBody ModeloMensagemDto modelo) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.atualizarModeloMensagem(gestora, id, modelo));
+    }
+
+    @DeleteMapping("/mensagens/modelos/{id}")
+    public ResponseEntity<Void> excluirModeloMensagem(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        gestoraAdminService.excluirModeloMensagem(gestora, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/mensagens/modelos/{id}/restaurar")
+    public ResponseEntity<ModeloMensagemDto> restaurarModeloMensagem(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.restaurarModeloPadrao(gestora, id));
     }
 
     @GetMapping("/mensagens/destinatarios")

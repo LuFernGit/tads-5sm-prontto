@@ -27,6 +27,8 @@ public class ClinicaService {
     @Autowired private CategoriaRepository categoriaRepository;
     @Autowired private HorarioRepository horarioRepository;
     @Autowired private LogAuditoriaRepository logAuditoriaRepository;
+    @Autowired private BloqueioHorarioRepository bloqueioHorarioRepository;
+    @Autowired private AgendamentoRepository agendamentoRepository;
 
     public ClinicaVitrineResponse obterVitrinePorSlug(String slug) {
         Clinica clinica = clinicaRepository.findBySlug(slug)
@@ -90,7 +92,62 @@ public class ClinicaService {
             }
         }
 
-        return new CalendarioDisponibilidadeResponse(List.of(), fechados);
+        // Mês pedido ("YYYY-MM"); sem parâmetro ou inválido = mês atual.
+        java.time.YearMonth anoMes;
+        try {
+            anoMes = mes != null && !mes.isBlank()
+                    ? java.time.YearMonth.parse(mes)
+                    : java.time.YearMonth.now(prontto_api.domain.RegrasAgendamento.FUSO);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new RegraNegocioException("Mês inválido. Use o formato AAAA-MM. Exemplo: 2026-11.");
+        }
+        java.time.LocalDate inicio = anoMes.atDay(1);
+        java.time.LocalDate fim = anoMes.atEndOfMonth();
+
+        var bloqueios = bloqueioHorarioRepository.findByClinicaIdAndDataBetween(clinica.getId(), inicio, fim);
+        var agendamentos = agendamentoRepository.findByServicoClinicaIdAndDataBetween(clinica.getId(), inicio, fim)
+                .stream()
+                .filter(a -> a.getStatus() != prontto_api.domain.enums.StatusAgendamento.CANCELADO)
+                .toList();
+
+        List<Integer> lotados = new ArrayList<>();
+        List<Integer> bloqueados = new ArrayList<>();
+        DiaSemana[] diasSemana = DiaSemana.values(); // SEGUNDA … DOMINGO (mesma ordem de DayOfWeek)
+
+        for (java.time.LocalDate dia = inicio; !dia.isAfter(fim); dia = dia.plusDays(1)) {
+            final java.time.LocalDate data = dia;
+            DiaSemana diaEnum = diasSemana[data.getDayOfWeek().getValue() - 1];
+            if (fechados.contains(converterDiaSemanaParaIndice(diaEnum))) continue;
+
+            var bloqueiosDoDia = bloqueios.stream().filter(b -> b.getData().equals(data)).toList();
+            if (bloqueiosDoDia.stream().anyMatch(b -> b.getHoraInicio() == null)) {
+                bloqueados.add(data.getDayOfMonth()); // dia inteiro bloqueado
+                continue;
+            }
+
+            // Mesmos horários de 1 hora do painel da gestora: livre se não houver
+            // agendamento nem bloqueio cobrindo aquele horário.
+            var agendamentosDoDia = agendamentos.stream().filter(a -> a.getData().equals(data)).toList();
+            boolean temHorarioLivre = false;
+            for (Horario faixa : horarios) {
+                if (faixa.getDiaSemana() != diaEnum || !faixa.getAtivo()) continue;
+                for (java.time.LocalTime t = faixa.getHoraInicio();
+                     !t.plusMinutes(60).isAfter(faixa.getHoraFim()) && !temHorarioLivre;
+                     t = t.plusMinutes(60)) {
+                    final java.time.LocalTime ini = t;
+                    final java.time.LocalTime fimSlot = t.plusMinutes(60);
+                    boolean ocupado = agendamentosDoDia.stream().anyMatch(a ->
+                            a.getHora().isBefore(fimSlot)
+                                    && a.getHora().plusMinutes(a.getServico().getDuracao()).isAfter(ini));
+                    boolean bloqueado = bloqueiosDoDia.stream().anyMatch(b ->
+                            b.getHoraInicio().isBefore(fimSlot) && b.getHoraFim().isAfter(ini));
+                    if (!ocupado && !bloqueado) temHorarioLivre = true;
+                }
+            }
+            if (!temHorarioLivre) lotados.add(data.getDayOfMonth());
+        }
+
+        return new CalendarioDisponibilidadeResponse(lotados, fechados, bloqueados);
     }
 
     public EmpresaResponse obterEmpresaGestora(Usuario gestoraAutenticada) {

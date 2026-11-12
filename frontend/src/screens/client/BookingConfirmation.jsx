@@ -87,7 +87,7 @@ function BookingConfirmation({
       {recurring ? (
         <BookingStatus
           title="Pagamento de sinal – isento"
-          text="Realizar pagamento do valor total ao final do procedimento."
+          text="Realizar pagamento do valor total ao final do procedimento. Lembre-se de confirmar sua presença em “Meu perfil” até 24 horas antes do horário; sem a confirmação, o agendamento é cancelado automaticamente."
         />
       ) : payment ? (
         <BookingStatus

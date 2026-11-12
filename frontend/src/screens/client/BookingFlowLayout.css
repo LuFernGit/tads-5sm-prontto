@@ -26,7 +26,7 @@
   line-height: 1.15;
   color: var(--navy);
 }
-.bf-head p { margin: 0; font-size: 13px; color: #334155; } /* sobre o fundo #f6f8fa = 9,8:1 */
+.bf-head p { margin: 0; font-size: 13px; color: #334155; } /* sobre o fundo #f8fafc = 9,9:1 */
 
 /* ----- Cartão ----- */
 .bf-card {

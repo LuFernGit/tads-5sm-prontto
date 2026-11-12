@@ -1,5 +1,6 @@
 import Icon from "@/components/ui/Icon"
 import NewTabHint from "@/components/ui/NewTabHint"
+import { onlyDigits } from "@/lib/masks"
 import "./StorefrontFooter.css"
 
 /**
@@ -23,7 +24,12 @@ function StorefrontFooter({ company }) {
       </div>
       <div>
         <span>CONTATO</span>
-        <a href="https://wa.me/5511999887766" target="_blank" rel="noreferrer">
+        {/* WhatsApp da própria clínica (55 = Brasil + DDD + número) */}
+        <a
+          href={`https://wa.me/55${onlyDigits(company.phone)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           {company.phone} <NewTabHint />
         </a>
         <a href={`mailto:${company.email}`}>{company.email}</a>
@@ -50,7 +56,7 @@ function StorefrontFooter({ company }) {
         <small>Seg–Sáb · 09h às 19h</small>
       </div>
       <div className="footer-bottom">
-        © 2026 {company.name} · Agendamentos por Prontto
+        © {new Date().getFullYear()} {company.name} · Agendamentos por Prontto
       </div>
     </footer>
   )

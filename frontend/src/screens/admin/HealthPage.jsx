@@ -4,7 +4,7 @@ import Icon from "@/components/ui/Icon"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
-import { br } from "@/lib/format"
+import { brDateTime } from "@/lib/format"
 import "./HealthPage.css"
 
 /* ---------- FICHAS DE SAÚDE — RF39 ----------
@@ -64,7 +64,11 @@ function HealthPageView({ notify, clientList }) {
           <div>
             <span className="section-kicker">FICHA INDIVIDUAL</span>
             <h2 className="section-title">{c.name}</h2>
-            <p>Atualizada pela cliente em {br(c.atualizadaEm)}</p>
+            <p>
+              {brDateTime(c.atualizadaEm)
+                ? `Atualizada pela cliente em ${brDateTime(c.atualizadaEm)}`
+                : "A cliente ainda não preencheu a ficha de saúde."}
+            </p>
           </div>
         </div>
         <div className="health-cards">
@@ -142,7 +146,7 @@ function HealthPageView({ notify, clientList }) {
                   {h.campo}: “{h.anterior}” → “{h.novo}”
                 </strong>
                 <small>
-                  {br(h.data.slice(0, 10))} {h.data.slice(11)}
+                  {brDateTime(h.data) ?? h.data}
                 </small>
               </span>
             </div>

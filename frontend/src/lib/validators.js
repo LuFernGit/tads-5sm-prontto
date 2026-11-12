@@ -16,20 +16,28 @@ const nameError = (v) =>
 /**
  * Valida um celular brasileiro com DDD.
  */
-const phoneError = (v) =>
+const phoneError = (v) => {
+  // Campo vazio: pede para preencher (mensagem diferente de "formato errado").
+  if (!String(v ?? "").trim())
+    return "Informe o número do celular com DDD. Exemplo: (11) 98765-4321."
   // Regex: 2 dígitos de DDD + 9 + 8 dígitos (11 números no total).
-  /^\d{2}9\d{8}$/.test(v.replace(/\D/g, ""))
+  return /^\d{2}9\d{8}$/.test(v.replace(/\D/g, ""))
     ? ""
     : "Por favor, insira o telefone com DDD no formato (11) 9XXXX-XXXX."
+}
 
 /**
  * Valida a estrutura básica de um endereço de e-mail.
+ * Vazio → pede para preencher; preenchido fora do formato → explica o formato.
  */
-const emailError = (v) =>
+const emailError = (v) => {
+  if (!String(v ?? "").trim())
+    return "Informe o e-mail. Exemplo: nome@email.com."
   // Regex: algo@algo.algo, sem espaços.
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
     ? ""
     : "O e-mail precisa ter @ e domínio. Exemplo: nome@email.com."
+}
 
 /**
  * Valida o tamanho e a composição mínima da senha.

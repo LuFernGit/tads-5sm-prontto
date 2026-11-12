@@ -8,7 +8,25 @@ import { apptLabel } from "@/constants"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import { maintenance, waRetorno } from "@/lib/clients"
 import { br, daysSince, digits } from "@/lib/format"
+import { daysAgoLabel, lastApplication } from "@/lib/clients"
 import "./ClientsPage.css"
+
+/** Situação cadastral (USUARIO.status) em texto para a tela. */
+const ACCOUNT_STATUS = {
+  ATIVO: "Ativa",
+  INATIVO: "Inativa",
+  ACESSO_RESTRITO: "Acesso restrito",
+  EXCLUSAO_SOLICITADA: "Exclusão solicitada",
+  ANONIMIZADO_LGPD: "Anonimizada (LGPD)",
+}
+/** Cor do selo de cada situação do agendamento (mesma lógica do sistema). */
+const STATUS_CLASS = {
+  CONCLUIDO: "completed",   // azul-marinho (já aconteceu)
+  CONFIRMADO: "confirmed",  // verde (vai acontecer)
+  PENDENTE: "pending",      // âmbar
+  CANCELADO: "cancelled",   // vermelho
+  ARQUIVADO: "archived",    // cinza
+}
 
 /**
  * Lista clientes, histórico de atendimentos e alertas de manutenção.
@@ -110,8 +128,10 @@ function ClientsPageView({ notify, clientList }) {
                 <small className="application-category">{c.service}</small>
               </span>
               <span className="application-date" role="cell">
-                <strong>{gone ? "—" : br(c.lastDate)}</strong>
-                <small>{m.days === null ? "" : `há ${m.days} dias`}</small>
+                <strong>
+                  {gone || !lastApplication(c) ? "—" : br(lastApplication(c).date)}
+                </strong>
+                <small>{m.days === null ? "" : daysAgoLabel(m.days)}</small>
               </span>
               <span role="cell">
                 <span className={`alert-pill ${m.tone}`}>{m.label}</span>
@@ -149,7 +169,12 @@ function ClientsPageView({ notify, clientList }) {
       )}
       {/* Modal com os detalhes da cliente clicada: histórico e ações. */}
       {open && (
-        <Modal wide title={open.name} onClose={() => setOpen(null)}>
+        <Modal
+          wide
+          kicker="CLIENTE"
+          title={open.name}
+          onClose={() => setOpen(null)}
+        >
           {open.status === "ANONIMIZADO_LGPD" ? (
             <p className="modal-copy">
               Os dados pessoais foram anonimizados a pedido da titular (LGPD,
@@ -158,7 +183,7 @@ function ClientsPageView({ notify, clientList }) {
             </p>
           ) : (
             <>
-              <div className="modal-details">
+              <div className="modal-details client-details">
                 <span>
                   <small>E-MAIL</small>
                   <strong>{open.email}</strong>
@@ -175,24 +200,18 @@ function ClientsPageView({ notify, clientList }) {
                 </span>
                 <span>
                   <small>SITUAÇÃO CADASTRAL</small>
-                  <strong>{open.status}</strong>
+                  <strong>{ACCOUNT_STATUS[open.status] ?? open.status}</strong>
                 </span>
               </div>
-              <div className="service-description">
-                <span className="section-kicker">
-                  HISTÓRICO DE AGENDAMENTOS
-                </span>
-                <ul className="af-list" aria-label="Agendamentos">
+              <div className="client-history">
+                <h3 id="cli-historico">Histórico de agendamentos</h3>
+                <ul className="af-list" aria-labelledby="cli-historico">
                   {open.appts.map((a) => (
                     <li key={a.data + a.hora}>
                       <span>
                         {br(a.data)} · {a.hora} · {a.servico}
                       </span>
-                      <span
-                        className={`af-status ${
-                          a.status === "CONCLUIDO" ? "done" : "pending"
-                        }`}
-                      >
+                      <span className={`af-status ${STATUS_CLASS[a.status] ?? "pending"}`}>
                         {apptLabel[a.status]}
                       </span>
                     </li>
@@ -200,9 +219,10 @@ function ClientsPageView({ notify, clientList }) {
                 </ul>
               </div>
               <p className="modal-copy">
-                Última aplicação há {daysSince(open.lastDate)} dias (
-                {br(open.lastDate)}). A ficha de saúde está na aba Fichas de
-                Saúde.
+                {lastApplication(open)
+                  ? `Última aplicação ${daysAgoLabel(daysSince(lastApplication(open).date))} (${br(lastApplication(open).date)}).`
+                  : "Ainda não há aplicações realizadas."}{" "}
+                A ficha de saúde está na aba Fichas de Saúde.
               </p>
             </>
           )}

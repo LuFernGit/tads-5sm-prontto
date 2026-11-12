@@ -126,17 +126,7 @@ public class ClienteAreaService {
     public List<AgendamentoClienteResponse> listarAgendamentos(Usuario cliente) {
         return agendamentoRepository.findByClienteId(cliente.getId())
                 .stream()
-                .map(a -> new AgendamentoClienteResponse(
-                        a.getId().toString(),
-                        a.getServico() != null ? a.getServico().getId().toString() : null,
-                        a.getNomeProcedimento(),
-                        a.getData().toString(),
-                        a.getHora().toString(),
-                        a.getServico() != null ? a.getServico().getDuracao() : null,
-                        a.getValorServico(),
-                        a.getValorSinal(),
-                        a.getStatus().name()
-                ))
+                .map(this::paraResponse)
                 .toList();
     }
 
@@ -161,6 +151,15 @@ public class ClienteAreaService {
             throw new RegraNegocioException("O procedimento ultrapassa o horário de encerramento da clínica (19:00).");
         }
 
+        // SINAL: cliente nova só agenda com o sinal pago (não existe agendamento
+        // com sinal pendente). Cliente recorrente é isenta e confirma a presença depois.
+        boolean recorrente = Boolean.TRUE.equals(cliente.getRecorrente());
+        boolean sinalPago = request.valorSinal() != null && request.valorSinal().signum() > 0;
+        if (!recorrente && !sinalPago) {
+            throw new RegraNegocioException(
+                    "Para agendar, é preciso pagar o sinal. Conclua o pagamento para garantir o horário.");
+        }
+
         Agendamento agendamento = new Agendamento();
         agendamento.setCliente(cliente);
         agendamento.setServico(servico);
@@ -168,8 +167,14 @@ public class ClienteAreaService {
         agendamento.setValorServico(servico.getPreco());
         agendamento.setData(data);
         agendamento.setHora(hora);
-        agendamento.setValorSinal(request.valorSinal());
-        agendamento.setStatus(request.valorSinal() != null ? StatusAgendamento.CONFIRMADO : StatusAgendamento.PENDENTE);
+        agendamento.setValorSinal(recorrente ? null : request.valorSinal());
+        // Sinal pago → CONFIRMADO. Recorrente → PENDENTE (confirma até 24h antes).
+        // Recorrente agendando já dentro das 24h: o próprio agendamento vale como
+        // confirmação (senão seria cancelado na hora pelo job automático).
+        boolean dentroDoPrazo = RegrasAgendamento.prazoConfirmacao(agendamento).isAfter(RegrasAgendamento.agora());
+        agendamento.setStatus(!recorrente || !dentroDoPrazo
+                ? StatusAgendamento.CONFIRMADO
+                : StatusAgendamento.PENDENTE);
 
         agendamento = agendamentoRepository.save(agendamento);
 
@@ -179,16 +184,62 @@ public class ClienteAreaService {
         log.setIpOrigem("127.0.0.1");
         logAuditoriaRepository.save(log);
 
+        return paraResponse(agendamento);
+    }
+
+    /**
+     * Cliente confirma a presença num agendamento PENDENTE (isenta de sinal).
+     * Só é possível até 24 horas antes; depois disso o sistema cancela sozinho.
+     */
+    @Transactional
+    public AgendamentoClienteResponse confirmarAgendamento(Usuario cliente, Long idAgendamento) {
+        Agendamento a = agendamentoRepository.findById(idAgendamento)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Agendamento não encontrado."));
+
+        if (!a.getCliente().getId().equals(cliente.getId())) {
+            throw new RegraNegocioException("Agendamento não pertence ao usuário.");
+        }
+        if (a.getStatus() == StatusAgendamento.CONFIRMADO) {
+            return paraResponse(a); // já confirmado: nada a fazer
+        }
+        if (a.getStatus() != StatusAgendamento.PENDENTE) {
+            throw new ConflitoException("Só é possível confirmar um agendamento pendente.");
+        }
+        if (!RegrasAgendamento.prazoConfirmacao(a).isAfter(RegrasAgendamento.agora())) {
+            throw new RegraNegocioException("O prazo para confirmar terminou ("
+                    + RegrasAgendamento.PRAZO_CONFIRMACAO_HORAS
+                    + " horas antes do horário). Fale com a clínica pelo WhatsApp.");
+        }
+
+        a.setStatus(StatusAgendamento.CONFIRMADO);
+        agendamentoRepository.save(a);
+
+        LogAuditoria log = new LogAuditoria();
+        log.setUsuario(cliente);
+        log.setAcao("CONFIRMACAO_CLIENTE");
+        log.setIpOrigem("127.0.0.1");
+        logAuditoriaRepository.save(log);
+
+        return paraResponse(a);
+    }
+
+    /** Agendamento → resposta da área da cliente (inclui motivo e prazo de confirmação). */
+    private AgendamentoClienteResponse paraResponse(Agendamento a) {
         return new AgendamentoClienteResponse(
-                agendamento.getId().toString(),
-                servico.getId().toString(),
-                servico.getNome(),
-                data.toString(),
-                hora.toString(),
-                servico.getDuracao(),
-                servico.getPreco(),
-                agendamento.getValorSinal(),
-                agendamento.getStatus().name()
+                a.getId().toString(),
+                a.getServico() != null ? a.getServico().getId().toString() : null,
+                a.getNomeProcedimento(),
+                a.getData().toString(),
+                a.getHora().toString(),
+                a.getServico() != null ? a.getServico().getDuracao() : null,
+                a.getValorServico(),
+                a.getValorSinal(),
+                a.getStatus().name(),
+                a.getCanceladoPor(),
+                a.getMotivoCancelamento(),
+                a.getStatus() == StatusAgendamento.PENDENTE
+                        ? RegrasAgendamento.prazoConfirmacao(a).toString()
+                        : null
         );
     }
 
@@ -217,17 +268,7 @@ public class ClienteAreaService {
         log.setIpOrigem("127.0.0.1");
         logAuditoriaRepository.save(log);
 
-        return new AgendamentoClienteResponse(
-                a.getId().toString(),
-                a.getServico() != null ? a.getServico().getId().toString() : null,
-                a.getNomeProcedimento(),
-                a.getData().toString(),
-                a.getHora().toString(),
-                a.getServico() != null ? a.getServico().getDuracao() : null,
-                a.getValorServico(),
-                a.getValorSinal(),
-                a.getStatus().name()
-        );
+        return paraResponse(a);
     }
 
     @Transactional

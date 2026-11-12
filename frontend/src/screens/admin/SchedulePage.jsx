@@ -7,9 +7,30 @@ import Modal from "@/components/ui/Modal"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
-import { br } from "@/lib/format"
+import { br, formatDuration } from "@/lib/format"
 import { ruleError, toHorarioRows } from "@/lib/schedule"
 import "./SchedulePage.css"
+
+/** Situações em que o agendamento ainda pode ser cancelado pela gestora. */
+const CANCELLABLE = ["PENDENTE", "CONFIRMADO"]
+
+/**
+ * Texto e cor do selo de situação de um agendamento na lista da Agenda
+ * (mesmas cores do histórico em Clientes: verde, âmbar, vermelho).
+ */
+function appointmentStatus(a) {
+  if (a.status === "CANCELADO") {
+    if (a.canceladoPor === "SISTEMA")
+      return { label: "Cancelado automaticamente", className: "cancelled" }
+    const who = a.canceladoPor === "GESTORA" ? "gestora" : "cliente"
+    return { label: `Cancelado pela ${who}`, className: "cancelled" }
+  }
+  if (a.status === "PENDENTE")
+    return { label: "Aguardando confirmação", className: "pending" }
+  if (a.status === "CONCLUIDO")
+    return { label: "Concluído", className: "completed" }
+  return { label: "Confirmado", className: "confirmed" }
+}
 
 /**
  * Configura horários de funcionamento, bloqueios e cancelamentos da agenda.
@@ -39,6 +60,30 @@ function SchedulePageView({
   // Controle dos modais de confirmação (bloqueio, cancelamento e salvar horários).
   const [confirmBlock, setConfirmBlock] = useState(false)
   const [appointmentToCancel, setAppointmentToCancel] = useState(null)
+  // Motivo do cancelamento (vai para o backend e para a mensagem da cliente).
+  const [cancelReason, setCancelReason] = useState("")
+  const [cancelReasonError, setCancelReasonError] = useState("")
+  const [cancelling, setCancelling] = useState(false)
+  const openCancel = (a) => {
+    setCancelReason("")
+    setCancelReasonError("")
+    setAppointmentToCancel(a)
+  }
+  const confirmCancel = async () => {
+    const motivo = cancelReason.trim()
+    if (!motivo) {
+      setCancelReasonError(
+        "Informe o motivo do cancelamento. Ele vai na mensagem para a cliente. Exemplo: indisponibilidade da profissional.",
+      )
+      return
+    }
+    setCancelling(true)
+    const ok = await onCancelAppointment?.(appointmentToCancel.id, motivo)
+    setCancelling(false)
+    if (ok) setAppointmentToCancel(null)
+  }
+  // Agendamento aberto no modal "Detalhes do agendamento".
+  const [appointmentDetails, setAppointmentDetails] = useState(null)
   const [pendingScheduleAction, setPendingScheduleAction] = useState(null)
   /** Altera só alguns campos da regra de um dia. Ex.: patch('SEGUNDA', { ativo: false }). */
   const patch = (dia, p) =>
@@ -139,7 +184,9 @@ function SchedulePageView({
         <div className="af-blocks-heading">
           <div>
             <span className="section-kicker">INDISPONIBILIDADE</span>
-            <h1 id="af-h2">Bloquear dia ou horário</h1>
+            <h1 id="af-h2" className="section-title">
+              Bloquear dia ou horário
+            </h1>
           </div>
           <span className="af-blocks-icon">
             <Icon name="calendar" size={20} />
@@ -265,8 +312,8 @@ function SchedulePageView({
         <div className="af-appointments">
           <div className="af-blocks-heading">
             <div>
-              <span className="section-kicker">COMPROMISSOS</span>
-              <h2>Agendamentos da clínica</h2>
+              <span className="section-kicker">CONSULTA E CANCELAMENTO</span>
+              <h2 className="section-title">Agendamentos da clínica</h2>
             </div>
           </div>
           <p className="ff-copy">
@@ -276,39 +323,49 @@ function SchedulePageView({
           {appointments.length === 0 && (
             <p className="ff-small">Nenhum agendamento cadastrado.</p>
           )}
-          <ul className="af-list" aria-label="Agendamentos da clínica">
-            {appointments.map((a) => (
-              <li key={a.id}>
-                <span>
-                  <strong>{a.cliente}</strong> · {a.servico}
-                  <small>
-                    {a.data} às {a.horario} ·{" "}
-                    {a.status === "CANCELADO"
-                      ? `Cancelado pela ${
-                          a.canceladoPor === "GESTORA" ? "gestora" : "cliente"
-                        }`
-                      : a.status === "PENDENTE"
-                        ? "Pendente"
-                        : "Confirmado"}
-                  </small>
-                </span>
-                {a.status !== "CANCELADO" && (
+          <ul className="af-list af-appt-list" aria-label="Agendamentos da clínica">
+            {appointments.map((a) => {
+              const status = appointmentStatus(a)
+              return (
+                <li key={a.id} className="af-appt">
+                  {/* Data e hora em destaque, à esquerda */}
+                  <span className="af-appt-when">
+                    <span>
+                      <Icon name="calendar" size={14} /> {a.data}
+                    </span>
+                    <span>
+                      <Icon name="clock" size={14} /> {a.horario}
+                    </span>
+                  </span>
+                  {/* Cliente e procedimento, cada um na sua linha */}
+                  <span className="af-appt-info">
+                    <strong>{a.cliente}</strong>
+                    <span>{a.servico}</span>
+                  </span>
+                  <span className={`af-status ${status.className}`}>
+                    {status.label}
+                  </span>
+                  {/* Um botão só por linha: o cancelamento fica dentro dos detalhes */}
                   <button
                     type="button"
-                    className="ff-btn ff-danger"
-                    onClick={() => setAppointmentToCancel(a)}
+                    className="ff-btn ff-secondary"
+                    onClick={() => setAppointmentDetails(a)}
+                    aria-label={`Ver detalhes do agendamento de ${a.cliente} em ${a.data} às ${a.horario}`}
                   >
-                    Cancelar
+                    Ver detalhes
                   </button>
-                )}
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         </div>
       </div>
 
       <div className="ff-card af-card" role="region" aria-labelledby="af-h1">
-        <h1 id="af-h1">Dias e horários de funcionamento</h1>
+        <span className="section-kicker">FUNCIONAMENTO</span>
+        <h1 id="af-h1" className="section-title">
+          Dias e horários de funcionamento
+        </h1>
         <p className="ff-copy">
           Defina o expediente de cada dia e o intervalo de almoço. O sistema só
           oferece horários dentro dessas faixas.
@@ -391,8 +448,82 @@ function SchedulePageView({
           </button>
         </div>
       </div>
+      {appointmentDetails && (
+        <Modal
+          wide
+          kicker="AGENDA"
+          title="Detalhes do agendamento"
+          onClose={() => setAppointmentDetails(null)}
+        >
+          <div className="modal-details af-appt-details">
+            <span>
+              <small>CLIENTE</small>
+              <strong>{appointmentDetails.cliente}</strong>
+            </span>
+            <span>
+              <small>PROCEDIMENTO</small>
+              <strong>{appointmentDetails.servico}</strong>
+            </span>
+            <span>
+              <small>DATA</small>
+              <strong>{appointmentDetails.data}</strong>
+            </span>
+            <span>
+              <small>HORÁRIO</small>
+              <strong>{appointmentDetails.horario}</strong>
+            </span>
+            <span>
+              <small>DURAÇÃO</small>
+              <strong>{formatDuration(appointmentDetails.duracao)}</strong>
+            </span>
+            <span>
+              <small>WHATSAPP</small>
+              <strong>{appointmentDetails.whatsapp || "—"}</strong>
+            </span>
+            <span>
+              <small>SITUAÇÃO</small>
+              <strong>
+                <span
+                  className={`af-status ${appointmentStatus(appointmentDetails).className}`}
+                >
+                  {appointmentStatus(appointmentDetails).label}
+                </span>
+              </strong>
+            </span>
+          </div>
+          {appointmentDetails.status === "CANCELADO" &&
+            appointmentDetails.motivoCancelamento && (
+              <div className="service-description">
+                <span className="section-kicker">MOTIVO DO CANCELAMENTO</span>
+                <p>{appointmentDetails.motivoCancelamento}</p>
+              </div>
+            )}
+          <div className="modal-actions">
+            <Action
+              variant="secondary"
+              onClick={() => setAppointmentDetails(null)}
+            >
+              Fechar
+            </Action>
+            {/* Só agendamentos que ainda vão acontecer podem ser cancelados */}
+            {CANCELLABLE.includes(appointmentDetails.status) && (
+              <Action
+                variant="danger"
+                onClick={() => {
+                  openCancel(appointmentDetails)
+                  setAppointmentDetails(null)
+                }}
+              >
+                Cancelar agendamento
+              </Action>
+            )}
+          </div>
+        </Modal>
+      )}
       {appointmentToCancel && (
         <Modal
+          wide
+          kicker="AGENDA"
           title="Confirmar cancelamento?"
           onClose={() => setAppointmentToCancel(null)}
         >
@@ -401,7 +532,7 @@ function SchedulePageView({
               <Icon name="lock" />
             </div>
             <p>
-              Deseja realmente cancelar o compromisso de{" "}
+              Deseja realmente cancelar o agendamento de{" "}
               <strong>{appointmentToCancel.cliente}</strong>?
             </p>
             <div className="af-confirm-summary">
@@ -412,25 +543,40 @@ function SchedulePageView({
             </div>
             <p>
               O horário ficará disponível para novos agendamentos. A cliente
-              será avisada por uma mensagem pronta no WhatsApp, que poderá ser
-              revisada antes do envio.
+              será avisada por uma mensagem pronta no WhatsApp (modelo
+              "Cancelamento" da Central de Mensagens), que poderá ser revisada
+              antes do envio.
             </p>
+          </div>
+          <div className="af-cancel-reason">
+            <Field id="af-cancel-reason" label="Motivo do cancelamento *" error={cancelReasonError}>
+              <textarea
+                id="af-cancel-reason"
+                rows={3}
+                aria-invalid={cancelReasonError ? true : undefined}
+                aria-describedby={cancelReasonError ? "af-cancel-reason-error" : undefined}
+                value={cancelReason}
+                onChange={(e) => {
+                  setCancelReason(e.target.value)
+                  setCancelReasonError("")
+                }}
+                placeholder="Ex.: indisponibilidade da profissional"
+              />
+            </Field>
           </div>
           <div className="modal-actions">
             <Action
               variant="secondary"
               onClick={() => setAppointmentToCancel(null)}
             >
-              Manter compromisso
+              Não, manter agendamento
             </Action>
             <Action
               variant="danger"
-              onClick={() => {
-                onCancelAppointment?.(appointmentToCancel.id)
-                setAppointmentToCancel(null)
-              }}
+              className={cancelling ? "disabled" : ""}
+              onClick={() => !cancelling && confirmCancel()}
             >
-              Sim, cancelar compromisso{" "}
+              {cancelling ? "Cancelando…" : "Sim, cancelar agendamento"}{" "}
               <NewTabHint compact text="abre o WhatsApp em nova guia para avisar a cliente" />
             </Action>
           </div>

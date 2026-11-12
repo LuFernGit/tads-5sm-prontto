@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import Action from "@/components/ui/Action"
 import NewTabHint from "@/components/ui/NewTabHint"
 import Icon from "@/components/ui/Icon"
@@ -10,6 +10,9 @@ import {
 } from "@/lib/format"
 import { maskMoney, moneyToMask, parseMoney } from "@/lib/masks"
 import { openWhatsApp } from "@/lib/whatsapp"
+import { useFieldErrors } from "@/hooks/useFieldErrors"
+import ImageFramer from "@/components/ui/ImageFramer"
+import { DEFAULT_FRAMING, cropImage, isDefaultFraming } from "@/lib/imageCrop"
 import "./ServicesPage.css"
 
 /**
@@ -47,6 +50,12 @@ function ServicesPage({
   const [formDescription, setFormDescription] = useState("")
   const [formImage, setFormImage] = useState("")
   const [formImageName, setFormImageName] = useState("")
+  // Enquadramento da foto (posição e zoom); aplicado como recorte ao salvar.
+  const [framing, setFraming] = useState(DEFAULT_FRAMING)
+  const fileInputRef = useRef(null)
+  // Erros mostrados embaixo de cada campo (borda vermelha + orientação).
+  const { a11y, errorFor, showErrors, clearOnInput, clearError, setErrors } =
+    useFieldErrors(notify)
   // Lista filtrada pela busca e pelo filtro (Todos / Ativos / Inativos).
   const rows = (isServices ? serviceRows : clientRows).filter((item) => {
     const matchesQuery = `${item.name} ${
@@ -78,30 +87,38 @@ function ServicesPage({
       // "150,00" → 150 (SERVICO.preco, reais) e "60" → 60 (SERVICO.duracao, minutos)
       const numericPrice = parseMoney(formPrice)
       const minutes = Number(formDuration)
-      // Diz qual campo falta e como preencher (WCAG 3.3.3).
-      const missing = !formName.trim()
-        ? "Informe o nome do serviço. Exemplo: Volume Brasileiro."
-        : !formPrice
-          ? "Informe o preço em reais. Exemplo: 150,00."
-          : !formDuration
-            ? "Informe a duração em minutos. Exemplo: 90."
-            : !formDescription.trim()
-              ? "Escreva uma descrição curta do serviço para a vitrine."
-              : !formImage
-                ? "Adicione uma foto do serviço (JPG, PNG ou WEBP de até 5 MB)."
-                : ""
-      if (missing) {
-        notify(missing)
-        return
-      }
+      // Cada campo errado mostra embaixo dele o que fazer (WCAG 3.3.3).
       if (
-        !Number.isFinite(numericPrice) ||
-        numericPrice <= 0 ||
-        !Number.isInteger(minutes) ||
-        minutes <= 0
-      ) {
-        notify("Informe o preço em reais e a duração em minutos (número inteiro).")
+        showErrors({
+          "srv-foto-do-servico":
+            !formImage &&
+            "Adicione uma foto do serviço: clique no quadro e escolha uma imagem JPG, PNG ou WEBP de até 5 MB.",
+          "srv-nome-do-servico":
+            !formName.trim() &&
+            "Informe o nome do serviço. Exemplo: Volume Brasileiro.",
+          "srv-preco-em-reais-r":
+            (!Number.isFinite(numericPrice) || numericPrice <= 0) &&
+            "Informe o preço em reais, só com números. Exemplo: 150,00.",
+          "srv-duracao-em-minutos":
+            (!Number.isInteger(minutes) || minutes <= 0) &&
+            "Informe a duração em minutos, com número inteiro. Exemplo: 90.",
+          "srv-descricao-do-servico":
+            !formDescription.trim() &&
+            "Escreva uma descrição curta do serviço para a vitrine.",
+        })
+      )
         return
+      // Foto enquadrada: recorta no navegador antes de enviar.
+      let image = formImage
+      if (!isDefaultFraming(framing)) {
+        try {
+          image = await cropImage(formImage, framing)
+        } catch {
+          notify(
+            "Não foi possível ajustar o enquadramento desta foto. Ela foi salva como estava.",
+            "error",
+          )
+        }
       }
       const serviceData = {
         name: formName.trim(),
@@ -110,7 +127,7 @@ function ServicesPage({
         price: numericPrice,
         active: editingService?.active ?? true,
         description: formDescription.trim(),
-        image: formImage,
+        image,
       }
       try {
         await onSaveService(serviceData, editingService?.id)
@@ -140,15 +157,23 @@ function ServicesPage({
     const file = event.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      notify("Selecione um arquivo de imagem.")
+      showErrors({
+        "srv-foto-do-servico":
+          "Esse arquivo não é uma imagem. Escolha uma foto JPG, PNG ou WEBP.",
+      })
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      notify("A imagem deve ter no máximo 5 MB.")
+      showErrors({
+        "srv-foto-do-servico":
+          "A imagem tem mais de 5 MB. Escolha uma foto menor ou reduza o tamanho dela.",
+      })
       return
     }
     const reader = new FileReader()
     reader.onload = () => {
+      clearError("srv-foto-do-servico")
+      setFraming(DEFAULT_FRAMING)
       setFormImage(String(reader.result))
       setFormImageName(file.name)
     }
@@ -178,6 +203,8 @@ function ServicesPage({
   }
   /** Abre o formulário preenchido com os dados do serviço (para editar). */
   const openServiceForm = (service) => {
+    setErrors({})
+    setFraming(DEFAULT_FRAMING)
     setEditingService(service || null)
     setFormName(service?.name || "")
     setFormCategory(service?.category || "Nail Design")
@@ -192,7 +219,10 @@ function ServicesPage({
   const addCategory = async () => {
     const category = newCategory.trim()
     if (!category) {
-      notify("Informe o nome da nova categoria.")
+      showErrors({
+        "srv-nova-categoria":
+          "Digite o nome da categoria e clique em “Adicionar categoria”. Exemplo: Pilates.",
+      })
       return
     }
     if (
@@ -201,13 +231,15 @@ function ServicesPage({
           normalizeCategoryName(item) === normalizeCategoryName(category),
       )
     ) {
-      notify(`A categoria “${category}” já existe. Use outro nome.`)
+      showErrors({
+        "srv-nova-categoria": `A categoria “${category}” já existe. Use outro nome ou escolha a categoria existente.`,
+      })
       return
     }
     try {
       await onAddCategory(category)
     } catch (error) {
-      notify(error.message)
+      showErrors({ "srv-nova-categoria": error.message })
       return
     }
     setFormCategory(category)
@@ -271,12 +303,37 @@ function ServicesPage({
             }
           />
         </label>
-        <Action variant="secondary" onClick={cycleFilter}>
-          {filter} <Icon name="chevron" size={14} />
-        </Action>
+        {isServices ? (
+          // Filtro de status com as 3 opções visíveis (antes era um botão que
+          // alternava sozinho e não mostrava que havia outras opções).
+          <div className="status-filter">
+            <span id="srv-filtro-label">Mostrar:</span>
+            <div
+              className="segmented"
+              role="group"
+              aria-labelledby="srv-filtro-label"
+            >
+              {["Todos", "Ativos", "Inativos"].map((option) => (
+                <button
+                  type="button"
+                  key={option}
+                  className={filter === option ? "selected" : ""}
+                  aria-pressed={filter === option}
+                  onClick={() => setFilter(option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Action variant="secondary" onClick={cycleFilter}>
+            {filter} <Icon name="chevron" size={14} />
+          </Action>
+        )}
       </div>
       {isServices ? (
-        <div className="data-table">
+        <div className="data-table services-table">
           <div className="table-row table-header">
             <span>SERVIÇO</span>
             <span>CATEGORIA</span>
@@ -312,14 +369,18 @@ function ServicesPage({
                 <span>{service.active ? "Ativo" : "Inativo"}</span>
                 <Icon name="chevron" size={12} />
               </button>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => setDetails(service.id)}
-                aria-label={`Ver ficha completa de ${service.name}`}
-              >
-                <Icon name="more" />
-              </button>
+              {/* Mesmo botão "⋯" da tela Clientes (quadrado com borda, ícone navy) */}
+              <span className="client-row-actions">
+                <button
+                  type="button"
+                  className="icon-button details-icon"
+                  onClick={() => setDetails(service.id)}
+                  aria-label={`Ver ficha completa de ${service.name}`}
+                  title="Ver ficha completa do serviço"
+                >
+                  <Icon name="more" size={18} />
+                </button>
+              </span>
             </div>
           ))}
         </div>
@@ -400,6 +461,7 @@ function ServicesPage({
       {showAdd && (
         <Modal
           wide={isServices}
+          kicker={isServices ? "SERVIÇO" : "CLIENTE"}
           title={
             isServices
               ? editingService
@@ -413,34 +475,66 @@ function ServicesPage({
           }}
         >
           {isServices ? (
-            <div className="modal-form service-form">
+            <div className="modal-form service-form" onInput={clearOnInput}>
+              <div className="service-media">
               <label htmlFor="srv-foto-do-servico" className="service-upload">
                 <span>FOTO DO SERVIÇO</span>
-                <input id="srv-foto-do-servico" type="file" accept="image/*" onChange={handleImage} />
-                <div className={formImage ? "has-preview" : ""}>
-                  {formImage ? (
-                    <img src={formImage} alt="Pré-visualização do serviço" />
-                  ) : (
-                    <>
-                      <Icon name="plus" />
-                      <strong>Adicionar foto</strong>
-                      <small>JPG, PNG ou WEBP · até 5 MB</small>
-                    </>
-                  )}{" "}
-                </div>
-                {formImageName && (
-                  <small className="file-name">{formImageName}</small>
+                <input
+                  {...a11y("srv-foto-do-servico")}
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImage}
+                  // Com foto, quem abre o seletor é o botão "Trocar foto"
+                  tabIndex={formImage ? -1 : undefined}
+                />
+                {!formImage && (
+                  <div>
+                    <Icon name="plus" />
+                    <strong>Adicionar foto</strong>
+                    <small>JPG, PNG ou WEBP · até 5 MB</small>
+                  </div>
                 )}
+                {!formImage && errorFor("srv-foto-do-servico")}
               </label>
+              {/* Com foto: arrastar dentro do quadro para enquadrar (como na
+                  foto de perfil do WhatsApp/Instagram) + botão para trocar. */}
+              {formImage && (
+                <>
+                  <ImageFramer
+                    src={formImage}
+                    alt="Pré-visualização do serviço"
+                    framing={framing}
+                    onChange={setFraming}
+                    canReset={!isDefaultFraming(framing)}
+                    onReset={() => setFraming(DEFAULT_FRAMING)}
+                  />
+                  <div className="service-photo-file">
+                    {formImageName && (
+                      <small className="file-name">{formImageName}</small>
+                    )}
+                    <button
+                      type="button"
+                      className="service-change-photo"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Icon name="edit" size={14} /> Trocar foto
+                    </button>
+                  </div>
+                  {errorFor("srv-foto-do-servico")}
+                </>
+              )}
+              </div>
               <div className="service-form-fields">
                 <label htmlFor="srv-nome-do-servico" className="wide">
                   <span>NOME DO SERVIÇO</span>
-                  <input id="srv-nome-do-servico"
+                  <input {...a11y("srv-nome-do-servico")}
                     autoFocus
                     value={formName}
                     onChange={(event) => setFormName(event.target.value)}
                     placeholder="Ex.: Alongamento em gel"
                   />
+                  {errorFor("srv-nome-do-servico")}
                 </label>
                 <label htmlFor="srv-categoria">
                   <span>CATEGORIA</span>
@@ -457,7 +551,7 @@ function ServicesPage({
                   <span>PREÇO (EM REAIS)</span>
                   <div className="input-prefix">
                     <b>R$</b>
-                    <input id="srv-preco-em-reais-r"
+                    <input {...a11y("srv-preco-em-reais-r", "srv-preco-hint")}
                       inputMode="numeric"
                       value={formPrice}
                       onChange={(event) =>
@@ -466,14 +560,15 @@ function ServicesPage({
                       placeholder="__,__"
                     />
                   </div>
-                  <small className="field-hint">
+                  {errorFor("srv-preco-em-reais-r")}
+                  <small id="srv-preco-hint" className="field-hint">
                     Valor em reais. Digite só os números.
                   </small>
                 </label>
                 <label htmlFor="srv-duracao-em-minutos">
                   <span>DURAÇÃO (EM MINUTOS)</span>
                   <div className="input-suffix">
-                    <input id="srv-duracao-em-minutos"
+                    <input {...a11y("srv-duracao-em-minutos", "srv-duracao-hint")}
                       type="number"
                       min="5"
                       step="5"
@@ -484,19 +579,21 @@ function ServicesPage({
                     />
                     <b>min</b>
                   </div>
-                  <small className="field-hint">
+                  {errorFor("srv-duracao-em-minutos")}
+                  <small id="srv-duracao-hint" className="field-hint">
                     Considerado em minutos. Ex.: 90 = 1h30.
                   </small>
                 </label>
                 <label htmlFor="srv-descricao-do-servico" className="wide">
                   <span>DESCRIÇÃO DO SERVIÇO</span>
-                  <textarea id="srv-descricao-do-servico"
+                  <textarea {...a11y("srv-descricao-do-servico")}
                     rows={4}
                     maxLength={280}
                     value={formDescription}
                     onChange={(event) => setFormDescription(event.target.value)}
                     placeholder="Descreva a técnica, o resultado esperado e os principais diferenciais..."
                   />
+                  {errorFor("srv-descricao-do-servico")}
                   <small className="character-count">
                     {formDescription.length}/280
                   </small>
@@ -532,7 +629,7 @@ function ServicesPage({
                 setEditingService(null)
               }}
             >
-              Cancelar
+              Sair sem salvar
             </Action>
             <Action onClick={addItem}>
               {isServices
@@ -548,6 +645,7 @@ function ServicesPage({
       {details && (
         <Modal
           wide={Boolean(selectedService || selectedClient)}
+          kicker={selectedService ? "SERVIÇO" : "CLIENTE"}
           title={selectedService?.name || selectedClient?.name || details}
           onClose={() => setDetails(null)}
         >
@@ -674,10 +772,11 @@ function ServicesPage({
                   : "Reativar serviço"}
               </Action>
             )}
-            <span />
+            <Action variant="secondary" onClick={() => setDetails(null)}>
+              Fechar
+            </Action>
             {selectedService && (
               <Action
-                variant="secondary"
                 onClick={() => {
                   setDetails(null)
                   openServiceForm(selectedService)
@@ -686,12 +785,6 @@ function ServicesPage({
                 Editar serviço
               </Action>
             )}
-            <Action
-              variant={selectedService ? "primary" : "secondary"}
-              onClick={() => setDetails(null)}
-            >
-              Fechar
-            </Action>
             {selectedClient && !selectedClient.removed && (
               <Action
                 onClick={() =>
@@ -707,6 +800,7 @@ function ServicesPage({
       {/* Modal: confirmar ativar/desativar. */}
       {statusChange && (
         <Modal
+          kicker="SERVIÇO"
           title={
             statusChange.active ? "Desativar serviço?" : "Reativar serviço?"
           }
@@ -737,12 +831,17 @@ function ServicesPage({
           </div>
           <div className="modal-actions">
             <Action variant="secondary" onClick={() => setStatusChange(null)}>
-              Cancelar
+              {statusChange.active
+                ? "Não, manter ativo"
+                : "Não, manter inativo"}
             </Action>
-            <Action onClick={confirmStatusChange}>
+            <Action
+              variant={statusChange.active ? "danger" : "primary"}
+              onClick={confirmStatusChange}
+            >
               {statusChange.active
                 ? "Sim, desativar serviço"
-                : "Reativar serviço"}
+                : "Sim, reativar serviço"}
             </Action>
           </div>
         </Modal>
@@ -750,6 +849,7 @@ function ServicesPage({
       {/* Modal: gerenciar categorias. */}
       {managingCategories && (
         <Modal
+          kicker="CATEGORIAS"
           title="Gerenciar categorias"
           onClose={() => setManagingCategories(false)}
         >
@@ -764,18 +864,25 @@ function ServicesPage({
               nome de um serviço específico neste campo.
             </small>
           </div>
-          <div className="category-create">
-            <input
-              autoFocus
-              value={newCategory}
-              onChange={(event) => setNewCategory(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && addCategory()}
-              placeholder="Ex.: Pilates"
-            />
-            <Action onClick={addCategory}>
-              <Icon name="plus" size={15} />
-              Adicionar categoria
-            </Action>
+          <div onInput={clearOnInput}>
+            <label htmlFor="srv-nova-categoria" className="sr-only">
+              Nome da nova categoria
+            </label>
+            <div className="category-create">
+              <input
+                {...a11y("srv-nova-categoria")}
+                autoFocus
+                value={newCategory}
+                onChange={(event) => setNewCategory(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && addCategory()}
+                placeholder="Ex.: Pilates"
+              />
+              <Action onClick={addCategory}>
+                <Icon name="plus" size={15} />
+                Adicionar categoria
+              </Action>
+            </div>
+            {errorFor("srv-nova-categoria")}
           </div>
           <div className="category-manager-list">
             {serviceCategories.map((category) => {
@@ -794,6 +901,7 @@ function ServicesPage({
                     type="button"
                     onClick={() => removeCategory(category)}
                     disabled={count > 0}
+                    aria-label={`Excluir a categoria ${category}`}
                     title={
                       count > 0
                         ? "Remova ou mova os serviços antes de excluir a categoria"

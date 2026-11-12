@@ -149,7 +149,7 @@ Cadastro da cliente (montado em `src/screens/client/ClientRegisterPage.jsx`):
 | Método | Rota                                              | Resposta |
 | ------ | ------------------------------------------------- | -------- |
 | GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias }`; 404 se o slug não existir ou a clínica estiver ENCERRADA |
-| GET    | `/clinicas/{slug}/calendario?mes=YYYY-MM`         | `{ diasLotados: number[], diasSemanaFechados: number[] }` (0 = domingo) |
+| GET    | `/clinicas/{slug}/calendario?mes=YYYY-MM`         | `{ diasLotados: number[], diasSemanaFechados: number[], diasBloqueados: number[] }` (0 = domingo; `diasBloqueados` = bloqueio do dia inteiro → "Fechado"). Usada pela agenda da cliente **e** pelo calendário do mês da gestora |
 | GET    | `/clinicas/{slug}/horarios?data=&servicoId=`      | `[{ label: "MANHÃ", slots: [{ time: "09:00", occupied: false }] }]` |
 
 **Campos públicos da empresa** (o que a vitrine sem login pode receber):
@@ -191,7 +191,7 @@ O link da cliente é `https://<front>/?clinica=<slug>`.
 | PUT    | `/gestora/clientes/{id}/notas`               | `{ notasGestora }` (máx. 500) |
 | GET    | `/gestora/agendamentos`                      | → `AgendamentoGestora[]` |
 | POST   | `/gestora/agendamentos/{id}/cancelamento`    | `{ motivo }` (obrigatório) → `AgendamentoGestora` |
-| GET    | `/gestora/painel`                            | → `{ dias, datas, horarios: Slot[][], proximos }` (calculado) |
+| GET    | `/gestora/painel?semana=YYYY-MM-DD`          | → `{ dias, datas, horarios: Slot[][], proximos }` (calculado; `semana` = qualquer dia da semana desejada, opcional — sem ele, semana atual) |
 | GET    | `/gestora/horarios-funcionamento`            | → linhas da tabela HORARIO |
 | PUT    | `/gestora/horarios-funcionamento`            | `[{ dia_semana: "SEGUNDA", hora_inicio: "09:00:00", hora_fim: "12:00:00", ativo }]` |
 | GET    | `/gestora/bloqueios`                         | → `[{ id, data, inicio, fim, motivo }]` |
@@ -200,6 +200,23 @@ O link da cliente é `https://<front>/?clinica=<slug>`.
 
 Horário com almoço vira **duas linhas** no mesmo dia (manhã e tarde). A conversão
 fica em `toHorarioRows` e `fromHorarioRows` (`src/lib/schedule.js`).
+
+`proximos` (painel): até 6 atendimentos **a partir de agora** (não depende da
+semana pedida), sem cancelados, em ordem de data e hora. O 1º vira o cartão
+"Próxima cliente"; os demais, a lista "Próximos atendimentos".
+
+```jsonc
+{ "id": "12", "time": "14:00", "end": "15:30", "name": "Jamily Souza", "initial": "J",
+  "alt": false, "service": "Lash Design", "detail": "Lash Design",
+  "status": "CONFIRMADO",                 // CONFIRMADO | PENDENTE
+  "signal": "Sinal pago · R$ 51,00",      // ou "Isenta de sinal" / "Sem sinal registrado"
+  "data": "2026-11-12", "duracao": 90, "whatsapp": "11999887766", "recorrente": false }
+```
+
+As métricas do topo do painel (agendamentos hoje, confirmados, horários livres,
+total de clientes) são **calculadas no front** com `/gestora/agendamentos`,
+`/gestora/painel` e `/gestora/clientes`. Não há histórico para comparações
+(ex.: "+2 em relação a ontem").
 
 ### Gestora: documentos, mensagens e auditoria
 
@@ -210,9 +227,14 @@ fica em `toHorarioRows` e `fromHorarioRows` (`src/lib/schedule.js`).
 | POST   | `/gestora/documentos/{id}/publicacao`             | → `Documento[]` (a versão publicada anterior vira INATIVO) |
 | POST   | `/gestora/documentos/{id}/inativacao`             | → `Documento` |
 | POST   | `/gestora/documentos/{id}/arquivo`                | multipart, campo `arquivo` (PDF) → `Documento` |
-| GET    | `/gestora/mensagens/modelos`                      | → `Modelo[]` (tabela MODELO_MENSAGEM) |
-| PUT    | `/gestora/mensagens/modelos`                      | `Modelo[]` (lista inteira) → `Modelo[]` |
-| GET    | `/gestora/mensagens/destinatarios`                | → `[{ nome, whatsapp, servico, ultimo, data, horario }]` |
+| GET    | `/gestora/mensagens/modelos`                      | → `Modelo[]` (tabela MODELO_MENSAGEM). Os 6 padrão são criados **uma vez**, no cadastro da clínica; excluídos não voltam sozinhos |
+| PUT    | `/gestora/mensagens/modelos`                      | `Modelo[]` (lista inteira) → `Modelo[]` — legado; a tela usa os endpoints abaixo. Só aceita modelos da própria clínica |
+| POST   | `/gestora/mensagens/modelos`                      | `Modelo` (sem id) → 201 `Modelo`. 400: nome/texto vazio, texto > 1000, finalidade inválida |
+| PUT    | `/gestora/mensagens/modelos/{id}`                 | `Modelo` → `Modelo` (edita nome, finalidade, texto, ativo). 404 se não for da clínica |
+| DELETE | `/gestora/mensagens/modelos/{id}`                 | → 204. Qualquer modelo pode ser excluído, inclusive os padrão |
+| POST   | `/gestora/mensagens/modelos/padrao`               | → `Modelo[]`. Recria só os modelos padrão cujas finalidades não existem mais |
+| POST   | `/gestora/mensagens/modelos/{id}/restaurar`       | → `Modelo` com nome e texto padrão da finalidade. 400 para PERSONALIZADA |
+| GET    | `/gestora/mensagens/destinatarios`                | → `[{ nome, whatsapp, servico, ultimo, data, horario, agendamentoId, status }]` |
 | GET    | `/gestora/auditoria`                              | → `[{ id, user, acao, ip, dh }]` |
 
 Não existe mais rota de "pedidos LGPD": a exclusão de conta é imediata (seção 6).
@@ -226,8 +248,18 @@ Não existe mais rota de "pedidos LGPD": a exclusão de conta é imediata (seç�
 | GET    | `/cliente/ficha-saude`                     | → `{ respostas, atualizadaEm }` (ISO) |
 | PUT    | `/cliente/ficha-saude`                     | `{ respostas, alergias, observacoes_medicas }` |
 | GET    | `/cliente/agendamentos`                    | → `AgendamentoCliente[]` |
-| POST   | `/cliente/agendamentos`                    | `{ servicoId, data, hora, valorSinal }` → `AgendamentoCliente` (400 se a data/hora já passou) |
+| POST   | `/cliente/agendamentos`                    | `{ servicoId, data, hora, valorSinal }` → `AgendamentoCliente` (400 se a data/hora já passou; **400 se cliente nova sem sinal pago**) |
+| POST   | `/cliente/agendamentos/{id}/confirmacao`   | — → `AgendamentoCliente` (cliente confirma a presença; só PENDENTE e até 24h antes) |
 | POST   | `/cliente/agendamentos/{id}/cancelamento`  | `{ motivo }` → `AgendamentoCliente` |
+
+**Regras de sinal e confirmação** (`RegrasAgendamento.java`):
+
+- **Cliente nova:** só agenda com o sinal pago → nasce `CONFIRMADO`. Não existe agendamento com sinal pendente.
+- **Cliente recorrente** (isenta de sinal): nasce `PENDENTE` e confirma a presença na área dela até **24h antes** (`confirmarAte` na resposta). Se agendar já dentro das 24h, nasce `CONFIRMADO`.
+- Sem confirmação até o prazo, um job do backend (a cada 5 min) cancela: `status CANCELADO`, `canceladoPor "SISTEMA"`, motivo "Presença não confirmada até 24 horas antes do horário.".
+- `AgendamentoCliente` traz também `canceladoPor`, `motivoCancelamento` e `confirmarAte`.
+- **Lembrete:** aviso "Confirme sua presença" no perfil da cliente; no painel, a gestora tem o botão "Lembrar de confirmar" (WhatsApp com mensagem pronta).
+- **Visitante:** ao clicar em "Entrar para confirmar", a escolha (serviço, dia, horário) fica em `sessionStorage` (`src/lib/pendingBooking.js`) e é recuperada depois do login/cadastro.
 | POST   | `/cliente/conta/exclusao`                  | — (exclusão imediata) |
 
 ## 5. Formatos (DTOs)

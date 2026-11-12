@@ -9,6 +9,19 @@
 const br = (iso) => iso.split("-").reverse().join("/")
 
 /**
+ * Data com hora vinda do backend (LocalDateTime, ex.: "2026-11-11T18:07:25")
+ * → "11/11/2026 às 18:07". Só a data ("2026-11-11") → "11/11/2026".
+ * Vazio ou fora do formato → null (a tela decide o que mostrar).
+ * (br() sozinho não serve para data com hora: viraria "11T18:07:25/11/2026".)
+ */
+const brDateTime = (value) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(value ?? "")
+  if (!m) return null
+  const date = `${m[3]}/${m[2]}/${m[1]}`
+  return m[4] ? `${date} às ${m[4]}:${m[5]}` : date
+}
+
+/**
  * Remove todos os caracteres não numéricos de um texto.
  */
 const digits = (v) => v.replace(/\D/g, "")
@@ -74,6 +87,7 @@ const toSlug = (name) =>
 
 export {
   br,
+  brDateTime,
   brl,
   daysSince,
   digits,

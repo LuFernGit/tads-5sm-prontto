@@ -2,7 +2,8 @@ import { useState } from "react"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
 import { PLACEHOLDER, maskPhone } from "@/lib/masks"
-import { emailError } from "@/lib/validators"
+import { emailError, phoneError } from "@/lib/validators"
+import { useFieldErrors } from "@/hooks/useFieldErrors"
 import "./CustomizationPage.css"
 
 /**
@@ -13,34 +14,54 @@ import "./CustomizationPage.css"
 function CustomizationPage({ company, setCompany, notify }) {
   // 'draft' = rascunho. A gestora edita aqui e vê a prévia; só salva ao clicar em 'Salvar personalização'.
   const [draft, setDraft] = useState(company)
+  // Erros mostrados embaixo de cada campo (borda vermelha + orientação).
+  const { a11y, errorFor, showErrors, clearOnInput, clearError } =
+    useFieldErrors(notify)
   /** Atualiza um campo do rascunho. */
   const update = (field, value) =>
     setDraft((current) => ({ ...current, [field]: value }))
+  // Campo de upload de cada imagem (para mostrar o erro embaixo do campo certo).
+  const uploadIds = {
+    logoImage: "per-logo-da-empresa",
+    heroImage: "per-imagem-principal-da-vitrine",
+    favicon: "per-icone-da-aba-favicon",
+  }
   /** Lê a imagem escolhida (até 5 MB) e guarda em base64 no campo indicado (logo, capa ou favicon). */
   const uploadImage = (field, file) => {
     if (!file) return
     if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
-      notify("Use uma imagem JPG, PNG ou WEBP de até 5 MB.")
+      showErrors({
+        [uploadIds[field]]:
+          "Escolha uma imagem JPG, PNG ou WEBP de até 5 MB. Se a foto for maior, reduza o tamanho dela antes de enviar.",
+      })
       return
     }
     const reader = new FileReader()
-    reader.onload = () => update(field, String(reader.result))
+    reader.onload = () => {
+      clearError(uploadIds[field])
+      update(field, String(reader.result))
+    }
     reader.readAsDataURL(file)
   }
   /** Confere os campos obrigatórios e salva (setCompany → PUT /gestora/empresa). */
   const save = () => {
-    // Uma mensagem por campo, dizendo como corrigir (WCAG 3.3.3).
-    const missing = !draft.name.trim()
-      ? "Informe o nome da empresa, como ele deve aparecer na vitrine."
-      : !draft.initials.trim()
-        ? "Informe as iniciais da empresa (até 3 letras). Exemplo: CA."
-        : !draft.heroTitle.trim()
-          ? "Informe o título principal da vitrine. Exemplo: Realçando sua beleza com naturalidade."
-          : emailError(draft.email ?? "")
-    if (missing) {
-      notify(missing)
+    // Uma mensagem embaixo de cada campo, dizendo como corrigir (WCAG 3.3.3).
+    if (
+      showErrors({
+        "per-nome-da-empresa":
+          !draft.name.trim() &&
+          "Informe o nome da empresa, como ele deve aparecer na vitrine.",
+        "per-iniciais-monograma":
+          !draft.initials.trim() &&
+          "Informe as iniciais da empresa (até 3 letras). Exemplo: CA.",
+        "per-titulo-principal-da-vitrine":
+          !draft.heroTitle.trim() &&
+          "Informe o título principal da vitrine. Exemplo: Realçando sua beleza com naturalidade.",
+        "per-whatsapp-publico": phoneError(draft.phone ?? ""),
+        "per-e-mail-de-contato": emailError(draft.email ?? ""),
+      })
+    )
       return
-    }
     // O backend confere se o e-mail de contato é diferente do e-mail de acesso.
     setCompany(draft)
     notify("Personalização salva e aplicada à vitrine.")
@@ -54,23 +75,25 @@ function CustomizationPage({ company, setCompany, notify }) {
           As alterações são aplicadas ao painel da gestora e à vitrine que suas
           clientes visualizam.
         </p>
-        <div className="form-grid">
+        <div className="form-grid" onInput={clearOnInput}>
           <label htmlFor="per-nome-da-empresa">
             <span>NOME DA EMPRESA</span>
-            <input id="per-nome-da-empresa"
+            <input {...a11y("per-nome-da-empresa")}
               value={draft.name}
               onChange={(event) => update("name", event.target.value)}
             />
+            {errorFor("per-nome-da-empresa")}
           </label>
           <label htmlFor="per-iniciais-monograma">
             <span>INICIAIS / MONOGRAMA</span>
-            <input id="per-iniciais-monograma"
+            <input {...a11y("per-iniciais-monograma")}
               maxLength={3}
               value={draft.initials}
               onChange={(event) =>
                 update("initials", event.target.value.toUpperCase())
               }
             />
+            {errorFor("per-iniciais-monograma")}
           </label>
           <label htmlFor="per-assinatura-da-marca" className="wide">
             <span>ASSINATURA DA MARCA</span>
@@ -82,10 +105,11 @@ function CustomizationPage({ company, setCompany, notify }) {
           </label>
           <label htmlFor="per-titulo-principal-da-vitrine" className="wide">
             <span>TÍTULO PRINCIPAL DA VITRINE</span>
-            <input id="per-titulo-principal-da-vitrine"
+            <input {...a11y("per-titulo-principal-da-vitrine")}
               value={draft.heroTitle}
               onChange={(event) => update("heroTitle", event.target.value)}
             />
+            {errorFor("per-titulo-principal-da-vitrine")}
           </label>
           <label htmlFor="per-texto-de-apresentacao" className="wide">
             <span>TEXTO DE APRESENTAÇÃO</span>
@@ -97,16 +121,17 @@ function CustomizationPage({ company, setCompany, notify }) {
           </label>
           <label htmlFor="per-whatsapp-publico">
             <span>WHATSAPP PÚBLICO</span>
-            <input id="per-whatsapp-publico"
+            <input {...a11y("per-whatsapp-publico")}
               inputMode="tel"
               value={draft.phone}
               onChange={(event) => update("phone", maskPhone(event.target.value))}
               placeholder={PLACEHOLDER.phone}
             />
+            {errorFor("per-whatsapp-publico")}
           </label>
           <label htmlFor="per-e-mail-de-contato">
             <span>E-MAIL DE CONTATO</span>
-            <input id="per-e-mail-de-contato"
+            <input {...a11y("per-e-mail-de-contato")}
               type="email"
               value={draft.email}
               onChange={(event) => update("email", event.target.value)}
@@ -114,6 +139,7 @@ function CustomizationPage({ company, setCompany, notify }) {
             <small className="field-hint">
               Aparece na vitrine. Precisa ser diferente do seu e-mail de acesso.
             </small>
+            {errorFor("per-e-mail-de-contato")}
           </label>
           <label htmlFor="per-instagram">
             <span>INSTAGRAM</span>
@@ -134,7 +160,7 @@ function CustomizationPage({ company, setCompany, notify }) {
         <div className="brand-uploads">
           <label htmlFor="per-logo-da-empresa">
             <span>LOGO DA EMPRESA</span>
-            <input id="per-logo-da-empresa"
+            <input {...a11y("per-logo-da-empresa")}
               type="file"
               accept="image/*"
               onChange={(event) =>
@@ -151,10 +177,11 @@ function CustomizationPage({ company, setCompany, notify }) {
                 </>
               )}
             </div>
+            {errorFor("per-logo-da-empresa")}
           </label>
           <label htmlFor="per-imagem-principal-da-vitrine">
             <span>IMAGEM PRINCIPAL DA VITRINE</span>
-            <input id="per-imagem-principal-da-vitrine"
+            <input {...a11y("per-imagem-principal-da-vitrine")}
               type="file"
               accept="image/*"
               onChange={(event) =>
@@ -171,10 +198,11 @@ function CustomizationPage({ company, setCompany, notify }) {
                 </>
               )}
             </div>
+            {errorFor("per-imagem-principal-da-vitrine")}
           </label>
           <label htmlFor="per-icone-da-aba-favicon">
             <span>ÍCONE DA ABA (FAVICON)</span>
-            <input id="per-icone-da-aba-favicon"
+            <input {...a11y("per-icone-da-aba-favicon")}
               type="file"
               accept="image/png,image/svg+xml,image/x-icon"
               onChange={(event) =>
@@ -191,6 +219,7 @@ function CustomizationPage({ company, setCompany, notify }) {
                 </>
               )}
             </div>
+            {errorFor("per-icone-da-aba-favicon")}
           </label>
         </div>
         <div className="settings-save">

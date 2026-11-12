@@ -131,7 +131,19 @@
 .service-upload > div strong { font-size: 12px; color: var(--navy); }
 .service-upload > div small { font-size: 12px; }
 .service-upload > div.has-preview { border-style: solid; }
-.service-upload > div img { width: 100%; height: 100%; object-fit: cover; }
+.service-upload > div { position: relative; }
+/* Com foto: o quadro de enquadramento (components/ui/ImageFramer) substitui a
+   caixa de upload; abaixo dele, o nome do arquivo e o botão "Trocar foto". */
+.service-upload:focus-within > div { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.service-media { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.service-photo-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+/* Botão secundário do sistema (navy × branco = 17,85:1) */
+.service-change-photo { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: var(--navy); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.service-change-photo:hover { border-color: var(--amber); background: var(--cream); }
+/* Filtro de status (Todos · Ativos · Inativos) */
+.status-filter { display: inline-flex; align-items: center; gap: 8px; }
+.status-filter > span { font-size: 12px; font-weight: 700; color: #475569; }
+@media (max-width: 700px) { .status-filter { width: 100%; justify-content: space-between; } }
 .service-upload .file-name { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .input-prefix,
 .input-suffix { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 11px; background: #fff; overflow: hidden; }
@@ -161,8 +173,9 @@
 .category-manager-list span { display: flex; flex-direction: column; gap: 3px; flex: 1; }
 .category-manager-list strong { font-size: 12px; }
 .category-manager-list small { font-size: 12px; color: var(--muted); }
-.category-manager-list button { width: 28px; height: 28px; border: 0; border-radius: 8px; background: #fff1f2; color: #9f1239; cursor: pointer; font-size: 16px; }
-.category-manager-list button:disabled { background: var(--cream); color: #475569; cursor: not-allowed; }
+/* Excluir categoria: vermelho do sistema (#7f1d1d × #fee2e2 = 8,20:1), como na Agenda */
+.category-manager-list button { width: 32px; height: 32px; border: 1px solid #fca5a5; border-radius: 8px; background: var(--red-bg); color: var(--red); cursor: pointer; font-size: 16px; }
+.category-manager-list button:disabled { background: var(--cream); border-color: var(--line); color: #475569; cursor: not-allowed; }
 @media (max-width: 700px) {
   .page-head-actions { flex-direction: column; }
   .service-form,
@@ -170,3 +183,5 @@
   .service-upload > div { height: 150px; }
 }
 .admin-main .status-control { font-size: 12px !important; }
+/* Última coluna com espaço para o botão "⋯" no tamanho do de Clientes (31px) */
+.services-table .table-row { grid-template-columns: 2.2fr 1fr 0.8fr 0.9fr 1.15fr 32px; }

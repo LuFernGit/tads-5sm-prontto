@@ -378,10 +378,23 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
               className="ff-btn ff-secondary"
               onClick={() => (step === 0 ? onBack() : setStep(step - 1))}
             >
-              {step === 0 ? "Cancelar" : "Voltar"}
+              {/* Textos dizem para onde o botão leva (sem "Continuar"/"Voltar" genéricos). */}
+              {
+                [
+                  "Cancelar cadastro",
+                  "← Voltar para dados pessoais",
+                  "← Voltar para ficha de saúde",
+                ][step]
+              }
             </button>
             <button type="submit" className="ff-btn ff-navy">
-              {step < 2 ? "Continuar" : "Criar conta"}{" "}
+              {
+                [
+                  "Ir para ficha de saúde",
+                  "Ir para termos e privacidade",
+                  "Criar minha conta",
+                ][step]
+              }{" "}
               <span aria-hidden="true">→</span>
             </button>
           </div>

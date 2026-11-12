@@ -20,4 +20,7 @@
   animation: toast-in 0.2s ease-out;
 }
 .toast svg { color: #86efac; }
+/* ERRO / VALIDAÇÃO: vermelho do sistema (branco × #991b1b = 8,31:1, AAA) */
+.toast.toast-error { background: var(--error); border-color: rgba(255, 255, 255, 0.18); }
+.toast.toast-error svg { color: #fff; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }

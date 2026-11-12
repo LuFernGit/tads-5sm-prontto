@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
@@ -19,6 +19,11 @@ import {
   BOOKING_MONTHS,
 } from "@/constants"
 import { clearToken } from "@/api/session"
+import {
+  clearPendingBooking,
+  readPendingBooking,
+  savePendingBooking,
+} from "@/lib/pendingBooking"
 import { toHealthRecord } from "@/lib/anamnesis"
 import { formatDuration, formatPrice, toSlug } from "@/lib/format"
 import { PLACEHOLDER, maskPhone } from "@/lib/masks"
@@ -94,18 +99,52 @@ function ClientAppView({
 }) {
   const clinicSlug = company.slug || toSlug(company.name)
   const [clientSession, setClientSession] = useState(initialProfile)
+  // Escolha feita como VISITANTE antes de entrar/cadastrar (serviço, dia e horário).
+  // Já logada, a cliente volta direto para a confirmação desse agendamento.
+  const [resumed] = useState(() => {
+    if (guest || preview) return null
+    const pending = readPendingBooking(clinicSlug)
+    const chosen = pending
+      ? serviceCatalog.find((item) => item.active && String(item.id) === String(pending.serviceId))
+      : null
+    if (!chosen) return null
+    const [y, m, d] = pending.dateIso.split("-").map(Number)
+    const now = new Date()
+    const start = new Date(y, m - 1, d)
+    const [hh, mm] = pending.time.split(":").map(Number)
+    start.setHours(hh, mm, 0, 0)
+    if (start <= now) return null // horário já passou: ignora
+    return {
+      service: chosen,
+      day: d,
+      monthOffset: (y - now.getFullYear()) * 12 + (m - 1 - now.getMonth()),
+      time: pending.time,
+    }
+  })
   // Aba aberta e escolhas do agendamento (categoria, serviço, dia, horário, pagamento).
-  const [tab, setTab] = useState("home")
+  const [tab, setTab] = useState(resumed ? "schedule" : "home")
   const [category, setCategory] = useState("")
   const [service, setService] = useState(
-    serviceCatalog.find((item) => item.active) || EMPTY_SERVICE,
+    resumed?.service ||
+      serviceCatalog.find((item) => item.active) ||
+      EMPTY_SERVICE,
   )
-  const [selectedTime, setSelectedTime] = useState("")
-  const [selectedDay, setSelectedDay] = useState(new Date().getDate())
-  const [bookingMonthOffset, setBookingMonthOffset] = useState(0)
+  const [selectedTime, setSelectedTime] = useState(resumed?.time ?? "")
+  const [selectedDay, setSelectedDay] = useState(resumed?.day ?? new Date().getDate())
+  const [bookingMonthOffset, setBookingMonthOffset] = useState(resumed?.monthOffset ?? 0)
   const [confirmed, setConfirmed] = useState(false)
   const [paymentInfo, setPaymentInfo] = useState(null)
-  const [depositStep, setDepositStep] = useState(false)
+  const [depositStep, setDepositStep] = useState(Boolean(resumed))
+  // Escolha recuperada: apaga do navegador e avisa a cliente (uma vez só).
+  useEffect(() => {
+    if (guest || preview) return
+    clearPendingBooking(clinicSlug)
+    if (resumed)
+      notify(
+        "Recuperamos o serviço, o dia e o horário que você escolheu. Confira e conclua o agendamento.",
+      )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [signalValue, setSignalValue] = useState(null)
   // Meu perfil
   const [appointments, setAppointments] = useState(initialAppointments)
@@ -142,6 +181,8 @@ function ClientAppView({
     (item) => item.status === "Agendado",
   )
   const nextAppointment = upcomingAppointments[0]
+  // Pendentes de confirmação da cliente (aparecem no aviso do perfil).
+  const pendingConfirmation = appointments.filter((item) => item.needsConfirmation)
   // Links do Google Maps: mapa embutido e botão 'Como chegar'.
   const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(company.address)}&output=embed`
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`
@@ -216,14 +257,17 @@ function ClientAppView({
         `${bookingDate.getFullYear()}-${pad(bookingDate.getMonth() + 1)}`,
       ),
     [clinicSlug, bookingMonthOffset],
-    { initialData: { diasLotados: [], diasSemanaFechados: [0] } },
+    { initialData: { diasLotados: [], diasSemanaFechados: [0], diasBloqueados: [] } },
   )
   const busyDays = calendarQuery.data?.diasLotados ?? []
   const closedWeekdays = calendarQuery.data?.diasSemanaFechados ?? [0]
+  // Dias com bloqueio do dia inteiro: aparecem como "Fechado".
+  const blockedDays = calendarQuery.data?.diasBloqueados ?? []
   // Se o dia pedido estiver fechado ou lotado, a seleção vai para o próximo dia livre.
   const dayIsBookable = (day) =>
     !closedWeekdays.includes(new Date(bookingDate.getFullYear(), bookingDate.getMonth(), day).getDay()) &&
-    !busyDays.includes(day)
+    !busyDays.includes(day) &&
+    !blockedDays.includes(day)
   let selectedDaySafe = requestedDay
   while (selectedDaySafe <= daysInMonth && !dayIsBookable(selectedDaySafe)) selectedDaySafe++
   if (selectedDaySafe > daysInMonth) selectedDaySafe = requestedDay // nenhum dia livre no mês
@@ -258,8 +302,11 @@ function ClientAppView({
         new Date(new Date().setHours(0, 0, 0, 0)) ||
         // hoje, quando não cabe mais nenhum horário
         (bookingMonthOffset === 0 && day === new Date().getDate() && todayOver))
-    const closed = inMonth && !past && closedWeekdays.includes(index % 7)
+    const closed =
+      inMonth && !past && (closedWeekdays.includes(index % 7) || blockedDays.includes(day))
     const full = inMonth && !past && busyDays.includes(day)
+    // Dia de hoje: número num quadradinho âmbar escuro (igual ao painel da gestora)
+    const today = inMonth && bookingMonthOffset === 0 && day === new Date().getDate()
     return {
       index,
       day,
@@ -268,6 +315,7 @@ function ClientAppView({
       past,
       closed,
       full,
+      today,
       unavailable: past || closed || full,
     }
   })
@@ -340,6 +388,21 @@ function ClientAppView({
     notify(
       "Agendamento cancelado. O WhatsApp foi aberto com a mensagem pronta.",
     )
+  }
+  /** Cliente confirma a presença num agendamento pendente (isenta de sinal). */
+  const confirmPresence = async (appointment) => {
+    try {
+      const updated = await api.me.confirmAppointment(appointment.id)
+      setAppointments((current) =>
+        current.map((item) => (item.id === appointment.id ? updated : item)),
+      )
+      setSelectedAppointment((current) =>
+        current?.id === appointment.id ? updated : current,
+      )
+      notify("Presença confirmada. Te esperamos!")
+    } catch (error) {
+      notify(error.message)
+    }
   }
   /** Abre o modal de edição da ficha de saúde com uma cópia dos dados atuais. */
   const openHealthEditor = () => {
@@ -769,6 +832,10 @@ function ClientAppView({
                       Fechado ou passado
                     </span>
                     <span>
+                      <i className="bk-dot today" />
+                      Hoje
+                    </span>
+                    <span>
                       <i className="bk-dot chosen" />
                       Selecionado
                     </span>
@@ -799,7 +866,9 @@ function ClientAppView({
                         cell.day === selectedDaySafe && !cell.unavailable
                       const state = isSelected
                         ? "selected"
-                        : cell.past
+                        : cell.today
+                          ? "today"
+                          : cell.past
                           ? "past"
                           : cell.closed
                           ? "closed"
@@ -808,7 +877,9 @@ function ClientAppView({
                             : "free"
                       const tag = isSelected
                         ? "Selecionado"
-                        : cell.past
+                        : cell.today
+                          ? "Hoje"
+                          : cell.past
                           ? "Passado"
                           : cell.closed
                           ? "Fechado"
@@ -823,14 +894,15 @@ function ClientAppView({
                           onClick={() =>
                             chooseDay(cell.day, cell.unavailable, cell.past)
                           }
-                          aria-label={`Dia ${cell.day}: ${tag}`}
+                          aria-label={`${cell.today ? "Hoje, " : ""}Dia ${cell.day}: ${tag}`}
+                          aria-current={cell.today ? "date" : undefined}
                           // Dia passado: avisa o leitor de tela que o botão está inativo
                           aria-disabled={cell.past || undefined}
                         >
                           <strong>{cell.day}</strong>
                           {/* Dia passado: só o número riscado, sem texto. O leitor de tela
                               continua ouvindo "Passado" pelo aria-label do botão. */}
-                          {!cell.past && <small>{tag}</small>}
+                          {(!cell.past || cell.today) && <small>{tag}</small>}
                         </button>
                       )
                     })}
@@ -852,7 +924,15 @@ function ClientAppView({
                     </span>
                     <h2>Horários disponíveis</h2>
 
-                    {timePeriods
+                    {/* Sempre os três períodos, nesta ordem; período sem horário mostra um aviso. */}
+                    {["MANHÃ", "TARDE", "NOITE"]
+                      .map(
+                        (label) =>
+                          timePeriods.find((period) => period.label === label) ?? {
+                            label,
+                            slots: [],
+                          },
+                      )
                       .map((period) => ({
                         ...period,
                         slots: period.slots
@@ -869,11 +949,15 @@ function ClientAppView({
                               : slot,
                           ),
                       }))
-                      .filter((period) => period.slots.length > 0)
                       .map((period) => (
                         <div className="bk-period" key={period.label}>
                           <span>{period.label}</span>
 
+                          {period.slots.length === 0 ? (
+                            <p className="bk-period-empty">
+                              Sem horários neste período.
+                            </p>
+                          ) : (
                           <div className="bk-slots">
                             {period.slots.map((slot) => (
                               <button
@@ -895,6 +979,7 @@ function ClientAppView({
                               </button>
                             ))}
                           </div>
+                          )}
                         </div>
                       ))}
                   </section>
@@ -960,8 +1045,13 @@ function ClientAppView({
                               "A confirmação está desativada para a gestora.",
                             )
                           : guest && selectedTime
-                            ? (notify(
-                                "Entre na sua conta (ou crie uma) para confirmar o agendamento.",
+                            ? (savePendingBooking(clinicSlug, {
+                                serviceId: service.id,
+                                dateIso: selectedDateIso,
+                                time: selectedTime,
+                              }),
+                              notify(
+                                "Entre na sua conta (ou crie uma) para confirmar. Sua escolha fica guardada.",
                               ),
                               setMode("login"))
                           : selectedTime
@@ -1039,6 +1129,38 @@ function ClientAppView({
           </section>
 
           <div className="pf-container">
+            {/* LEMBRETE: agendamentos que a cliente ainda precisa confirmar
+                (isenta de sinal). Sem confirmação até 24h antes, o sistema cancela. */}
+            {pendingConfirmation.length > 0 && (
+              <section
+                className="pf-confirm-alert"
+                aria-labelledby="pf-confirm-title"
+              >
+                <h2 id="pf-confirm-title">
+                  <Icon name="bell" size={18} /> Confirme sua presença
+                </h2>
+                <p>
+                  Se não confirmar até o prazo, o horário é cancelado
+                  automaticamente e liberado para outra cliente.
+                </p>
+                <ul>
+                  {pendingConfirmation.map((item) => (
+                    <li key={item.id}>
+                      <span>
+                        <strong>{item.name}</strong>
+                        <small>
+                          {item.date} às {item.time} · confirme até{" "}
+                          {item.confirmByLabel}
+                        </small>
+                      </span>
+                      <Action onClick={() => confirmPresence(item)}>
+                        <Icon name="check" size={15} /> Confirmar presença
+                      </Action>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <div className="pf-row">
               <div className="pf-card">
                 <h2 className="pf-title">Próximo agendamento</h2>
@@ -1283,7 +1405,25 @@ function ClientAppView({
                 </p>
               )}
 
+              {selectedAppointment.needsConfirmation && (
+                <p className="pf-policy">
+                  Confirme sua presença até {selectedAppointment.confirmByLabel}.
+                  Sem confirmação, o horário é cancelado automaticamente.
+                </p>
+              )}
+              {selectedAppointment.rawStatus === "CANCELADO" &&
+                selectedAppointment.cancellationReason && (
+                  <p className="pf-policy">
+                    Motivo do cancelamento: {selectedAppointment.cancellationReason}
+                  </p>
+                )}
+
               <div className="modal-actions service-detail-actions">
+                {selectedAppointment.needsConfirmation && (
+                  <Action onClick={() => confirmPresence(selectedAppointment)}>
+                    <Icon name="check" size={15} /> Confirmar presença
+                  </Action>
+                )}
                 {selectedAppointment.status === "Agendado" && (
                   <Action
                     variant="danger"
@@ -1305,6 +1445,7 @@ function ClientAppView({
                   onClick={() =>
                     openWhatsApp(
                       `Olá! Segue o comprovante do meu agendamento: ${selectedAppointment.name} em ${selectedAppointment.date} às ${selectedAppointment.time} na ${company.name}.`,
+                      company.phone, // WhatsApp da clínica
                     )
                   }
                 >

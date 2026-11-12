@@ -12,12 +12,21 @@ label.pf-check { flex-direction: row; align-items: center; gap: 10px; padding: 1
 .registration-header { height: 76px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 5vw; }
 .registration-header button { border: 0; background: transparent; color: #475569; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .registration-shell { max-width: 1180px; margin: 34px auto; padding: 0 24px; display: grid; grid-template-columns: 270px 1fr; gap: 22px; align-items: start; }
-.registration-steps { background: #1e293b; color: #fff; border-radius: 20px; padding: 28px; position: sticky; top: 20px; }
+.registration-steps { background: var(--navy); color: #fff; border-radius: 20px; padding: 28px; position: sticky; top: 20px; }
 .registration-steps > span { font-size: 12px; letter-spacing: 0.16em; color: #cbd5e1; font-weight: 800; }
 .registration-steps > strong { display: block; font-family: var(--font-body); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin: 12px 0 10px; }
 .registration-steps > p { font-size: 12px; line-height: 1.7; color: #cbd5e1; margin: 0 0 24px; }
-.registration-steps > div { display: flex; align-items: center; gap: 10px; padding: 9px 0; color: #cbd5e1; font-size: 12px; font-weight: 700; }
-.registration-steps > div i { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #64748b; display: grid; place-items: center; font-style: normal; font-size: 12px; }
+/* Lista de etapas: <nav><ol><li> com <button> (etapas já alcançadas) ou <div>. */
+.registration-step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.registration-step-list li > :is(button, div) { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px; margin: 0 -8px; border: 0; border-radius: 10px; background: transparent; color: #cbd5e1; font: inherit; font-size: 12px; font-weight: 700; text-align: left; }
+.registration-step-list li > button { cursor: pointer; }
+.registration-step-list li > button:hover { background: rgba(224, 169, 109, 0.12); color: #fff; }
+.registration-step-list i { width: 25px; height: 25px; flex: 0 0 25px; border-radius: 50%; border: 1px solid #64748b; display: grid; place-items: center; font-style: normal; font-size: 12px; }
+/* Etapa ainda não alcançada: mais apagada (#94a3b8 × #0f172a = 6,96:1) */
+.registration-step-list li:not(.active):not(.done) > div { color: #94a3b8; }
+/* Título da etapa recebe foco ao trocar de etapa (para o leitor de tela anunciar). */
+h1.registration-title { font-weight: 400; line-height: 1.2; margin: 7px 0 0; }
+h1.registration-title:focus { outline: none !important; }
 .registration-content { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 34px; min-height: 620px; display: flex; flex-direction: column; }
 .registration-title { font-family: var(--font-heading); font-size: 34px; color: var(--navy); margin-top: 7px; }
 .registration-content > p { font-size: 12px; color: var(--muted); line-height: 1.7; margin: 7px 0 25px; }
@@ -31,8 +40,16 @@ label.pf-check { flex-direction: row; align-items: center; gap: 10px; padding: 1
 .registration-form select:focus,
 .registration-form textarea:focus { border-color: #64748b; box-shadow: 0 0 0 3px #f1f5f9; }
 .registration-actions { margin-top: auto; padding-top: 25px; display: flex; justify-content: space-between; }
-.registration-category-create { display: flex; gap: 9px; }
-.registration-category-create input { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font: inherit; font-size: 12px; }
+.registration-category-form { margin-bottom: 4px; }
+.registration-category-create { display: flex; align-items: flex-end; gap: 16px; }
+.registration-category-create input { flex: 1; min-height: 44px; font: inherit; font-size: 12px; }
+/* Botão "Adicionar serviço à lista": separado da descrição e com contorno
+   âmbar para ficar claro que é um botão (#92400e × branco = 7,09:1). */
+.initial-service-actions { display: flex; justify-content: flex-start; margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--line); }
+.initial-service-actions .action { min-height: 44px; }
+.initial-service-count { margin: 14px 0 0; font-size: 12px; font-weight: 700; color: var(--green); }
+/* Caixas de aceite com erro: contorno vermelho em volta do quadro. */
+.registration-form label.pf-check:has([aria-invalid="true"]) { outline: 2px solid var(--error); outline-offset: -2px; }
 .registration-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0; }
 .registration-chips > span { border-radius: 20px; background: #f1f5f9; color: #334155; padding: 7px 8px 7px 11px; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; }
 .registration-chips button { border: 0; background: #fff; border-radius: 50%; width: 18px; height: 18px; color: #475569; cursor: pointer; }
@@ -65,8 +82,10 @@ label.pf-check { flex-direction: row; align-items: center; gap: 10px; padding: 1
   .registration-steps > strong,
   .registration-steps > p,
   .registration-steps > span { display: none; }
-  .registration-steps > div { padding: 0; white-space: nowrap; }
-  .registration-steps > div span { display: none; }
+  .registration-steps nav { width: 100%; }
+  .registration-step-list { display: flex; gap: 4px; }
+  .registration-step-list li > :is(button, div) { margin: 0; padding: 4px; white-space: nowrap; }
+  .registration-step-list span:not(.sr-only) { display: none; }
   .registration-content { padding: 22px; min-height: 680px; }
   .registration-title { font-size: 28px; }
   .registration-form { grid-template-columns: 1fr; }

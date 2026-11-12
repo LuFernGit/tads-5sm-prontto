@@ -19,7 +19,7 @@ const openModals = []
  *  - a tecla Esc fecha o modal;
  *  - ao fechar, o foco volta para o botão que abriu o modal.
  */
-function Modal({ title, children, onClose, wide = false }) {
+function Modal({ title, children, onClose, wide = false, kicker = "PRONTTO" }) {
   const cardRef = useRef(null)
   // Guarda sempre a função de fechar mais recente, sem reiniciar o efeito abaixo.
   const onCloseRef = useRef(onClose)
@@ -84,7 +84,7 @@ function Modal({ title, children, onClose, wide = false }) {
       >
         <div className="modal-head">
           <div>
-            <span className="section-kicker">PRONTTO</span>
+            <span className="section-kicker">{kicker}</span>
             <div className="section-title">{title}</div>
           </div>
           {/* Botão de fechar: ícone de X desenhado em SVG (components/ui/Icon.jsx). */}
@@ -97,7 +97,9 @@ function Modal({ title, children, onClose, wide = false }) {
             <Icon name="close" size={18} />
           </button>
         </div>
-        {children}
+        {/* Só o conteúdo rola (o cabeçalho com o X fica sempre visível); a barra
+            de rolagem fica dentro do cartão, longe das bordas arredondadas. */}
+        <div className="modal-body">{children}</div>
       </div>
     </div>
   )

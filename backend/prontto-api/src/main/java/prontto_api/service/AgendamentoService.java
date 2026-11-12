@@ -39,13 +39,15 @@ public class AgendamentoService {
         LocalDate data = LocalDate.parse(dataStr);
         DiaSemana diaSemana = converterDiaSemana(data.getDayOfWeek());
 
-        Horario expediente = horarioRepository.findByClinicaId(clinica.getId())
+        // TODAS as faixas do dia (ex.: 09–12 e 13–19 quando há almoço), em ordem.
+        // Antes só a primeira era lida, e os horários da tarde/noite sumiam.
+        List<Horario> faixas = horarioRepository.findByClinicaId(clinica.getId())
                 .stream()
                 .filter(h -> h.getDiaSemana() == diaSemana && h.getAtivo())
-                .findFirst()
-                .orElse(null);
+                .sorted(java.util.Comparator.comparing(Horario::getHoraInicio))
+                .toList();
 
-        if (expediente == null) {
+        if (faixas.isEmpty()) {
             return List.of(
                     new PeriodoHorarioResponse("MANHÃ", List.of()),
                     new PeriodoHorarioResponse("TARDE", List.of()),
@@ -62,13 +64,16 @@ public class AgendamentoService {
         List<PeriodoHorarioResponse.SlotDto> slotsTarde = new ArrayList<>();
         List<PeriodoHorarioResponse.SlotDto> slotsNoite = new ArrayList<>();
 
+        int duracao = servico.getDuracao();
+
+        for (Horario expediente : faixas) {
         LocalTime atual = expediente.getHoraInicio();
         // Regra de Negócio: atendimento deve terminar impreterivelmente até às 19:00
         LocalTime fimExpediente = expediente.getHoraFim().isAfter(LocalTime.of(19, 0))
                 ? LocalTime.of(19, 0)
                 : expediente.getHoraFim();
-        int duracao = servico.getDuracao();
 
+        // O atendimento inteiro precisa caber DENTRO da faixa (não atravessa o almoço).
         while (atual.plusMinutes(duracao).compareTo(fimExpediente) <= 0) {
             LocalTime slotFim = atual.plusMinutes(duracao);
             LocalTime slotIni = atual;
@@ -100,6 +105,7 @@ public class AgendamentoService {
 
             atual = atual.plusMinutes(30);
         }
+        } // fim das faixas do dia
 
         return List.of(
                 new PeriodoHorarioResponse("MANHÃ", slotsManha),

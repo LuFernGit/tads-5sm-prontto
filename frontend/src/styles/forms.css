@@ -96,6 +96,13 @@ small.ff-error { color: var(--red); font-weight: 700; font-size: 12px; }
 .af-status { display: inline-block; width: max-content; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .af-status.pending { background: var(--amber-bg); color: var(--amber-text); }
 .af-status.done { background: var(--green-bg); color: var(--green); }
+/* Selos de situação (#14532d × #dcfce7 = 8,30:1 · #7f1d1d × #fee2e2 = 8,20:1 · #334155 × #e2e8f0 = 8,40:1) */
+.af-status.confirmed { background: var(--green-bg); color: var(--green); }
+.af-status.cancelled { background: var(--red-bg); color: var(--red); }
+.af-status.archived { background: var(--line); color: #334155; }
+/* Concluído (histórico da cliente): azul-marinho da identidade, diferente do
+   verde de "Confirmado" (navy × #f1f5f9 = 17,1:1) */
+.af-status.completed { background: #f1f5f9; color: var(--navy); box-shadow: inset 0 0 0 1px #cbd5e1; }
 .af-newtpl { display: flex; align-items: flex-end; gap: 10px; }
 .legal h2 { margin: 22px 0 6px; font-size: 16px; color: var(--navy); }
 .legal p,
@@ -119,8 +126,50 @@ small.ff-error { color: var(--red); font-weight: 700; font-size: 12px; }
 /* ================= CENTRAL DE MENSAGENS WHATSAPP ================= */
 .af-card[aria-labelledby="mg-h1"] { display: grid; gap: 18px; }
 .af-card[aria-labelledby="mg-h1"] > h1 { margin-bottom: 0; }
-.af-card[aria-labelledby="mg-h1"] .ff-copy { max-width: 850px; margin-top: -8px; }
+/* Título no padrão do painel (.section-title) e texto logo abaixo, sem espaço sobrando */
+.af-card[aria-labelledby="mg-h1"] .mg-heading .section-title { margin: 4px 0 0; font-family: var(--font-body); font-size: 22px; font-weight: 750; line-height: 1.25; color: var(--navy); }
+.af-card[aria-labelledby="mg-h1"] .ff-copy { max-width: 850px; margin-top: -10px; }
+/* Subtítulos dos blocos ("Preparar mensagem", "Prévia", "Modelos cadastrados") */
+.af-card[aria-labelledby="mg-h1"] .ff-notice h2 { margin: 0 0 4px; font-family: var(--font-body); font-size: 16px; font-weight: 750; color: var(--navy); }
 .af-card[aria-labelledby="mg-h1"] .ff-notice { margin-top: 0; }
+/* Blocos e itens BRANCOS com a borda cinza fina, como os cartões do resto do
+   painel (antes: caixa cinza com itens cinza dentro, destoando do sistema). */
+.af-card[aria-labelledby="mg-h1"] .ff-notice { background: #fff; padding: 20px; }
+.af-card[aria-labelledby="mg-h1"] .af-list li { background: #fff; }
+/* Abas "Enviar mensagem" | "Modelos da clínica" (reaproveita o .segmented do painel) */
+.af-card[aria-labelledby="mg-h1"] .mg-tabs { justify-self: start; }
+.af-card[aria-labelledby="mg-h1"] .mg-tabs button { min-height: 38px; padding: 8px 16px; font-size: 13px; }
+/* Passos 1-2-3 do envio */
+.af-card[aria-labelledby="mg-h1"] .mg-step h2 { display: flex; align-items: center; gap: 10px; }
+.mg-step-number { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 13px; font-weight: 800; flex: none; }
+.af-card[aria-labelledby="mg-h1"] .mg-note { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; color: var(--muted); line-height: 1.6; }
+.af-card[aria-labelledby="mg-h1"] .mg-note svg { flex: none; margin-top: 3px; color: var(--amber-text); }
+.af-card[aria-labelledby="mg-h1"] .mg-send-actions { margin-top: 8px; }
+.af-card[aria-labelledby="mg-h1"] .ff-link-btn.is-disabled { opacity: 0.6; cursor: not-allowed; }
+/* Lista de modelos (CRUD) */
+.af-card[aria-labelledby="mg-h1"] .mg-templates-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.af-card[aria-labelledby="mg-h1"] .mg-templates-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.af-card[aria-labelledby="mg-h1"] .mg-template-list li { align-items: flex-start; }
+.mg-template-info { display: grid; gap: 6px; min-width: 0; flex: 1; }
+.mg-template-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.mg-template-title strong { font-size: 14px; color: var(--navy); }
+/* Finalidade: selo neutro com borda (navy × branco = 17,85:1) */
+.mg-purpose { padding: 2px 10px; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--navy); }
+/* Trecho do texto: 2 linhas (#475569 × branco = 7,58:1) */
+.mg-template-text { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.af-card[aria-labelledby="mg-h1"] .mg-template-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.af-card[aria-labelledby="mg-h1"] .mg-template-actions .ff-btn { min-height: 38px; padding: 0 14px; font-size: 13px; }
+/* Modal criar/editar modelo */
+.mg-form { display: grid; gap: 14px; }
+.mg-form textarea { min-height: 140px; resize: vertical; line-height: 1.7; }
+.mg-count { justify-self: end; margin-top: -8px; font-size: 12px; color: #475569; }
+.mg-vars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mg-vars > span { width: 100%; font-size: 12px; font-weight: 700; color: #475569; }
+.mg-vars button { min-height: 32px; padding: 4px 12px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: var(--navy); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.mg-vars button:hover { border-color: var(--amber); background: var(--amber-pale); color: var(--amber-text); }
+.mg-preview { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.mg-preview strong { display: block; font-size: 12px; color: #475569; letter-spacing: 0.04em; }
+.mg-preview p { margin: 6px 0 0; font-size: 13px; line-height: 1.7; color: var(--navy); white-space: pre-wrap; }
 .af-card[aria-labelledby="mg-h1"] textarea { min-height: 150px; resize: vertical; line-height: 1.7; }
 .af-card[aria-labelledby="mg-h1"] .ff-actions { align-items: center; }
 .af-card[aria-labelledby="mg-h1"] .ff-link-btn { text-decoration: none; }
@@ -129,6 +178,10 @@ small.ff-error { color: var(--red); font-weight: 700; font-size: 12px; }
 @media (max-width: 680px) {
   .af-card[aria-labelledby="mg-h1"] .ff-actions > * { width: 100%; justify-content: center; }
   .af-card[aria-labelledby="mg-h1"] .af-list li { align-items: flex-start; flex-direction: column; }
+  .af-card[aria-labelledby="mg-h1"] .mg-template-actions { width: 100%; flex-wrap: wrap; }
+  .af-card[aria-labelledby="mg-h1"] .mg-template-actions .ff-btn { flex: 1 1 auto; }
+  .af-card[aria-labelledby="mg-h1"] .mg-tabs { justify-self: stretch; }
+  .af-card[aria-labelledby="mg-h1"] .mg-tabs button { flex: 1; }
 }
 .af-blocks-card .ff-actions { margin-top: 16px; }
 .af-blocks-card .ff-check { margin: 12px 0; padding: 13px 15px; border: 1px solid #eee5e6; border-radius: 10px; background: #fff; }

@@ -148,11 +148,16 @@ public class CatalogoService {
         return converterParaResponse(servico);
     }
 
+    /**
+     * Clínica da gestora logada. A gestora NÃO tem USUARIO.id_clinica (a regra
+     * chk_usuario_clinica do banco exige NULL para GESTORA): quem aponta para ela
+     * é CLINICA.id_gestora. Por isso a busca é por findByGestoraId, igual aos
+     * outros serviços (HorarioService, ClinicaService, AgendamentoService).
+     */
     private Clinica validarClinicaGestora(Usuario gestora) {
-        if (gestora.getClinica() == null) {
-            throw new RecursoNaoEncontradoException("A gestora não está vinculada a nenhuma clínica.");
-        }
-        return gestora.getClinica();
+        return clinicaRepository.findByGestoraId(gestora.getId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException(
+                        "A gestora não está vinculada a nenhuma clínica."));
     }
 
     private Servico buscarServicoDaClinica(Long idServico, Long idClinica) {

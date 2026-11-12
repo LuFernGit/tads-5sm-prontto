@@ -50,6 +50,8 @@
   margin: 0 auto 14px;
 }
 .confirmation-icon.warning { background: var(--amber-pale); color: var(--amber); }
+/* Confirmação de ação positiva (ativar/reativar): #14532d × #dcfce7 = 8,30:1 */
+.confirmation-icon.success { background: var(--green-bg); color: var(--green); }
 .confirmation-content p { font-size: 12px; line-height: 1.7; color: var(--muted); margin: 0; }
 .confirmation-content strong { color: var(--navy); }
 .empty-state { padding: 45px 20px; text-align: center; color: var(--muted); font-size: 12px; }

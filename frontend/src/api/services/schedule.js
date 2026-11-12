@@ -11,8 +11,9 @@ import { fromHorarioRows, toHorarioRows } from "@/lib/schedule"
  */
 export const scheduleApi = {
   /**
-   * GET /gestora/painel → {
-   *   dias:   ["SEG 02", ...]            rótulos da semana atual
+   * GET /gestora/painel?semana=YYYY-MM-DD → {
+   *   (semana = qualquer data da semana desejada; sem o parâmetro = semana atual)
+   *   dias:   ["SEG 02", ...]            rótulos da semana pedida
    *   datas:  ["2026-11-02", ...]        mesma ordem dos dias
    *   horarios: Slot[][]                 um array de horários por dia
    *   proximos: ProximoAtendimento[]
@@ -23,7 +24,8 @@ export const scheduleApi = {
    * BACKEND: calcula os slots a partir de HORARIO, BLOQUEIO_HORARIO e AGENDAMENTO
    * (implementação de referência na rota /gestora/painel de src/mocks/handlers.js).
    */
-  getDashboard: () => http.get("/gestora/painel"),
+  getDashboard: (semana) =>
+    http.get("/gestora/painel", semana ? { semana } : undefined),
 
   /**
    * GET /gestora/horarios-funcionamento → linhas da tabela HORARIO

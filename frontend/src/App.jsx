@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import Toast from "@/components/ui/Toast"
 import { useAppSession } from "@/hooks/useAppSession"
 import { useHash } from "@/hooks/useHash"
+import { noticeTone } from "@/lib/noticeTone"
 import AdminApp from "@/screens/admin/AdminApp"
 import ClientLoginScreen from "@/screens/auth/ClientLoginScreen"
 import InvalidClinicLink from "@/screens/auth/InvalidClinicLink"
@@ -23,6 +24,7 @@ export default function App() {
     mode,
     setMode,
     notice,
+    noticeToneOverride,
     setNotice,
     notify,
     clinicSlug,
@@ -62,8 +64,20 @@ export default function App() {
     document.title = tabCompany ? tabCompany.name : "Prontto"
   }, [tabCompany])
   // Toast = aviso flutuante (ex.: 'Salvo com sucesso'). Só aparece se houver mensagem.
+  // Cor: sucesso (azul-marinho) ou erro/validação (vermelho), pelo texto ou pelo
+  // tipo passado em notify(msg, tipo). O LOGIN DA GESTORA está finalizado
+  // (docs/TELAS-FINALIZADAS.md) e mantém o aviso como era: sempre o padrão.
+  const isFinalizedManagerLogin = mode === "login" && !clinicSlug
   const toast = notice && (
-    <Toast message={notice} onClose={() => setNotice("")} />
+    <Toast
+      message={notice}
+      tone={
+        isFinalizedManagerLogin
+          ? "success"
+          : noticeToneOverride || noticeTone(notice)
+      }
+      onClose={() => setNotice("")}
+    />
   )
   // 1) Enquanto verifica se já existe sessão salva, mostra 'Carregando…'.
   if (mode === "loading")

@@ -10,7 +10,8 @@
 .login-visual > div:first-of-type { background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.58)); }
 /* Texto sobre a imagem (z-index 2 = fica acima da foto e da camada escura). */
 .login-visual-copy { position: relative; z-index: 2; color: #fff; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 10vw; }
-.login-visual-copy > span { font-size: 12px; color: var(--gold); font-weight: 800; letter-spacing: 0.16em; }
+/* :not(.brand) — o logo (<Brand />) também é um <span> filho direto e não pode herdar o dourado/negrito */
+.login-visual-copy > span:not(.brand) { font-size: 12px; color: var(--gold); font-weight: 800; letter-spacing: 0.16em; }
 .login-visual-copy h1 { font-family: var(--font-heading); font-size: 48px; line-height: 1.08; font-weight: 400; margin: 20px 0; }
 .login-visual-copy > p { max-width: 410px; color: #cbd5e1; font-size: 12px; line-height: 1.8; }
 /* COLUNA DO FORMULÁRIO: centraliza a caixa de login (máx. 420px de largura). */
@@ -62,21 +63,25 @@
    #334155 sobre branco = 10,35:1; no hover, sobre #f1f5f9 = 9,45:1. */
 .neutral-auth .company-signup .action-secondary { border-color: #334155; color: #334155; }
 .neutral-auth .company-signup .action-secondary:hover { background: #f1f5f9; color: #334155; }
-/* TEMA NEUTRO: no login e no cadastro da gestora os botões ficam cinza-azulados
-   (a gestora ainda não está dentro de uma clínica). '.neutral-auth .action-primary'
-   = botão principal (Action.jsx) que está DENTRO de um elemento com a classe neutral-auth. */
-.neutral-auth .action-primary,
-.registration-page .action-primary { background: #334155; box-shadow: 0 8px 18px rgba(51, 65, 85, 0.18); }
-.neutral-auth .action-secondary,
-.registration-page .action-secondary { color: #334155; }
+/* TEMA NEUTRO no LOGIN da gestora: botões cinza-azulados
+   (a gestora ainda não está dentro de uma clínica). */
+.neutral-auth .action-primary { background: #334155; box-shadow: 0 8px 18px rgba(51, 65, 85, 0.18); }
+.neutral-auth .action-secondary { color: #334155; }
 .neutral-auth .section-kicker,
-.registration-page .section-kicker,
 .neutral-auth .forgot-password { color: #475569; }
-/* Lista de etapas do cadastro: etapa atual (active) e etapas concluídas (done). */
-.registration-steps > div.active { color: #fff; }
-.registration-steps > div.active i { background: #fff; color: #334155; border-color: #fff; }
-.registration-steps > div.done { color: #cbd5e1; }
-.registration-steps > div.done i { background: #334155; border-color: #64748b; color: #fff; }
+/* CADASTRO da empresa — identidade Prontto (atividade #11, item 5.11.2):
+   botão principal âmbar escuro (branco × #92400e = 7,09:1, AAA);
+   botão secundário com contorno âmbar (#92400e × branco = 7,09:1). */
+.registration-page .action-primary { background: var(--amber-dark); color: #fff; box-shadow: 0 8px 18px rgba(146, 64, 14, 0.2); }
+.registration-page .action-secondary { background: #fff; border: 1.5px solid var(--amber-dark); color: var(--amber-text); }
+.registration-page .action-secondary:hover { background: var(--amber-pale); }
+.registration-page .section-kicker { color: var(--amber-text); }
+/* Lista de etapas do cadastro (fundo #0f172a):
+   etapa atual em #e0a96d (8,56:1, AAA); concluídas com ✓ em #e0a96d. */
+.registration-step-list li.active > div { color: var(--gold); }
+.registration-step-list li.active i { background: var(--gold); color: var(--navy); border-color: var(--gold); }
+.registration-step-list li.done > :is(button, div) { color: #cbd5e1; }
+.registration-step-list li.done i { background: transparent; border-color: var(--gold); color: var(--gold); }
 .registration-form label.wide { grid-column: 1/3; }
 /* CELULAR (telas até 700px): esconde a imagem, mostra só o formulário e o logo no topo. */
 @media (max-width: 700px) {

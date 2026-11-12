@@ -17,6 +17,15 @@ const mockLoaders = import.meta.glob("../mocks/index.js")
 const loadMock = Object.values(mockLoaders)[0]
 let mockWarningShown = false
 
+// Mostra no console (F12) qual backend está em uso. Só em desenvolvimento.
+if (import.meta.env.DEV) {
+  console.info(
+    USE_MOCKS && loadMock
+      ? "[api] Modo: MOCK (backend falso de src/mocks)"
+      : `[api] Modo: BACKEND REAL (${API_URL} → Spring Boot)`,
+  )
+}
+
 /** Erro padrão das chamadas: guarda o status HTTP e os erros por campo do formulário. */
 export class ApiError extends Error {
   /**

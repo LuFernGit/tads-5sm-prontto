@@ -4,6 +4,7 @@ import Brand from "@/components/ui/Brand"
 import Icon from "@/components/ui/Icon"
 import { USE_MOCKS, api } from "@/api"
 import { neutralLoginImage } from "@/constants"
+import { useFieldErrors } from "@/hooks/useFieldErrors"
 import { emailError } from "@/lib/validators"
 import CompanyRegistrationPage from "./CompanyRegistrationPage"
 
@@ -23,18 +24,23 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
   const [registering, setRegistering] = useState(false)
   // true enquanto espera o backend: evita cliques repetidos e mostra 'Entrando…'.
   const [submitting, setSubmitting] = useState(false)
+  // Erros mostrados embaixo de cada campo (borda vermelha + orientação).
+  const { a11y, errorFor, showErrors, clearOnInput } = useFieldErrors(notify)
   /** Clique em 'Entrar' (ou Enter no campo de senha). */
   const signIn = async () => {
     // Validação simples antes de chamar o backend (a validação real é feita lá).
     // Mensagens com sugestão de correção (WCAG 3.3.3), não só "dados inválidos".
-    if (emailError(email)) {
-      notify(emailError(email))
+    if (
+      showErrors({
+        "lg-email": email.trim()
+          ? emailError(email)
+          : "Digite o seu e-mail para entrar.",
+        "lg-senha":
+          !password &&
+          "Digite a sua senha para entrar. Esqueceu? Use “Esqueci minha senha”.",
+      })
+    )
       return
-    }
-    if (!password) {
-      notify("Digite a sua senha para entrar. Esqueceu? Use \"Esqueci minha senha\".")
-      return
-    }
     if (submitting) return
     setSubmitting(true)
     try {
@@ -43,16 +49,24 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
       await onManagerLogin(email.trim().toLowerCase(), password)
       notify("Empresa e acesso de gestora identificados.")
     } catch (error) {
-      notify(error.message)
+      // Resposta do backend embaixo do campo: perfil errado (403) → e-mail;
+      // e-mail ou senha incorretos (401) e outros → senha.
+      showErrors({
+        [error.status === 403 ? "lg-email" : "lg-senha"]: error.message,
+      })
       setSubmitting(false)
     }
   }
   /** 'Esqueci minha senha': usa o e-mail digitado para pedir a recuperação. */
   const forgotPassword = async () => {
-    if (!email.includes("@")) {
-      notify("Digite seu e-mail para recuperar a senha.")
+    if (
+      showErrors({
+        "lg-email": email.trim()
+          ? emailError(email)
+          : "Para recuperar a senha, digite aqui o e-mail da sua conta.",
+      })
+    )
       return
-    }
     try {
       await api.auth.forgotPassword(email.trim().toLowerCase())
       notify("Enviaremos as instruções de recuperação para o seu e-mail.")
@@ -104,11 +118,11 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
           <div className="login-title">Entre na sua conta</div>
           <p>Use o e-mail e a senha cadastrados pela gestora.</p>
           {/* htmlFor do label + id do input ligam o texto ao campo (acessibilidade). */}
-          <div className="login-form">
+          <div className="login-form" onInput={clearOnInput}>
             <label htmlFor="lg-email">
               <span>E-MAIL</span>
               <input
-                id="lg-email"
+                {...a11y("lg-email")}
                 autoFocus
                 type="email"
                 autoComplete="email"
@@ -116,11 +130,12 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="seu@email.com"
               />
+              {errorFor("lg-email")}
             </label>
             <label htmlFor="lg-senha">
               <span>SENHA</span>
               <input
-                id="lg-senha"
+                {...a11y("lg-senha")}
                 type="password"
                 autoComplete="current-password"
                 value={password}
@@ -128,6 +143,7 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
                 onKeyDown={(event) => event.key === "Enter" && signIn()}
                 placeholder="Digite sua senha"
               />
+              {errorFor("lg-senha")}
             </label>
             <button
               type="button"

@@ -6,8 +6,9 @@ spring:
   # Conexão com o banco de dados MySQL
   datasource:
     url: jdbc:mysql://localhost:3306/prontto?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-    username: root
-    password: 1234
+    # Cada dev pode definir DB_USERNAME / DB_PASSWORD na Run Configuration do IntelliJ
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   # Configuração do JPA / Hibernate (mantendo o schema.sql gerenciado manualmente)
@@ -24,6 +25,9 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema.sql
+      # Dados de teste da CA Beauty Clinic (gestora, cliente, catálogo e agenda).
+      # Só para desenvolvimento: REMOVA esta linha antes de publicar em produção.
+      data-locations: classpath:seed-dev.sql
 
   # Configuração de upload via JSON (suporte a imagens em Base64)
   servlet:

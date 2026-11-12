@@ -1,6 +1,117 @@
 /* Regras globais que precisam vencer os estilos das telas: campos ".wide"
-   no celular e o foco visível dos campos (acessibilidade).
+   no celular, o visual padrão dos campos e o foco visível (acessibilidade).
    Carregado por último em src/main.jsx — mantenha só o que precisa vencer tudo. */
+
+/* =====================================================================
+   CAMPOS DE FORMULÁRIO — padrão do sistema inteiro = o campo do LOGIN:
+   borda fina e cinza, cantos arredondados, fundo branco.
+   Vale para todo input de texto, select e textarea, em qualquer tela.
+   Checkbox, radio, arquivo e cor ficam de fora. Nos campos com prefixo/sufixo
+   (.input-prefix/.input-suffix, ex.: "R$ [ ]") e na busca (.search-box) a
+   borda fica no contêiner, e o campo de dentro fica sem borda.
+   O !important é necessário porque cada tela ainda tem o próprio CSS antigo.
+   ===================================================================== */
+:is(
+  input:not([type="checkbox"], [type="radio"], [type="file"], [type="color"],
+            [type="range"], [type="hidden"], [type="button"], [type="submit"], [type="reset"]),
+  select,
+  textarea
+):not(.search-box *, .input-prefix *, .input-suffix *),
+.input-prefix,
+.input-suffix,
+.search-box {
+  border: 1px solid var(--line) !important;
+  border-radius: 11px !important;
+  background-color: #fff !important;
+  box-shadow: none !important;
+  color: var(--text);
+}
+:is(input, select):not([type="checkbox"], [type="radio"], [type="file"], [type="color"], [type="range"]):not(.search-box *, .input-prefix *, .input-suffix *) {
+  min-height: 48px;
+  padding: 0 13px !important;
+}
+textarea:not(.search-box *, .input-prefix *, .input-suffix *) { padding: 12px 13px !important; }
+.input-prefix,
+.input-suffix,
+.search-box { min-height: 48px; }
+/* Campo dentro de contêiner com borda: sem borda própria. */
+:is(.search-box, .input-prefix, .input-suffix) :is(input, select) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+/* Passar o mouse: borda um pouco mais escura (igual ao login). */
+:is(input, select, textarea):not(.search-box *, .input-prefix *, .input-suffix *):hover,
+.input-prefix:hover,
+.input-suffix:hover,
+.search-box:hover { border-color: #94a3b8 !important; }
+
+/* Selecionado (igual ao login): a borda fica #475569 e engrossa para 2px com uma
+   sombra interna de 1px, sem mudar o tamanho do campo. #475569 × branco = 7,58:1. */
+:is(input, select, textarea):not([type="checkbox"], [type="radio"], [type="file"], [type="color"], [type="range"]):not(.search-box *, .input-prefix *, .input-suffix *):focus,
+.input-prefix:focus-within,
+.input-suffix:focus-within,
+.search-box:focus-within {
+  border-color: #475569 !important;
+  box-shadow: inset 0 0 0 1px #475569 !important;
+  outline: none !important;
+}
+
+/* Desabilitado: fundo creme, sem parecer clicável. */
+:is(input, select, textarea):disabled { background-color: var(--cream) !important; color: var(--muted); cursor: not-allowed; }
+
+/* Preenchimento automático do navegador: sem o fundo azul claro. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* ===== ERRO (WCAG 3.3.1 e 3.3.3): borda vermelha + orientação embaixo ===== */
+/* O campo com erro recebe aria-invalid="true" (veja aria() em components/ui/Field.jsx). */
+:is(input, select, textarea)[aria-invalid="true"]:not([type="checkbox"], [type="radio"]),
+/* mesmo selecionado (foco), o campo com erro continua vermelho */
+:is(input, select, textarea)[aria-invalid="true"]:not([type="checkbox"], [type="radio"], [type="file"], [type="color"], [type="range"]):not(.search-box *, .input-prefix *, .input-suffix *):focus,
+.input-prefix:has([aria-invalid="true"]),
+.input-suffix:has([aria-invalid="true"]) {
+  border-color: var(--error) !important;
+  box-shadow: inset 0 0 0 1px var(--error) !important;
+}
+/* Upload de imagem (o input fica escondido): o quadro tracejado fica vermelho. */
+.registration-uploads label:has([aria-invalid="true"]) > div,
+.service-upload:has([aria-invalid="true"]) > div,
+label:has(> input[type="file"][aria-invalid="true"]) > div {
+  border: 2px solid var(--error) !important;
+}
+/* O rótulo do campo com erro também fica vermelho (inclusive quando o campo
+   está dentro de um contêiner, como "R$ [ ]"). Caixas de seleção ficam de fora. */
+label:not(.pf-check):has([aria-invalid="true"]) > span:first-of-type,
+.ff-field:has([aria-invalid="true"]) > label { color: var(--error) !important; }
+/* Mensagem de orientação abaixo do campo. O ícone ⚠ garante que o erro
+   não seja indicado só pela cor (WCAG 1.4.1). */
+.ff-error,
+.field-error {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--error) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.5;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.ff-error::before,
+.field-error::before {
+  content: "⚠";
+  content: "⚠" / "";
+  flex: 0 0 auto;
+}
 
 .registration-form .wide { grid-column: 1/3; }
 @media (max-width: 700px) {
@@ -8,12 +119,6 @@
   .service-form-fields .wide { grid-column: auto; }
   .registration-form .wide { grid-column: auto; }
   .pf-health-form .wide { grid-column: auto; }
-}
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid #D97706;
-  outline-offset: 2px;
 }
 
 /* ===== Contraste AAA (WCAG 1.4.6) — ajustes que precisam vencer as regras das telas ===== */
@@ -31,3 +136,62 @@ textarea:focus-visible {
 /* Item selecionado nas fichas de saúde e categorias nas Configurações (fundo âmbar claro) */
 .health-client.selected small { color: #334155 !important; }      /* 9,30:1 */
 .admin-main .category-selector .selected { color: var(--amber-text) !important; } /* 8,15:1 */
+
+/* =====================================================================
+   PADRÕES GERAIS DA ÁREA DO GESTOR (e demais telas fora do login)
+   ===================================================================== */
+
+/* AVISOS DE VALIDAÇÃO EM VERMELHO também dentro do painel.
+   (.admin-main small força cinza com !important; esta regra é mais específica.)
+   #991b1b × branco = 8,31:1 (AAA). */
+.admin-main small.ff-error,
+.admin-main small.field-error,
+.admin-main .ff-error,
+.admin-main .field-error { color: var(--error) !important; }
+
+/* SETA DOS DROPDOWNS: desenhada pelo sistema, a 14px da borda direita
+   (a seta nativa ficava colada na borda). Cor #475569 (7,58:1). */
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23475569' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 12px 8px !important;
+  padding-right: 40px !important;
+  cursor: pointer;
+}
+
+/* BARRA DE ROLAGEM: mesmo estilo do menu lateral — fina, arredondada, sem trilho.
+   Fundo claro: cursor #64748b (4,76:1 sobre branco; mínimo 3:1, WCAG 1.4.11),
+   mais escuro ao passar o mouse. (O menu lateral, escuro, mantém o próprio estilo
+   em Sidebar.css.) A tela de LOGIN (finalizada) fica de fora: html:has(.login-page). */
+html:not(:has(.login-page)),
+html:not(:has(.login-page)) * {
+  scrollbar-width: thin;
+  scrollbar-color: #64748b transparent;
+}
+html:not(:has(.login-page)) *:hover { scrollbar-color: #475569 transparent; }
+html:not(:has(.login-page))::-webkit-scrollbar,
+html:not(:has(.login-page)) *::-webkit-scrollbar { width: 8px; height: 8px; }
+html:not(:has(.login-page))::-webkit-scrollbar-track,
+html:not(:has(.login-page)) *::-webkit-scrollbar-track { background: transparent; }
+html:not(:has(.login-page))::-webkit-scrollbar-thumb,
+html:not(:has(.login-page)) *::-webkit-scrollbar-thumb { background: #64748b; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+html:not(:has(.login-page)) *::-webkit-scrollbar-thumb:hover { background-color: #475569; }
+
+/* BOTÕES DOS MODAIS — um único padrão em todos os modais:
+   alinhados à direita, ação secundária ("Não, manter…", "Voltar") antes da
+   principal; espaçadores vazios antigos são ignorados. No celular, os botões
+   ocupam a largura toda e a ação principal fica em cima. */
+.modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.modal-actions > span:empty { display: none; }
+@media (max-width: 560px) {
+  .modal-actions { flex-direction: column-reverse; align-items: stretch; }
+  .modal-actions > .action,
+  .modal-actions > a,
+  .modal-actions > button { width: 100%; justify-content: center; }
+}
+
+/* FORMULÁRIOS centralizados na área de conteúdo (Agenda, Mensagens, Documentos…) */
+.admin-main .af-wrap { margin-inline: auto; width: 100%; }

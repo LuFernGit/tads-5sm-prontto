@@ -6,5 +6,7 @@ public record DestinatarioMensagemDto(
         String servico,
         String ultimo,
         String data,
-        String horario
+        String horario,
+        Long agendamentoId,   // para escolher o agendamento ao preparar a mensagem
+        String status         // PENDENTE, CONFIRMADO, CONCLUIDO...
 ) {}

@@ -54,6 +54,13 @@ public class ClienteAreaController {
         return ResponseEntity.status(201).body(clienteAreaService.criarAgendamento(cliente, request));
     }
 
+    /** Cliente confirma a presença num agendamento PENDENTE (até 24h antes). */
+    @PostMapping("/agendamentos/{id}/confirmacao")
+    public ResponseEntity<AgendamentoClienteResponse> confirmarAgendamento(Authentication authentication, @PathVariable Long id) {
+        Usuario cliente = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(clienteAreaService.confirmarAgendamento(cliente, id));
+    }
+
     @PostMapping("/agendamentos/{id}/cancelamento")
     public ResponseEntity<AgendamentoClienteResponse> cancelarAgendamento(Authentication authentication, @PathVariable Long id, @RequestBody @Valid MotivoCancelamentoRequest request) {
         Usuario cliente = (Usuario) authentication.getPrincipal();

@@ -30,8 +30,14 @@ export function useAppSession() {
   // Sem login: no link da clínica a pessoa vê a vitrine (guest); no link do Prontto, o login.
   const visitorMode = clinicSlug ? "guest" : "login"
   // notice = texto do aviso (Toast). notify(msg) é o atalho para mostrar um aviso.
+  // noticeToneOverride: tipo forçado ("success" | "error"); sem ele, o tipo é
+  // deduzido pelo texto (lib/noticeTone.js).
   const [notice, setNotice] = useState("")
-  const notify = useCallback((message) => setNotice(message), [])
+  const [noticeToneOverride, setNoticeToneOverride] = useState(null)
+  const notify = useCallback((message, tone = null) => {
+    setNoticeToneOverride(tone)
+    setNotice(message)
+  }, [])
 
   // Fluxo da cliente: dados públicos da clínica do link.
   const [clinic, setClinic] = useState(null) // { empresa, servicos, categorias }
@@ -215,6 +221,7 @@ export function useAppSession() {
     mode,
     setMode,
     notice,
+    noticeToneOverride,
     setNotice,
     notify,
     clinicSlug,

@@ -31,7 +31,7 @@ export const BOOKING_MONTHS = 2
 export const PIX_TTL = 15 * 60
 /** Rótulo de exibição para os status de AGENDAMENTO.status do banco. */
 export const apptLabel = {
-  PENDENTE: "Pendente",
+  PENDENTE: "Aguardando confirmação",
   CONFIRMADO: "Confirmado",
   CONCLUIDO: "Concluído",
   CANCELADO: "Cancelado",
@@ -40,6 +40,7 @@ export const apptLabel = {
 
 /** Classe CSS de cada selo de agendamento na área da cliente. */
 export const badgeClass = {
+  "Aguardando confirmação": "pending", // AGENDAMENTO.status = PENDENTE
   Pendente: "pending",
   Confirmado: "confirmed",
   Concluído: "done",

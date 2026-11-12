@@ -50,6 +50,16 @@ export const meApi = {
    * POST /cliente/agendamentos/{id}/cancelamento  { motivo }
    * BACKEND: status CANCELADO, cancelado_por 'CLIENTE', motivo e data_cancelamento.
    */
+  /**
+   * POST /cliente/agendamentos/{id}/confirmacao
+   * Cliente recorrente (isenta de sinal) confirma a presença num agendamento
+   * PENDENTE. Só até 24h antes; depois o backend cancela automaticamente.
+   */
+  confirmAppointment: (id) =>
+    http
+      .post(`/cliente/agendamentos/${id}/confirmacao`)
+      .then(toClientAppointment),
+
   cancelAppointment: (id, motivo) =>
     http
       .post(`/cliente/agendamentos/${id}/cancelamento`, { motivo })
