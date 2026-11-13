@@ -14,6 +14,7 @@ export default defineConfig({
   },
   server: {
     // Em desenvolvimento, /api/* é repassado ao Spring Boot (evita configurar CORS).
-    proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } },
+    // xfwd: envia o IP de quem acessou (X-Forwarded-For) para a Auditoria registrar.
+    proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true, xfwd: true } },
   },
 })

@@ -1,9 +1,9 @@
-import Action from "@/components/ui/Action"
-import Brand from "@/components/ui/Brand"
-import Icon from "@/components/ui/Icon"
-import { navigation } from "@/constants"
-import { toSlug } from "@/lib/format"
-import "./Sidebar.css"
+import Action from "@/components/ui/Action";
+import Brand from "@/components/ui/Brand";
+import Icon from "@/components/ui/Icon";
+import { navigation } from "@/constants";
+import { toSlug } from "@/lib/format";
+import "./Sidebar.css";
 
 /**
  * Navegação lateral da gestora com acesso às áreas administrativas e à vitrine.
@@ -14,19 +14,23 @@ function Sidebar({ page, setPage, setMode, notify, company }) {
   // Link da vitrine que a gestora envia às clientes. O 'slug' é gerado pelo
   // backend no fim do cadastro da empresa (CLINICA.slug); o endereço base é o
   // do próprio sistema (localhost em desenvolvimento, o domínio real em produção).
-  const slug = company.slug || toSlug(company.name)
-  const vitrineUrl = `${window.location.origin}${window.location.pathname}?clinica=${slug}`
+  const slug = company.slug || toSlug(company.name);
+  const vitrineUrl = `${window.location.origin}${window.location.pathname}?clinica=${slug}`;
   // Versão curta para exibir no cartão (sem "https://").
-  const vitrineLabel = vitrineUrl.replace(/^https?:\/\//, "")
+  const vitrineLabel = vitrineUrl.replace(/^https?:\/\//, "");
   /** Copia o link da vitrine para a área de transferência. */
   const copyVitrineLink = async () => {
     try {
-      await navigator.clipboard.writeText(vitrineUrl)
-      notify("Link da vitrine copiado. Agora é só colar e enviar para suas clientes.")
+      await navigator.clipboard.writeText(vitrineUrl);
+      notify(
+        "Link da vitrine copiado. Agora é só colar e enviar para suas clientes.",
+      );
     } catch {
-      notify(`Não foi possível copiar automaticamente. Copie este link: ${vitrineUrl}`)
+      notify(
+        `Não foi possível copiar automaticamente. Copie este link: ${vitrineUrl}`,
+      );
     }
-  }
+  };
   return (
     <aside className="sidebar" style={{ paddingBottom: 9 }}>
       {/* Logo do Prontto leva para a página inicial do painel */}
@@ -79,25 +83,21 @@ function Sidebar({ page, setPage, setMode, notify, company }) {
             </Action>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setPage("settings")}
-          className="profile-mini"
-          style={{ height: 70 }}
-        >
-          <div className="avatar avatar-photo" />
-          <div>
-            <span>{company.ownerName}</span>
-            <small>Gestora</small>
+        <div className="profile-menu-wrap">
+          <div className="profile-mini" style={{ height: 70 }}>
+            <div className="avatar avatar-photo" />
+            <div>
+              <span>{company.ownerName}</span>
+              <small>Gestora</small>
+            </div>
           </div>
-          <Icon name="more" />
-        </button>
+        </div>
         <button
           type="button"
           className="logout-button"
           onClick={() => {
-            setMode("login")
-            notify("Sessão da gestora encerrada.")
+            setMode("login");
+            notify("Sessão da gestora encerrada.");
           }}
         >
           <Icon name="logout" size={16} />
@@ -105,7 +105,7 @@ function Sidebar({ page, setPage, setMode, notify, company }) {
         </button>
       </div>
     </aside>
-  )
+  );
 }
 
-export default Sidebar
+export default Sidebar;

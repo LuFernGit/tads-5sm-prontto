@@ -110,6 +110,7 @@ front (`src/lib/format.js` e `src/api/adapters.js`).
 | POST   | `/clinicas/{slug}/auth/login` | `{ email, senha }` (403 se for e-mail de gestora) | `{ token, usuario }` |
 | POST   | `/clinicas/{slug}/clientes`   | `{ usuario, ficha, aceite }` (abaixo)           | `{ token, usuario }` |
 | GET    | `/auth/me`                    | —                                              | `usuario`         |
+| GET    | `/auth/disponibilidade?email=&whatsapp=&cpfCnpj=` | —                    | `{ emailEmUso?, whatsappEmUso?, cpfCnpjEmUso? }` — os cadastros conferem na etapa do campo, antes dos Termos |
 | POST   | `/auth/recuperar-senha`       | `{ email }`                                    | vazio             |
 | POST   | `/auth/logout`                | — (opcional)                                   | vazio             |
 
@@ -148,7 +149,8 @@ Cadastro da cliente (montado em `src/screens/client/ClientRegisterPage.jsx`):
 
 | Método | Rota                                              | Resposta |
 | ------ | ------------------------------------------------- | -------- |
-| GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias }`; 404 se o slug não existir ou a clínica estiver ENCERRADA |
+| GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias }`; 404 se o slug não existir ou a clínica estiver ENCERRADA. `empresa` traz também `termsOfUse`/`privacyPolicy` (texto da versão PUBLICADA), `clinicTermsDocument`/`clinicTermsFileName` (PDF publicado), `hoursText` e `cancellationPolicy` |
+| GET    | `/clinicas/{slug}/versao`                         | `{ versao }` — hash leve (sem imagens) dos dados públicos. A vitrine consulta a cada 15s/ao voltar à aba e só recarrega `/clinicas/{slug}` quando muda (ex.: serviço desativado some na hora) |
 | GET    | `/clinicas/{slug}/calendario?mes=YYYY-MM`         | `{ diasLotados: number[], diasSemanaFechados: number[], diasBloqueados: number[] }` (0 = domingo; `diasBloqueados` = bloqueio do dia inteiro → "Fechado"). Usada pela agenda da cliente **e** pelo calendário do mês da gestora |
 | GET    | `/clinicas/{slug}/horarios?data=&servicoId=`      | `[{ label: "MANHÃ", slots: [{ time: "09:00", occupied: false }] }]` |
 
@@ -173,7 +175,7 @@ O link da cliente é `https://<front>/?clinica=<slug>`.
 | Método | Rota                                | Corpo        | Resposta     |
 | ------ | ----------------------------------- | ------------ | ------------ |
 | GET    | `/gestora/empresa`                  | —            | `Empresa` (com `slug` e `status`) |
-| PUT    | `/gestora/empresa`                  | `Empresa`    | `Empresa`    |
+| PUT    | `/gestora/empresa`                  | `Empresa`    | `Empresa`. Também salva `initials` (máx. 3), endereço em partes (`cep, street, number, complement, neighborhood, city, state`), `hoursText`, `cancellationPolicy` e `ownerName` (nome da gestora). `address` = texto completo exibido na vitrine |
 | POST   | `/gestora/empresa/encerramento`     | —            | vazio        |
 | GET    | `/gestora/servicos`                 | —            | `Servico[]`  |
 | POST   | `/gestora/servicos`                 | `Servico` sem id | `Servico` |
@@ -181,14 +183,19 @@ O link da cliente é `https://<front>/?clinica=<slug>`.
 | PATCH  | `/gestora/servicos/{id}/status`     | `{ active }` | `Servico`    |
 | GET    | `/gestora/categorias`               | —            | `string[]`   |
 | POST   | `/gestora/categorias`               | `{ nome }`   | `string[]` (409 se já existir) |
-| DELETE | `/gestora/categorias/{nome}`        | —            | `string[]` (409 se tiver serviços) |
+| DELETE | `/gestora/categorias/{nome}?moverPara=Outra` | —   | `string[]`. Com serviços na categoria, eles são **movidos** para `moverPara` e a categoria é excluída (409 se tiver serviços e faltar `moverPara`) |
 
 ### Gestora: clientes, agenda e agendamentos
 
 | Método | Rota                                         | Corpo / Resposta |
 | ------ | -------------------------------------------- | ---------------- |
-| GET    | `/gestora/clientes`                          | → `ClienteGestora[]` |
-| PUT    | `/gestora/clientes/{id}/notas`               | `{ notasGestora }` (máx. 500) |
+| GET    | `/gestora/clientes`                          | → `ClienteGestora[]` (com `versoesFicha`: quantas versões a ficha tem) |
+| GET    | `/gestora/clientes/{id}/ficha/versoes`       | → `[{ id, numero, data, alergias, observacoes, respostas, atual }]` (da atual para a mais antiga). Cada item é a ficha **completa** daquele salvamento (FICHA_ANAMNESE_VERSAO); `data` é null só em versão migrada sem data conhecida |
+| GET    | `/gestora/clientes/{id}/notas`               | → `[{ id, texto, criadaEm, atualizadaEm }]` (mais recente primeiro) |
+| POST   | `/gestora/clientes/{id}/notas`               | `{ texto }` (máx. 1000) → 201 `Nota` |
+| PUT    | `/gestora/clientes/{id}/notas/{notaId}`      | `{ texto }` → `Nota` |
+| DELETE | `/gestora/clientes/{id}/notas/{notaId}`      | → 204. Tabela NOTA_CLIENTE; 404 se a cliente/nota não for da clínica |
+| GET    | `/gestora/agenda/versao`                     | `{ versao }` — hash leve de agendamentos, bloqueios e nº de clientes (para o painel recarregar só quando algo mudar) |
 | GET    | `/gestora/agendamentos`                      | → `AgendamentoGestora[]` |
 | POST   | `/gestora/agendamentos/{id}/cancelamento`    | `{ motivo }` (obrigatório) → `AgendamentoGestora` |
 | GET    | `/gestora/painel?semana=YYYY-MM-DD`          | → `{ dias, datas, horarios: Slot[][], proximos }` (calculado; `semana` = qualquer dia da semana desejada, opcional — sem ele, semana atual) |
@@ -223,10 +230,19 @@ total de clientes) são **calculadas no front** com `/gestora/agendamentos`,
 | Método | Rota                                              | Corpo / Resposta |
 | ------ | ------------------------------------------------- | ---------------- |
 | GET    | `/gestora/documentos`                             | → `Documento[]` |
+| GET    | `/gestora/documentos/{id}`                        | → `{ ...Documento, conteudo, arquivoUrl }` (PDF em data URL) — também os do Prontto (só leitura) |
+| POST   | `/gestora/documentos`                             | `{ titulo, tipo: TERMOS_USO\|POLITICA_PRIVACIDADE\|TERMO_CLINICA\|OUTRO, conteudo }` → 201 (RASCUNHO, versão seguinte do tipo) |
+| PUT    | `/gestora/documentos/{id}`                        | `{ titulo, conteudo }` → só RASCUNHO |
+| DELETE | `/gestora/documentos/{id}`                        | → 204. Exclusão **lógica** (`excluido_em`): sai da lista, mas fica salvo com texto e PDF. Não pode: PUBLICADO (inative antes) ou com aceites (LGPD) |
+| GET    | `/gestora/documentos/excluidos`                   | → `Documento[]` excluídos (com `excluidoEm`), mais recentes primeiro |
+| POST   | `/gestora/documentos/{id}/restauracao`            | → `Documento` (volta para a lista com o status que tinha). Documento excluído não pode ser editado/publicado antes de restaurar (400) |
+| DELETE | `/gestora/documentos/{id}/arquivo`                | → `Documento` (tira o PDF de um RASCUNHO) |
 | POST   | `/gestora/documentos/{id}/versoes`                | → `Documento` (novo RASCUNHO) |
 | POST   | `/gestora/documentos/{id}/publicacao`             | → `Documento[]` (a versão publicada anterior vira INATIVO) |
 | POST   | `/gestora/documentos/{id}/inativacao`             | → `Documento` |
-| POST   | `/gestora/documentos/{id}/arquivo`                | multipart, campo `arquivo` (PDF) → `Documento` |
+| POST   | `/gestora/documentos/{id}/arquivo`                | multipart, campo `arquivo` (PDF até 10 MB) → `Documento`. O PDF é guardado (data URL) e `arquivo` na resposta é só o nome. Só em RASCUNHO |
+
+Regras dos documentos: só documentos **da própria clínica** podem ser alterados (os do Prontto são só leitura → 400; de outra clínica → 404). Publicar exige texto ou PDF e inativa a versão publicada anterior do mesmo tipo. Os termos enviados no cadastro da empresa viram documentos PUBLICADOS (v1.0). |
 | GET    | `/gestora/mensagens/modelos`                      | → `Modelo[]` (tabela MODELO_MENSAGEM). Os 6 padrão são criados **uma vez**, no cadastro da clínica; excluídos não voltam sozinhos |
 | PUT    | `/gestora/mensagens/modelos`                      | `Modelo[]` (lista inteira) → `Modelo[]` — legado; a tela usa os endpoints abaixo. Só aceita modelos da própria clínica |
 | POST   | `/gestora/mensagens/modelos`                      | `Modelo` (sem id) → 201 `Modelo`. 400: nome/texto vazio, texto > 1000, finalidade inválida |
@@ -377,7 +393,12 @@ o nome da cliente, `blocked` com o bloqueio), porque ela está logada.
 **Ficha de anamnese**
 - `respostas` (JSON) guarda todas as perguntas; `alergias` (≤ 255) e
   `observacoes_medicas` (≤ 500) guardam o resumo gerado pelo front.
-- A cada alteração, gravar HISTORICO_ANAMNESE por campo alterado.
+- Histórico por **versões completas**: cada salvamento (cadastro e cada `PUT
+  /cliente/ficha-saude`) grava em FICHA_ANAMNESE_VERSAO uma cópia inteira da
+  ficha (respostas + alergias + observações + data/hora). Versões anteriores
+  nunca são alteradas. Salvar sem mudar nada não gera versão. A tabela antiga
+  HISTORICO_ANAMNESE (campo a campo) foi mantida e migrada para versões no
+  `schema.sql` (V6), mas não recebe mais registros.
 - Os campos `localData`, `nomeCliente` e `assinatura` **não aparecem mais** na
   tela (nem no cadastro, nem na edição da ficha). Eles continuam existindo dentro
   de `respostas`, normalmente vazios; `nomeCliente` é preenchido com o nome do
@@ -429,3 +450,14 @@ quanto uma data URL.
    - Gestora: `http://localhost:5173/`
    - Cliente: `http://localhost:5173/?clinica=<slug>`
 4. Quando tudo funcionar, apagar a pasta `src/mocks` (veja `src/mocks/README.md`).
+
+
+## Regras de cadastro e recorrência (12/11/2026)
+
+- Conta de cliente **nunca nasce recorrente**: o campo `recorrente` enviado no
+  cadastro é ignorado. A cliente vira recorrente (isenta de sinal) sozinha
+  depois do 1º atendimento **CONCLUÍDO**.
+- Um job roda a cada 5 min: atendimento CONFIRMADO cujo horário terminou
+  (início + duração) vira CONCLUÍDO e torna a cliente recorrente.
+- Duplicados (e-mail, WhatsApp, CPF/CNPJ) voltam como 409 com mensagem
+  amigável; erros de restrição do banco nunca mostram o nome técnico.

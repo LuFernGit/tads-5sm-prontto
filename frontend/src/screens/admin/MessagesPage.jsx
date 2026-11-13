@@ -6,6 +6,7 @@ import Modal from "@/components/ui/Modal"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useServerSync } from "@/hooks/useLiveRefresh"
 import { useFieldErrors } from "@/hooks/useFieldErrors"
 import Field from "@/components/ui/Field"
 import { br, digits } from "@/lib/format"
@@ -74,6 +75,8 @@ function MessagesPageView({
 }) {
   const [tab, setTab] = useState("send")
   const [templates, setTemplates] = useState(initialTemplates)
+  // Ao vivo: modelos alterados em outra aba/aparelho chegam sem recarregar.
+  useServerSync(initialTemplates, templates, setTemplates)
   // Avisa o painel quando os modelos mudam: Painel e Agenda passam a usar o
   // texto novo na hora, sem recarregar a página.
   useEffect(() => {

@@ -10,6 +10,7 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     List<Agendamento> findByServicoClinicaIdAndData(Long clinicaId, LocalDate data);
     List<Agendamento> findByServicoClinicaIdAndDataBetween(Long clinicaId, LocalDate inicio, LocalDate fim);
     List<Agendamento> findByClienteId(Long clienteId);
+    List<Agendamento> findByServicoClinicaId(Long clinicaId);
     List<Agendamento> findByServicoClinicaIdAndStatusNot(Long clinicaId, StatusAgendamento status);
     List<Agendamento> findByStatus(StatusAgendamento status);
 }

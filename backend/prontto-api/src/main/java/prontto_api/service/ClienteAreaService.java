@@ -10,6 +10,7 @@ import prontto_api.domain.*;
 import prontto_api.domain.enums.StatusAgendamento;
 import prontto_api.domain.enums.StatusUsuario;
 import prontto_api.dto.*;
+import prontto_api.infra.web.IpOrigem;
 import prontto_api.infra.exceptions.ConflitoException;
 import prontto_api.infra.exceptions.RecursoNaoEncontradoException;
 import prontto_api.infra.exceptions.RegraNegocioException;
@@ -28,12 +29,13 @@ public class ClienteAreaService {
 
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private FichaAnamneseRepository fichaAnamneseRepository;
-    @Autowired private HistoricoAnamneseRepository historicoAnamneseRepository;
+    @Autowired private FichaVersaoService fichaVersaoService;
     @Autowired private AgendamentoRepository agendamentoRepository;
     @Autowired private ServicoRepository servicoRepository;
     @Autowired private LogAuditoriaRepository logAuditoriaRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private AgendamentoService agendamentoService;
 
     public PerfilClienteDto obterPerfil(Usuario cliente) {
         return new PerfilClienteDto(
@@ -103,22 +105,27 @@ public class ClienteAreaService {
         try {
             respostasJson = objectMapper.writeValueAsString(request.respostas());
         } catch (Exception ignored) {}
+        String alergias = request.alergias() != null ? request.alergias() : "Nenhuma";
+        String observacoes = request.observacoes_medicas() != null ? request.observacoes_medicas() : "Nenhuma";
 
         if (ficha.getId() != null) {
-            HistoricoAnamnese hist = new HistoricoAnamnese();
-            hist.setFichaAnamnese(ficha);
-            hist.setCampoAlterado("respostas");
-            hist.setValorAnterior(ficha.getRespostas() != null ? ficha.getRespostas() : "");
-            hist.setValorNovo(respostasJson);
-            hist.setDataAlteracao(LocalDateTime.now());
-            historicoAnamneseRepository.save(hist);
+            // Ficha anterior ao histórico por versões: guarda o estado atual como
+            // versão 1 antes de alterar, para não perdê-lo.
+            fichaVersaoService.garantirVersaoInicial(ficha);
+            // Salvou sem mudar nada: não gera versão nova.
+            if (fichaVersaoService.mesmoConteudo(ficha, alergias, observacoes, respostasJson)) {
+                return obterFichaSaude(cliente);
+            }
         }
 
-        ficha.setAlergias(request.alergias() != null ? request.alergias() : "Nenhuma");
-        ficha.setObservacoesMedicas(request.observacoes_medicas() != null ? request.observacoes_medicas() : "Nenhuma");
+        ficha.setAlergias(alergias);
+        ficha.setObservacoesMedicas(observacoes);
         ficha.setRespostas(respostasJson);
         ficha.setDataAtualizacao(LocalDateTime.now());
-        fichaAnamneseRepository.save(ficha);
+        ficha = fichaAnamneseRepository.save(ficha);
+
+        // Histórico por versões: cópia COMPLETA da ficha a cada salvamento.
+        fichaVersaoService.registrarVersao(ficha);
 
         return obterFichaSaude(cliente);
     }
@@ -135,6 +142,17 @@ public class ClienteAreaService {
         Servico servico = servicoRepository.findById(Long.valueOf(request.servicoId()))
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Serviço não encontrado."));
 
+        // O serviço precisa ser da clínica da cliente e estar ATIVO. Se a gestora
+        // desativou o serviço com a página da cliente aberta, o agendamento é recusado.
+        if (cliente.getClinica() == null || servico.getClinica() == null
+                || !servico.getClinica().getId().equals(cliente.getClinica().getId())) {
+            throw new RecursoNaoEncontradoException("Serviço não encontrado.");
+        }
+        if (!Boolean.TRUE.equals(servico.getAtivo())) {
+            throw new RegraNegocioException(
+                    "Este serviço não está mais disponível para agendamento. Escolha outro serviço.");
+        }
+
         LocalDate data = LocalDate.parse(request.data());
         LocalTime hora = LocalTime.parse(request.hora());
 
@@ -149,6 +167,20 @@ public class ClienteAreaService {
 
         if (hora.plusMinutes(servico.getDuracao()).isAfter(LocalTime.of(19, 0))) {
             throw new RegraNegocioException("O procedimento ultrapassa o horário de encerramento da clínica (19:00).");
+        }
+
+        // O horário precisa estar LIVRE agora (expediente, bloqueios e outros
+        // agendamentos). Evita dois agendamentos no mesmo horário quando a tela
+        // de uma cliente está desatualizada.
+        String horaTexto = hora.toString().substring(0, 5);
+        boolean livre = agendamentoService
+                .listarHorariosDisponiveisEmPeriodos(servico.getClinica().getSlug(), servico.getId(), data.toString())
+                .stream()
+                .flatMap(p -> p.slots().stream())
+                .anyMatch(s -> horaTexto.equals(s.time()) && !Boolean.TRUE.equals(s.occupied()));
+        if (!livre) {
+            throw new ConflitoException(
+                    "Este horário acabou de ficar indisponível. Escolha outro horário.");
         }
 
         // SINAL: cliente nova só agenda com o sinal pago (não existe agendamento
@@ -181,7 +213,7 @@ public class ClienteAreaService {
         LogAuditoria log = new LogAuditoria();
         log.setUsuario(cliente);
         log.setAcao("CRIAR_AGENDAMENTO");
-        log.setIpOrigem("127.0.0.1");
+        log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
 
         return paraResponse(agendamento);
@@ -217,7 +249,7 @@ public class ClienteAreaService {
         LogAuditoria log = new LogAuditoria();
         log.setUsuario(cliente);
         log.setAcao("CONFIRMACAO_CLIENTE");
-        log.setIpOrigem("127.0.0.1");
+        log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
 
         return paraResponse(a);
@@ -265,7 +297,7 @@ public class ClienteAreaService {
         LogAuditoria log = new LogAuditoria();
         log.setUsuario(cliente);
         log.setAcao("CANCELAMENTO_CLIENTE");
-        log.setIpOrigem("127.0.0.1");
+        log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
 
         return paraResponse(a);
@@ -286,7 +318,7 @@ public class ClienteAreaService {
         LogAuditoria log = new LogAuditoria();
         log.setUsuario(null);
         log.setAcao("EXCLUSAO_CONTA_LGPD");
-        log.setIpOrigem("127.0.0.1");
+        log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
     }
 }

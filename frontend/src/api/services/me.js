@@ -25,8 +25,8 @@ export const meApi = {
 
   /**
    * PUT /cliente/ficha-saude  { respostas, alergias, observacoes_medicas }
-   * BACKEND: UPDATE FICHA_ANAMNESE e INSERT HISTORICO_ANAMNESE para cada campo
-   * alterado (campo_alterado, valor_anterior, valor_novo).
+   * BACKEND: UPDATE FICHA_ANAMNESE e INSERT FICHA_ANAMNESE_VERSAO com a ficha
+   * COMPLETA (uma versão por salvamento; salvar sem mudar nada não gera versão).
    */
   updateHealthRecord: (ficha) => http.put("/cliente/ficha-saude", ficha),
 

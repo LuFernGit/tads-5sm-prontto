@@ -53,6 +53,14 @@ export const authApi = {
   registerClient: (slug, payload) =>
     http.post(`/clinicas/${slug}/clientes`, payload).then(keepToken),
 
+  /**
+   * GET /auth/disponibilidade?email=&whatsapp=&cpfCnpj=
+   * → { emailEmUso?, whatsappEmUso?, cpfCnpjEmUso? } (só os campos enviados).
+   * Os cadastros usam isto para avisar na etapa certa, antes dos Termos.
+   */
+  checkAvailability: ({ email, whatsapp, cpfCnpj } = {}) =>
+    http.get("/auth/disponibilidade", { email, whatsapp, cpfCnpj }),
+
   /** GET /auth/me → Usuario dono do token atual */
   me: () => http.get("/auth/me"),
 

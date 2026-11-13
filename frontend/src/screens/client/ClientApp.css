@@ -544,3 +544,7 @@
 .bk-page { padding-bottom: 0; }
 .bk-page > .pf-footer { margin: 48px -24px 0; }
 @media (max-width: 700px) { .bk-page > .pf-footer { margin: 40px -14px 0; } }
+
+/* Quadro "Seu agendamento" para cliente nova: aviso do sinal em âmbar
+   (#78350f × #fef3c7 = 8,15:1), em vez do verde de cliente recorrente. */
+.bk-loyal.is-signal { background: var(--amber-pale); color: var(--amber-text); }

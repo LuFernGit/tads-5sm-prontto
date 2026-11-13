@@ -41,6 +41,10 @@ function ServicesPage({
   const [editingService, setEditingService] = useState(null)
   const [managingCategories, setManagingCategories] = useState(false)
   const [newCategory, setNewCategory] = useState("")
+  // Categoria a excluir (modal de confirmação) e destino dos serviços dela.
+  const [categoryToRemove, setCategoryToRemove] = useState(null)
+  const [moveTo, setMoveTo] = useState("")
+  const [removingCategory, setRemovingCategory] = useState(false)
   // Campos do formulário de serviço (modal 'Adicionar'/'Editar').
   const [formName, setFormName] = useState("")
   const [formDetail, setFormDetail] = useState("")
@@ -247,18 +251,34 @@ function ServicesPage({
     notify("Nova categoria criada.")
   }
   /** Remove uma categoria. */
-  const removeCategory = async (category) => {
-    if (serviceRows.some((service) => service.category === category)) {
-      notify("Não é possível remover uma categoria que possui serviços.")
-      return
-    }
+  /**
+   * Excluir categoria. Serviços não podem ficar sem categoria nem ser apagados
+   * (guardam o histórico de agendamentos): se houver serviços nela, eles são
+   * movidos para a categoria escolhida e depois a categoria é excluída.
+   */
+  const askRemoveCategory = (category) => {
+    setMoveTo(serviceCategories.find((c) => c !== category) ?? "")
+    setCategoryToRemove(category)
+  }
+  const removeCategory = async () => {
+    const category = categoryToRemove
+    const count = serviceRows.filter((service) => service.category === category).length
+    setRemovingCategory(true)
     try {
-      await onRemoveCategory(category)
+      await onRemoveCategory(category, count > 0 ? moveTo : undefined)
     } catch (error) {
-      notify(error.message)
+      notify(error.message, "error")
       return
+    } finally {
+      setRemovingCategory(false)
     }
-    notify("Categoria removida.")
+    setCategoryToRemove(null)
+    notify(
+      count > 0
+        ? `Categoria excluída. ${count} ${count === 1 ? "serviço foi movido" : "serviços foram movidos"} para "${moveTo}".`
+        : "Categoria excluída.",
+      "success",
+    )
   }
   return (
     <section className="page-card">
@@ -588,14 +608,14 @@ function ServicesPage({
                   <span>DESCRIÇÃO DO SERVIÇO</span>
                   <textarea {...a11y("srv-descricao-do-servico")}
                     rows={4}
-                    maxLength={280}
+                    maxLength={500}
                     value={formDescription}
                     onChange={(event) => setFormDescription(event.target.value)}
                     placeholder="Descreva a técnica, o resultado esperado e os principais diferenciais..."
                   />
                   {errorFor("srv-descricao-do-servico")}
                   <small className="character-count">
-                    {formDescription.length}/280
+                    {formDescription.length}/500
                   </small>
                 </label>
               </div>
@@ -899,12 +919,11 @@ function ServicesPage({
                   </span>
                   <button
                     type="button"
-                    onClick={() => removeCategory(category)}
-                    disabled={count > 0}
+                    onClick={() => askRemoveCategory(category)}
                     aria-label={`Excluir a categoria ${category}`}
                     title={
                       count > 0
-                        ? "Remova ou mova os serviços antes de excluir a categoria"
+                        ? "Excluir categoria (os serviços dela serão movidos para outra)"
                         : "Excluir categoria"
                     }
                   >
@@ -924,6 +943,84 @@ function ServicesPage({
           </div>
         </Modal>
       )}
+      {/* Confirmação: excluir categoria (movendo os serviços, se houver). */}
+      {categoryToRemove &&
+        (() => {
+          const count = serviceRows.filter((x) => x.category === categoryToRemove).length
+          const others = serviceCategories.filter((c) => c !== categoryToRemove)
+          const blocked = count > 0 && others.length === 0
+          return (
+            <Modal
+              kicker="CATEGORIAS"
+              title="Excluir categoria?"
+              onClose={() => !removingCategory && setCategoryToRemove(null)}
+            >
+              <div className="confirmation-content">
+                <div className="confirmation-icon warning">
+                  <Icon name="lock" />
+                </div>
+                <p>
+                  {count === 0 ? (
+                    <>
+                      A categoria <strong>{categoryToRemove}</strong> não tem
+                      serviços e será excluída.
+                    </>
+                  ) : blocked ? (
+                    <>
+                      A categoria <strong>{categoryToRemove}</strong> tem {count}{" "}
+                      {count === 1 ? "serviço" : "serviços"} e não há outra
+                      categoria para onde movê-los. Crie uma categoria nova
+                      antes de excluir esta.
+                    </>
+                  ) : (
+                    <>
+                      A categoria <strong>{categoryToRemove}</strong> tem {count}{" "}
+                      {count === 1 ? "serviço" : "serviços"} (ativos ou inativos).
+                      Eles não podem ser apagados, porque guardam o histórico de
+                      agendamentos: escolha para onde movê-los.
+                    </>
+                  )}
+                </p>
+              </div>
+              {count > 0 && !blocked && (
+                <div className="category-move">
+                  <label htmlFor="srv-mover-para">
+                    <span>MOVER OS SERVIÇOS PARA</span>
+                    <select
+                      id="srv-mover-para"
+                      value={moveTo}
+                      onChange={(event) => setMoveTo(event.target.value)}
+                    >
+                      {others.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+              <div className="modal-actions">
+                <Action variant="secondary" onClick={() => setCategoryToRemove(null)}>
+                  Não, manter categoria
+                </Action>
+                {!blocked && (
+                  <Action
+                    variant="danger"
+                    className={removingCategory ? "disabled" : ""}
+                    onClick={() => !removingCategory && removeCategory()}
+                  >
+                    {removingCategory
+                      ? "Excluindo…"
+                      : count > 0
+                        ? "Sim, mover serviços e excluir"
+                        : "Sim, excluir categoria"}
+                  </Action>
+                )}
+              </div>
+            </Modal>
+          )
+        })()}
     </section>
   )
 }

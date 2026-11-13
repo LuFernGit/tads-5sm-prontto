@@ -155,3 +155,103 @@ SET nome = 'Pedido de confirmação',
     texto = 'Olá, {nome}! Seu horário de {procedimento} está reservado para {data} às {horario}. Para garantir a sua vaga, confirme sua presença pelo nosso site até {prazo}: {link} Sem a confirmação, o horário é liberado para outra cliente. Te esperamos! — {clinica}'
 WHERE finalidade = 'CONFIRMACAO'
   AND texto = 'Olá, {nome}! Seu agendamento de {procedimento}, marcado para {data} às {horario}, está confirmado. Será um prazer receber você! — {clinica}';
+
+-- ---------- 8. Mais clientes de teste ----------
+-- WhatsApp é único no banco (uq_usuario_whatsapp): os números da equipe já
+-- estão em uso (Jamily e gestora), então estas usam números FICTÍCIOS.
+--   Luana  = cliente NOVA (paga sinal; agendamentos já nascem CONFIRMADOS)
+--   Beatriz = cliente RECORRENTE com histórico: manutenção vencida (45+ dias),
+--             um cancelamento automático e um agendamento aguardando confirmação
+-- Senha das duas: Prontto@123
+INSERT INTO USUARIO (id_clinica, nome, data_nascimento, whatsapp, email, senha, tipo, recorrente, status)
+SELECT @clinica, c.nome, c.nasc, c.whats, c.email,
+       '$2a$10$y0WugwRu5Xr5hQpHfH/exu/OOj4rBNRPsdY0XNLjMFcFeRO/N37bm', 'CLIENTE', c.rec, 'ATIVO'
+FROM (
+    SELECT 'Luana Ferreira' AS nome, '2001-03-14' AS nasc, '11900000101' AS whats, 'luana@email.com' AS email, FALSE AS rec
+    UNION ALL
+    SELECT 'Beatriz Lima', '1994-10-02', '11900000102', 'beatriz@email.com', TRUE
+) c
+WHERE @clinica IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM USUARIO u WHERE u.email = c.email OR u.whatsapp = c.whats);
+
+SET @luana = (SELECT id_usuario FROM USUARIO WHERE email = 'luana@email.com' AND id_clinica = @clinica);
+SET @beatriz = (SELECT id_usuario FROM USUARIO WHERE email = 'beatriz@email.com' AND id_clinica = @clinica);
+
+INSERT INTO FICHA_ANAMNESE (id_usuario, alergias, observacoes_medicas, respostas)
+SELECT u.id, u.alergias, 'Nenhuma', '{}'
+FROM (
+    SELECT @luana AS id, 'Nenhuma' AS alergias
+    UNION ALL SELECT @beatriz, 'Sensibilidade a cola de cílios (usar cola hipoalergênica)'
+) u
+WHERE u.id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM FICHA_ANAMNESE f WHERE f.id_usuario = u.id);
+
+-- Agendamentos (datas relativas ao dia em que o banco foi populado; domingo é
+-- pulado). Horários escolhidos para não bater com os da Jamily.
+SET @luana_sem = (SELECT COUNT(*) = 0 FROM AGENDAMENTO WHERE id_usuario = @luana);
+SET @beatriz_sem = (SELECT COUNT(*) = 0 FROM AGENDAMENTO WHERE id_usuario = @beatriz);
+
+INSERT INTO AGENDAMENTO (id_usuario, id_servico, nome_procedimento, valor_servico, data, hora,
+                         valor_sinal, status, cancelado_por, motivo_cancelamento, data_cancelamento)
+SELECT a.cliente, s.id_servico, s.nome, s.preco, a.data, a.hora,
+       a.sinal, a.status, a.cancelado_por, a.motivo, a.cancelado_em
+FROM (
+    -- LUANA (nova): sinal de 30% pago, já CONFIRMADOS
+    SELECT @luana AS cliente, @luana_sem AS pode, 'Fibra de Vidro' AS servico,
+           DATE_ADD(CURDATE(), INTERVAL 2 + (DAYOFWEEK(DATE_ADD(CURDATE(), INTERVAL 2 DAY)) = 1) DAY) AS data,
+           '15:00:00' AS hora, 54.00 AS sinal, 'CONFIRMADO' AS status,
+           NULL AS cancelado_por, NULL AS motivo, NULL AS cancelado_em
+    UNION ALL
+    SELECT @luana, @luana_sem, 'Banho de Gel',
+           DATE_ADD(CURDATE(), INTERVAL 6 + (DAYOFWEEK(DATE_ADD(CURDATE(), INTERVAL 6 DAY)) = 1) DAY),
+           '09:00:00', 36.00, 'CONFIRMADO', NULL, NULL, NULL
+    -- BEATRIZ (recorrente): concluído há ~50 dias → "Alerta de manutenção"
+    UNION ALL
+    SELECT @beatriz, @beatriz_sem, 'Volume Hollywood',
+           DATE_SUB(CURDATE(), INTERVAL 50 + (DAYOFWEEK(DATE_SUB(CURDATE(), INTERVAL 50 DAY)) = 1) DAY),
+           '13:00:00', NULL, 'CONCLUIDO', NULL, NULL, NULL
+    -- cancelado pelo sistema (não confirmou até 24h antes)
+    UNION ALL
+    SELECT @beatriz, @beatriz_sem, 'Lash Lifting',
+           DATE_SUB(CURDATE(), INTERVAL 10 + (DAYOFWEEK(DATE_SUB(CURDATE(), INTERVAL 10 DAY)) = 1) DAY),
+           '11:00:00', NULL, 'CANCELADO', 'SISTEMA',
+           'Presença não confirmada até 24 horas antes do horário.',
+           DATE_SUB(NOW(), INTERVAL 11 DAY)
+    -- aguardando confirmação (prazo: 24h antes)
+    UNION ALL
+    SELECT @beatriz, @beatriz_sem, 'Volume Hollywood',
+           DATE_ADD(CURDATE(), INTERVAL 2 + (DAYOFWEEK(DATE_ADD(CURDATE(), INTERVAL 2 DAY)) = 1) DAY),
+           '09:00:00', NULL, 'PENDENTE', NULL, NULL, NULL
+    -- já confirmado por ela
+    UNION ALL
+    SELECT @beatriz, @beatriz_sem, 'Design Personalizado com Tintura',
+           DATE_ADD(CURDATE(), INTERVAL 4 + (DAYOFWEEK(DATE_ADD(CURDATE(), INTERVAL 4 DAY)) = 1) DAY),
+           '16:00:00', NULL, 'CONFIRMADO', NULL, NULL, NULL
+) a
+JOIN SERVICO s ON s.id_clinica = @clinica AND s.nome = a.servico
+WHERE a.cliente IS NOT NULL AND a.pode = 1;
+
+-- ---------- 9. Termos da clínica (Documentos e termos) ----------
+-- Versão 1.0 publicada de cada um, para testar "Nova versão", anexar PDF,
+-- publicar e inativar.
+-- RESTAURAÇÃO: se estes termos tiverem sido excluídos (antes a exclusão apagava
+-- de vez), eles voltam ao reiniciar o backend. Voltam PUBLICADOS se não houver
+-- outra versão publicada do tipo; senão voltam INATIVOS (não trocam a publicada).
+-- Agora a exclusão é lógica (excluido_em): um termo excluído continua no banco,
+-- por isso não é recriado aqui; restaure-o pela tela "Documentos e termos".
+INSERT INTO DOCUMENTO_TERMO (id_clinica, titulo, tipo_documento, versao, caminho_arquivo, conteudo, status, data_publicacao)
+SELECT @clinica, d.titulo, d.tipo, '1.0', NULL, d.conteudo,
+       IF(EXISTS (SELECT 1 FROM DOCUMENTO_TERMO p
+                  WHERE p.id_clinica = @clinica AND p.tipo_documento = d.tipo AND p.status = 'PUBLICADO'),
+          'INATIVO', 'PUBLICADO'),
+       NOW()
+FROM (
+    SELECT 'Termos de uso — CA Beauty Clinic' AS titulo, 'TERMOS_USO' AS tipo,
+           'Ao agendar pela CA Beauty Clinic, você concorda em comparecer no horário marcado ou cancelar com pelo menos 24 horas de antecedência. Clientes novas pagam um sinal de 30% para garantir o horário.' AS conteudo
+    UNION ALL
+    SELECT 'Política de privacidade — CA Beauty Clinic', 'POLITICA_PRIVACIDADE',
+           'Usamos seus dados (nome, contato e ficha de saúde) somente para o atendimento. Você pode pedir a exclusão da sua conta a qualquer momento, conforme a LGPD.'
+) d
+WHERE @clinica IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM DOCUMENTO_TERMO x
+                  WHERE x.id_clinica = @clinica AND x.tipo_documento = d.tipo AND x.titulo = d.titulo);

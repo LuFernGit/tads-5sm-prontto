@@ -1,5 +1,97 @@
 /* Estilos de DocumentsPage.jsx (importado só por ele). */
 
 /* Documentos e termos */
-.af-actions-col { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.af-file { display: inline-flex; align-items: center; cursor: pointer; }
+.af-actions-col {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.af-file {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+/* Cabeçalho com o botão "Novo documento" */
+.dc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dc-head h1 {
+  margin-bottom: 0;
+}
+/* Título no padrão das outras telas do painel (.section-title: 22px, negrito,
+   fonte do corpo). Só a fonte muda; o espaçamento continua o mesmo. */
+.af-card[aria-labelledby="dc-h1"] .dc-head .section-title {
+  font-family: var(--font-body);
+  font-size: 22px;
+  font-weight: 750;
+  line-height: 1.25;
+  color: var(--navy);
+}
+/* Ver documento */
+.dc-meta {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.dc-text {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--navy);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Formulário de criar/editar */
+.dc-form {
+  display: grid;
+  gap: 14px;
+}
+.dc-form textarea {
+  min-height: 160px;
+  resize: vertical;
+  line-height: 1.7;
+}
+.af-actions-col .ff-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+/* Botões das linhas no padrão das listas do painel (iguais aos de Mensagens >
+   Modelos da clínica): 38px de altura, 13px, cantos de 12px. */
+.af-card[aria-labelledby="dc-h1"] .af-actions-col .ff-btn,
+.af-card[aria-labelledby="dc-h1"] .dc-deleted > .ff-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+/* Botões lado a lado (como em Mensagens): o texto da linha cede espaço e os
+   botões só quebram de linha quando realmente não cabem. */
+.af-card[aria-labelledby="dc-h1"] .af-req > span:first-child { flex: 1 1 0; min-width: 0; }
+.af-card[aria-labelledby="dc-h1"] .af-actions-col { flex: 0 1 auto; }
+@media (max-width: 700px) {
+  .af-card[aria-labelledby="dc-h1"] .af-list li { align-items: flex-start; flex-direction: column; }
+  .af-card[aria-labelledby="dc-h1"] .af-actions-col { width: 100%; justify-content: flex-start; }
+  .af-card[aria-labelledby="dc-h1"] .af-actions-col .ff-btn { flex: 1 1 auto; }
+}
+/* Documentos excluídos (exclusão lógica, com "Restaurar") */
+.dc-deleted {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.dc-deleted .ff-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

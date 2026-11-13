@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useServerSync } from "@/hooks/useLiveRefresh"
 import { br, formatDuration } from "@/lib/format"
 import { ruleError, toHorarioRows } from "@/lib/schedule"
 import "./SchedulePage.css"
@@ -48,6 +49,10 @@ function SchedulePageView({
   const [errors, setErrors] = useState({})
   // blocks = bloqueios de agenda (folgas, feriados); form = formulário de novo bloqueio.
   const [blocks, setBlocks] = useState(initialBlocks)
+  // Ao vivo: bloqueios criados no Painel ou em outra aba aparecem sem recarregar.
+  // O horário só é atualizado se a gestora não estiver editando (keepEdits).
+  useServerSync(initialBlocks, blocks, setBlocks)
+  useServerSync(initialRules, rules, setRules, { keepEdits: true })
   const [form, setForm] = useState({
     data: "",
     inteiro: true,

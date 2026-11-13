@@ -26,7 +26,7 @@ const demoClientAccounts = [
       condicaoTratamentoDetalhe: "",
       medicamentos: "Não",
       medicamentosDetalhe: "",
-      gravidezAmamentacao: "",
+      gravidezAmamentacao: "Não",
       alteracaoAtual: "Não",
       alteracaoAtualDetalhe: "",
       sinaisAtuais: ["Não apresento nenhum desses sinais"],

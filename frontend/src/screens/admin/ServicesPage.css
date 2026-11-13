@@ -185,3 +185,8 @@
 .admin-main .status-control { font-size: 12px !important; }
 /* Última coluna com espaço para o botão "⋯" no tamanho do de Clientes (31px) */
 .services-table .table-row { grid-template-columns: 2.2fr 1fr 0.8fr 0.9fr 1.15fr 32px; }
+/* Excluir categoria com serviços: escolher o destino deles */
+.category-move { margin-top: 16px; }
+.category-move label { display: grid; gap: 6px; }
+.category-move label span { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; color: #475569; }
+.category-move select { width: 100%; }

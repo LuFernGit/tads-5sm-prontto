@@ -20,8 +20,10 @@ function BookingConfirmation({
   signal,
   payment,
   clientName,
+  clientWhatsapp,
   onBack,
 }) {
+  const firstName = String(clientName ?? "").split(" ")[0]
   // Preço em reais (número), vindo de SERVICO.preco
   const total = Number(service.price) || 0
   // Texto da forma de pagamento: 'Pix', 'cartão' ou 'cartão em 3x'.
@@ -39,7 +41,7 @@ function BookingConfirmation({
         : `${brl(signal)} (pendente)`
   // Mensagem do comprovante enviada pelo WhatsApp
   const text = [
-    `Olá! Meu agendamento na ${company.name} está confirmado.`,
+    `Olá! Sou ${clientName}${clientWhatsapp ? ` (WhatsApp ${clientWhatsapp})` : ""}. Meu agendamento na ${company.name} está confirmado.`,
     `Procedimento: ${service.name}`,
     `Data e horário: ${date} às ${time}`,
     `Valor: ${brl(total)}`,
@@ -55,7 +57,7 @@ function BookingConfirmation({
     <BookingFlowLayout
       icon={<Icon name="check" size={22} />}
       kicker="AGENDAMENTO CONFIRMADO"
-      title={`Tudo certo, ${clientName}!`}
+      title={`Tudo certo, ${firstName}!`}
       titleId="ff-ok-title"
       subtitle="Seu horário está reservado. Agora é só se preparar para o seu momento."
       company={company}

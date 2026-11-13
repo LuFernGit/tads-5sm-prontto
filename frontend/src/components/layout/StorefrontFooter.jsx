@@ -1,5 +1,5 @@
-import Icon from "@/components/ui/Icon"
 import NewTabHint from "@/components/ui/NewTabHint"
+import { instagramLink } from "@/lib/instagram"
 import { onlyDigits } from "@/lib/masks"
 import "./StorefrontFooter.css"
 
@@ -7,6 +7,7 @@ import "./StorefrontFooter.css"
  * Rodapé da vitrine com identidade, contato, localização e links institucionais.
  */
 function StorefrontFooter({ company }) {
+  const instagram = instagramLink(company.instagram)
   return (
     <footer className="storefront-footer">
       <div className="footer-brand">
@@ -33,7 +34,11 @@ function StorefrontFooter({ company }) {
           {company.phone} <NewTabHint />
         </a>
         <a href={`mailto:${company.email}`}>{company.email}</a>
-        <small>{company.instagram}</small>
+        {instagram && (
+          <a href={instagram.url} target="_blank" rel="noopener noreferrer">
+            {instagram.label} <NewTabHint />
+          </a>
+        )}
       </div>
       <div>
         <span>LOCALIZAÇÃO</span>
@@ -41,10 +46,9 @@ function StorefrontFooter({ company }) {
         <a
           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
         >
-          Como chegar <Icon name="arrow" size={13} />
-          <small>(abre em nova guia)</small>
+          Como chegar <NewTabHint />
         </a>
       </div>
       <div>

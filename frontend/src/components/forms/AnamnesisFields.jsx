@@ -218,11 +218,18 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName, editing = false
         onChange={(v) => updateHealth("lentesContato", v)}
         error={errors.lentesContato}
       />
+      <YesNo
+        id="a8b"
+        label="9. Você está gestante ou amamentando?"
+        value={h.gravidezAmamentacao}
+        onChange={(v) => updateHealth("gravidezAmamentacao", v)}
+        error={errors.gravidezAmamentacao}
+      />
       <h2 className="ff-section-heading">
         4. Histórico de procedimentos estéticos
       </h2>
       <fieldset className="ff-question">
-        <legend>9. Já realizou algum dos procedimentos abaixo?</legend>
+        <legend>10. Já realizou algum dos procedimentos abaixo?</legend>
         <div className="ff-procedure-list">
           {[
             "Não realizei nenhum",
@@ -292,7 +299,7 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName, editing = false
       )}
       <YesNo
         id="a10"
-        label="10. Já apresentou alguma reação, complicação ou desconforto durante ou após procedimentos estéticos?"
+        label="11. Já apresentou alguma reação, complicação ou desconforto durante ou após procedimentos estéticos?"
         value={h.complicacaoAnterior}
         onChange={(v) => updateHealth("complicacaoAnterior", v)}
         error={errors.complicacaoAnterior}
@@ -309,7 +316,7 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName, editing = false
       )}
       <YesNo
         id="a11"
-        label="11. Está utilizando atualmente algum produto aplicado sobre as unhas ou realizou recentemente algum procedimento químico nas unhas, cílios ou sobrancelhas?"
+        label="12. Está utilizando atualmente algum produto aplicado sobre as unhas ou realizou recentemente algum procedimento químico nas unhas, cílios ou sobrancelhas?"
         value={h.problemaProcedimento}
         onChange={(v) => updateHealth("problemaProcedimento", v)}
         error={errors.problemaProcedimento}
@@ -327,7 +334,7 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName, editing = false
       <h2 className="ff-section-heading">5. Informações complementares</h2>
       <YesNo
         id="a12"
-        label="12. Existe alguma outra informação sobre sua saúde, alergias, sensibilidades ou tratamentos que considere importante informar à profissional?"
+        label="13. Existe alguma outra informação sobre sua saúde, alergias, sensibilidades ou tratamentos que considere importante informar à profissional?"
         value={h.informacaoAdicional}
         onChange={(v) => updateHealth("informacaoAdicional", v)}
         error={errors.informacaoAdicional}

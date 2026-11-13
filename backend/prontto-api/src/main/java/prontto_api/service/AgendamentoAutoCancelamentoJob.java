@@ -30,6 +30,37 @@ public class AgendamentoAutoCancelamentoJob {
 
     @Autowired private AgendamentoRepository agendamentoRepository;
     @Autowired private LogAuditoriaRepository logAuditoriaRepository;
+    @Autowired private prontto_api.repository.UsuarioRepository usuarioRepository;
+
+    /**
+     * Atendimento CONFIRMADO cujo horário já terminou (início + duração) vira
+     * CONCLUÍDO, e a cliente passa a ser RECORRENTE (isenta de sinal nos
+     * próximos agendamentos). É a única forma de virar recorrente.
+     */
+    @Scheduled(initialDelay = 20_000, fixedDelay = 300_000)
+    @Transactional
+    public void concluirAtendimentosRealizados() {
+        LocalDateTime agora = RegrasAgendamento.agora();
+        List<Agendamento> realizados = agendamentoRepository.findByStatus(StatusAgendamento.CONFIRMADO)
+                .stream()
+                .filter(a -> {
+                    int duracao = a.getServico() != null && a.getServico().getDuracao() != null ? a.getServico().getDuracao() : 0;
+                    return !a.getData().atTime(a.getHora()).plusMinutes(duracao).isAfter(agora);
+                })
+                .toList();
+        for (Agendamento a : realizados) {
+            a.setStatus(StatusAgendamento.CONCLUIDO);
+            agendamentoRepository.save(a);
+            var cliente = a.getCliente();
+            if (cliente != null && !Boolean.TRUE.equals(cliente.getRecorrente())) {
+                cliente.setRecorrente(true);
+                usuarioRepository.save(cliente);
+            }
+        }
+        if (!realizados.isEmpty()) {
+            log.info("{} atendimento(s) marcado(s) como concluído(s).", realizados.size());
+        }
+    }
 
     @Scheduled(initialDelay = 30_000, fixedDelay = 300_000)
     @Transactional

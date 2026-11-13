@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { api } from "@/api"
 import AnamnesisFields from "@/components/forms/AnamnesisFields"
 import Field, { aria } from "@/components/ui/Field"
 import { emptyAnamnesis } from "@/constants"
@@ -69,13 +70,47 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
     setErrors(filtered)
     return Object.keys(filtered).length === 0
   }
-  /** 'Continuar': valida, avança de etapa e, na última, envia o cadastro. */
-  const advance = (e) => {
+  const [checking, setChecking] = useState(false)
+  /**
+   * E-mail e WhatsApp já usados por outra conta? Confere no backend na etapa
+   * dos dados pessoais (e de novo antes de criar a conta), para o erro aparecer
+   * embaixo do campo certo — e não só no fim, depois dos Termos.
+   * Devolve true se pode seguir. Sem conexão, segue (o backend confere de novo).
+   */
+  const checkAvailability = async () => {
+    setChecking(true)
+    try {
+      const r = await api.auth.checkAvailability({
+        email: d.email.trim().toLowerCase(),
+        whatsapp: d.whatsapp.replace(/\D/g, ""),
+      })
+      const found = {}
+      if (r?.emailEmUso)
+        found.email = "Este e-mail já está cadastrado. Entre com sua senha ou use outro e-mail."
+      if (r?.whatsappEmUso)
+        found.whatsapp = "Este WhatsApp já está cadastrado em outra conta. Use outro número ou entre na sua conta."
+      if (Object.keys(found).length) {
+        setErrors(found)
+        setStep(0)
+        notify(Object.values(found)[0], "error")
+        return false
+      }
+      return true
+    } catch {
+      return true
+    } finally {
+      setChecking(false)
+    }
+  }
+  /** Botão de avançar: valida, avança de etapa e, na última, envia o cadastro. */
+  const advance = async (e) => {
     e.preventDefault()
+    if (checking) return
     if (!validate()) {
       notify("Corrija os campos indicados para continuar.")
       return
     }
+    if ((step === 0 || step === 2) && !(await checkAvailability())) return
     if (step < 2) {
       setStep(step + 1)
       return
@@ -394,7 +429,8 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
                   "Ir para termos e privacidade",
                   "Criar minha conta",
                 ][step]
-              }{" "}
+              }
+              {checking && " (conferindo…)"}{" "}
               <span aria-hidden="true">→</span>
             </button>
           </div>

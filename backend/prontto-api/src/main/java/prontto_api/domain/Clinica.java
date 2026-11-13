@@ -64,6 +64,32 @@ public class Clinica {
     @Column(columnDefinition = "LONGTEXT")
     private String favicon;
 
+    // V5: monograma digitado pela gestora (antes era sempre calculado pelo nome)
+    @Column(length = 3)
+    private String iniciais;
+
+    // V5: endereço em partes (o campo "endereco" guarda o texto completo da vitrine)
+    @Column(length = 8)
+    private String cep;
+    @Column(length = 150)
+    private String logradouro;
+    @Column(length = 20)
+    private String numero;
+    @Column(length = 100)
+    private String complemento;
+    @Column(length = 100)
+    private String bairro;
+    @Column(length = 100)
+    private String cidade;
+    @Column(length = 2)
+    private String uf;
+
+    // V5: textos da tela Configurações
+    @Column(name = "texto_horario", length = 200)
+    private String textoHorario;
+    @Column(name = "politica_cancelamento", length = 500)
+    private String politicaCancelamento;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private StatusClinica status = StatusClinica.ATIVA;

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { api } from "@/api"
 import Action from "@/components/ui/Action"
 import Brand from "@/components/ui/Brand"
 import Icon from "@/components/ui/Icon"
@@ -279,9 +280,42 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
       document.getElementById("cad-step-title")?.focus(),
     )
   }
+  /**
+   * Dados já usados por outra conta? Confere no backend na etapa em que o
+   * campo é preenchido (CPF/CNPJ na etapa 1; e-mail e WhatsApp da gestora na
+   * etapa 2), para o erro aparecer embaixo do campo — e não só no fim.
+   * Sem conexão, segue (o backend confere de novo ao criar a empresa).
+   */
+  const [checking, setChecking] = useState(false)
+  const availabilityErrors = async () => {
+    const query =
+      step === 0
+        ? { cpfCnpj: onlyDigits(data.document) }
+        : step === 1
+          ? { email: data.email.trim().toLowerCase(), whatsapp: onlyDigits(data.whatsapp) }
+          : null
+    if (!query) return {}
+    setChecking(true)
+    try {
+      const r = await api.auth.checkAvailability(query)
+      const found = {}
+      if (r?.cpfCnpjEmUso)
+        found["cad-cpf-cnpj"] = "Este CPF/CNPJ já está cadastrado em outra clínica. Confira o número digitado."
+      if (r?.emailEmUso)
+        found["cad-e-mail-de-acesso"] = "Este e-mail já está cadastrado. Entre com sua senha ou use outro e-mail."
+      if (r?.whatsappEmUso)
+        found["cad-whatsapp"] = "Este WhatsApp já está cadastrado em outra conta. Use outro número."
+      return found
+    } catch {
+      return {}
+    } finally {
+      setChecking(false)
+    }
+  }
   /** Botão de avançar: só vai para a próxima etapa se a atual for válida. */
-  const next = () => {
-    if (showErrors(validateStep())) return
+  const next = async () => {
+    if (checking || showErrors(validateStep())) return
+    if (showErrors(await availabilityErrors())) return
     changeStep(Math.min(step + 1, 5))
   }
   /** Botão de voltar: volta uma etapa (na primeira, cancela o cadastro). */
@@ -295,9 +329,10 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
    * - Avançar: só até a etapa mais distante já alcançada, e só se a etapa
    *   atual estiver correta — assim nenhuma validação é pulada.
    */
-  const goToStep = (target) => {
+  const goToStep = async (target) => {
     if (target === step || target > maxStep) return
     if (target > step && showErrors(validateStep())) return
+    if (target > step && showErrors(await availabilityErrors())) return
     changeStep(target)
   }
   /**

@@ -44,6 +44,13 @@ public class GestoraController {
         return ResponseEntity.ok().build();
     }
 
+    /** Versão leve da agenda (muda quando há agendamento, cancelamento, bloqueio ou cliente nova). */
+    @GetMapping("/agenda/versao")
+    public ResponseEntity<java.util.Map<String, String>> obterVersaoAgenda(Authentication authentication) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(java.util.Map.of("versao", gestoraAdminService.obterVersaoAgenda(gestora)));
+    }
+
     @GetMapping("/painel")
     public ResponseEntity<PainelSemanalResponse> obterPainel(
             Authentication authentication,
@@ -101,11 +108,42 @@ public class GestoraController {
         return ResponseEntity.ok(gestoraAdminService.listarClientes(gestora));
     }
 
-    @PutMapping("/clientes/{id}/notas")
-    public ResponseEntity<Void> salvarNotasCliente(Authentication authentication, @PathVariable Long id, @RequestBody Map<String, String> body) {
+    /** Histórico da ficha de saúde: versões completas, da atual para a mais antiga. */
+    @GetMapping("/clientes/{id}/ficha/versoes")
+    public ResponseEntity<List<FichaVersaoDto>> listarVersoesFicha(Authentication authentication, @PathVariable Long id) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
-        gestoraAdminService.salvarNotasCliente(gestora, id, body.get("notasGestora"));
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(gestoraAdminService.listarVersoesFicha(gestora, id));
+    }
+
+    /* ---------- Notas internas da gestora (CRUD) ---------- */
+
+    @GetMapping("/clientes/{id}/notas")
+    public ResponseEntity<List<NotaClienteDto>> listarNotas(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.listarNotas(gestora, id));
+    }
+
+    @PostMapping("/clientes/{id}/notas")
+    public ResponseEntity<NotaClienteDto> criarNota(Authentication authentication, @PathVariable Long id,
+                                                    @RequestBody java.util.Map<String, String> body) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.status(201).body(gestoraAdminService.criarNota(gestora, id, body.get("texto")));
+    }
+
+    @PutMapping("/clientes/{id}/notas/{notaId}")
+    public ResponseEntity<NotaClienteDto> atualizarNota(Authentication authentication, @PathVariable Long id,
+                                                        @PathVariable Long notaId,
+                                                        @RequestBody java.util.Map<String, String> body) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.atualizarNota(gestora, id, notaId, body.get("texto")));
+    }
+
+    @DeleteMapping("/clientes/{id}/notas/{notaId}")
+    public ResponseEntity<Void> excluirNota(Authentication authentication, @PathVariable Long id,
+                                            @PathVariable Long notaId) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        gestoraAdminService.excluirNota(gestora, id, notaId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/categorias")
@@ -120,10 +158,12 @@ public class GestoraController {
         return ResponseEntity.status(201).body(catalogoService.criarCategoria(gestora, request));
     }
 
+    /** DELETE /gestora/categorias/{nome}?moverPara=Outra → move os serviços e exclui. */
     @DeleteMapping("/categorias/{nome}")
-    public ResponseEntity<List<String>> deletarCategoria(Authentication authentication, @PathVariable String nome) {
+    public ResponseEntity<List<String>> deletarCategoria(Authentication authentication, @PathVariable String nome,
+                                                         @RequestParam(required = false) String moverPara) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
-        return ResponseEntity.ok(catalogoService.deletarCategoria(gestora, nome));
+        return ResponseEntity.ok(catalogoService.deletarCategoria(gestora, nome, moverPara));
     }
 
     @GetMapping("/servicos")
@@ -148,6 +188,51 @@ public class GestoraController {
     public ResponseEntity<ServicoResponse> alterarStatusServico(Authentication authentication, @PathVariable Long id, @RequestBody @Valid StatusServicoPatchRequest request) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(catalogoService.alterarStatusServico(gestora, id, request));
+    }
+
+    @PostMapping("/documentos")
+    public ResponseEntity<DocumentoDetalheResponse> criarDocumento(Authentication authentication, @RequestBody DocumentoRequest body) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.status(201).body(gestoraAdminService.criarDocumento(gestora, body));
+    }
+
+    /** Documentos excluídos (exclusão lógica): continuam salvos e podem ser restaurados. */
+    @GetMapping("/documentos/excluidos")
+    public ResponseEntity<List<DocumentoResponse>> listarDocumentosExcluidos(Authentication authentication) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.listarDocumentosExcluidos(gestora));
+    }
+
+    @PostMapping("/documentos/{id}/restauracao")
+    public ResponseEntity<DocumentoResponse> restaurarDocumento(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.restaurarDocumento(gestora, id));
+    }
+
+    @GetMapping("/documentos/{id:\\d+}")
+    public ResponseEntity<DocumentoDetalheResponse> obterDocumento(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.obterDocumento(gestora, id));
+    }
+
+    @PutMapping("/documentos/{id}")
+    public ResponseEntity<DocumentoDetalheResponse> atualizarDocumento(Authentication authentication, @PathVariable Long id,
+                                                                       @RequestBody DocumentoRequest body) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.atualizarDocumento(gestora, id, body));
+    }
+
+    @DeleteMapping("/documentos/{id}")
+    public ResponseEntity<Void> excluirDocumento(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        gestoraAdminService.excluirDocumento(gestora, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/documentos/{id}/arquivo")
+    public ResponseEntity<DocumentoResponse> removerArquivoDocumento(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(gestoraAdminService.removerArquivoDocumento(gestora, id));
     }
 
     @GetMapping("/documentos")

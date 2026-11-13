@@ -1,5 +1,6 @@
 package prontto_api.dto;
 
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
@@ -19,6 +20,7 @@ public record ServicoRequest(
         BigDecimal price,
 
         Boolean active,
+        @Size(max = 500, message = "A descrição pode ter no máximo 500 caracteres")
         String description,
         String image
 ) {}

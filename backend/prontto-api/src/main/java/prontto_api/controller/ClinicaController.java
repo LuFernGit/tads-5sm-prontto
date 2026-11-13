@@ -25,6 +25,16 @@ public class ClinicaController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * "Impressão digital" leve da vitrine: muda quando a gestora altera serviços,
+     * categorias, identidade ou termos. A vitrine consulta isto a cada poucos
+     * segundos e só baixa os dados completos (com imagens) quando muda.
+     */
+    @GetMapping("/{slug}/versao")
+    public ResponseEntity<java.util.Map<String, String>> obterVersaoVitrine(@PathVariable String slug) {
+        return ResponseEntity.ok(java.util.Map.of("versao", clinicaService.obterVersaoVitrine(slug)));
+    }
+
     @GetMapping("/{slug}/calendario")
     public ResponseEntity<CalendarioDisponibilidadeResponse> obterCalendarioMensal(
             @PathVariable String slug,

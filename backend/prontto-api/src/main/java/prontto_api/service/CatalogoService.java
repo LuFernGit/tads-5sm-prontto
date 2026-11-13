@@ -69,6 +69,16 @@ public class CatalogoService {
 
     @Transactional
     public List<String> deletarCategoria(Usuario gestoraAutenticada, String nomeCategoria) {
+        return deletarCategoria(gestoraAutenticada, nomeCategoria, null);
+    }
+
+    /**
+     * Exclui a categoria. Serviços não podem ficar sem categoria (FK obrigatória)
+     * e não podem ser apagados (guardam o histórico de agendamentos). Por isso,
+     * se a categoria tiver serviços, eles são MOVIDOS para "moverPara" antes.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public List<String> deletarCategoria(Usuario gestoraAutenticada, String nomeCategoria, String moverPara) {
         Clinica clinica = validarClinicaGestora(gestoraAutenticada);
 
         Categoria categoria = categoriaRepository.findByClinicaId(clinica.getId())
@@ -77,12 +87,28 @@ public class CatalogoService {
                 .findFirst()
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria '" + nomeCategoria + "' não encontrada."));
 
-        boolean possuiServicos = servicoRepository.findByClinicaId(clinica.getId())
+        var servicosDaCategoria = servicoRepository.findByClinicaId(clinica.getId())
                 .stream()
-                .anyMatch(s -> s.getCategoria() != null && s.getCategoria().getId().equals(categoria.getId()));
+                .filter(s -> s.getCategoria() != null && s.getCategoria().getId().equals(categoria.getId()))
+                .toList();
 
-        if (possuiServicos) {
-            throw new ConflitoException("Não é possível excluir a categoria '" + nomeCategoria + "' pois ela possui serviços associados.");
+        if (!servicosDaCategoria.isEmpty()) {
+            if (moverPara == null || moverPara.isBlank()) {
+                throw new ConflitoException("A categoria '" + nomeCategoria + "' tem " + servicosDaCategoria.size()
+                        + " serviço(s). Escolha para qual categoria eles devem ser movidos.");
+            }
+            Categoria destino = categoriaRepository.findByClinicaId(clinica.getId())
+                    .stream()
+                    .filter(c -> c.getNome().equalsIgnoreCase(moverPara.trim()))
+                    .findFirst()
+                    .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria de destino '" + moverPara + "' não encontrada."));
+            if (destino.getId().equals(categoria.getId())) {
+                throw new prontto_api.infra.exceptions.RegraNegocioException("Escolha uma categoria diferente da que será excluída.");
+            }
+            for (var servico : servicosDaCategoria) {
+                servico.setCategoria(destino);
+                servicoRepository.save(servico);
+            }
         }
 
         categoriaRepository.delete(categoria);

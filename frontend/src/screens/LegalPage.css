@@ -1,0 +1,80 @@
+/* Estilos de LegalPage.jsx (importado só por ele): termos, privacidade e contato
+   no visual da área da cliente. Tudo com escopo em .lg-page. */
+
+.lg-page { display: flex; flex-direction: column; }
+
+/* Topo: logo e nome da clínica (igual ao cadastro da cliente) */
+.lg-page .ff-header .lg-brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+}
+.lg-logo {
+  width: 44px; height: 44px; display: grid; place-items: center; overflow: hidden; flex: none;
+  border: 2px solid var(--brand-frame); background: #fff;
+  font-family: var(--font-heading); font-size: 16px; color: var(--navy);
+}
+.lg-logo img { width: 100%; height: 100%; object-fit: contain; }
+.lg-page .ff-header .lg-brand strong {
+  font-family: var(--font-body); font-size: 20px; font-weight: 800;
+  letter-spacing: -0.02em; color: var(--navy);
+}
+
+/* Cartão: rótulo pequeno + título sem serifa em negrito (padrão do sistema) */
+.ff-card.lg-card { width: calc(100% - 32px); max-width: 760px; margin: 40px auto 56px; }
+.ff-card.lg-card h1 {
+  margin: 8px 0 20px;
+  font-family: var(--font-body); font-size: 28px; font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.25; color: var(--navy);
+}
+.lg-text {
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  font-size: 14px; line-height: 1.75; color: var(--muted);
+}
+.lg-card .ff-summary dd a { color: var(--amber-text); }
+
+/* ===== Fale com a clínica ===== */
+.lg-intro { margin: -8px 0 22px; max-width: 560px; }
+/* Lista de contatos: uma coluna, linhas separadas por traço fino, sem caixas.
+   Com link, a linha inteira é clicável. */
+.lg-contacts {
+  display: grid; margin: 0; padding: 0; list-style: none;
+  border-top: 1px solid var(--line);
+}
+.lg-contacts > li { border-bottom: 1px solid var(--line); }
+.legal .lg-contacts li { color: inherit; }
+.lg-contact {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 16px 4px; color: var(--navy); text-decoration: none;
+}
+.legal a.lg-contact { font-weight: 400; color: var(--navy); }
+a.lg-contact:hover strong,
+a.lg-contact:hover .lg-contact-hint { text-decoration: underline; text-underline-offset: 3px; }
+.lg-contact-icon { flex: none; display: grid; place-items: center; margin-top: 2px; color: var(--amber-text); }
+.lg-contact-text { display: grid; gap: 3px; min-width: 0; }
+.lg-contact-text small {
+  font-size: 12px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.lg-contact-text strong {
+  font-size: 15px; font-weight: 700; line-height: 1.5; color: var(--navy);
+  overflow-wrap: anywhere;
+}
+.lg-contact-text strong span[aria-hidden],
+.lg-contact-hint { color: var(--amber-text); }
+.lg-contact-hint { font-size: 13px; font-weight: 700; }
+/* Ação principal */
+.lg-cta { margin-top: 24px; }
+.legal a.lg-cta-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: #fff; text-decoration: none;
+}
+
+/* Rodapé da vitrine sempre no fim da página */
+.lg-page .storefront-footer { margin-top: auto; }
+
+@media (max-width: 700px) {
+  .lg-page .ff-header .lg-brand strong { font-size: 16px; }
+  .ff-card.lg-card { width: auto; margin: 16px 12px 32px; }
+  .ff-card.lg-card h1 { font-size: 24px; }
+  .legal a.lg-cta-btn { width: 100%; justify-content: center; }
+}

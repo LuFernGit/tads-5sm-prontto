@@ -9,5 +9,6 @@ public record DocumentoResponse(
         String status,
         String publicadoEm,
         Boolean plataforma,
-        Integer aceites
+        Integer aceites,
+        String excluidoEm      // data da exclusão lógica (null = não excluído)
 ) {}

@@ -29,7 +29,15 @@ export const catalogApi = {
   /** POST /gestora/categorias  { nome } → string[] (lista atualizada; 409 se já existir) */
   createCategory: (nome) => http.post("/gestora/categorias", { nome }),
 
-  /** DELETE /gestora/categorias/{nome} → string[] (409 se houver serviços nela) */
-  deleteCategory: (nome) =>
-    http.delete(`/gestora/categorias/${encodeURIComponent(nome)}`),
+  /**
+   * DELETE /gestora/categorias/{nome}?moverPara=Outra → string[]
+   * Com serviços na categoria, eles são movidos para "moverPara" antes de excluir
+   * (409 se tiver serviços e não informar o destino).
+   */
+  deleteCategory: (nome, moverPara) =>
+    http.delete(
+      `/gestora/categorias/${encodeURIComponent(nome)}${
+        moverPara ? `?moverPara=${encodeURIComponent(moverPara)}` : ""
+      }`,
+    ),
 }

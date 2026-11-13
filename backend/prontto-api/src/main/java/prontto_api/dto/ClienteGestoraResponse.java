@@ -18,19 +18,13 @@ public record ClienteGestoraResponse(
         String observacoes,
         String notasGestora,
         String atualizadaEm,
-        List<HistoricoItemDto> historico
+        Long versoesFicha,              // quantas versões completas a ficha tem (GET /gestora/clientes/{id}/ficha/versoes)
+        List<NotaClienteDto> notas      // notas internas da gestora (mais recente primeiro)
 ) {
     public record AgendamentoItemDto(
             String data,
             String hora,
             String servico,
             String status
-    ) {}
-
-    public record HistoricoItemDto(
-            String campo,
-            String anterior,
-            String novo,
-            String data
     ) {}
 }

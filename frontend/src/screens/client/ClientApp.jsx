@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useLiveRefresh } from "@/hooks/useLiveRefresh"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
 import Modal from "@/components/ui/Modal"
@@ -17,6 +18,7 @@ import {
   badgeClass,
   emptyAnamnesis,
   BOOKING_MONTHS,
+  SIGNAL_PERCENT,
 } from "@/constants"
 import { clearToken } from "@/api/session"
 import {
@@ -150,6 +152,18 @@ function ClientAppView({
   const [appointments, setAppointments] = useState(initialAppointments)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [cancelling, setCancelling] = useState(null)
+  // Meus agendamentos ao vivo: cancelamento pela gestora (ou automático) aparece
+  // sem a cliente recarregar a página.
+  useLiveRefresh(
+    async () => {
+      const list = await api.me.listAppointments()
+      setAppointments(list)
+      setSelectedAppointment((current) =>
+        current ? (list.find((item) => item.id === current.id) ?? current) : current,
+      )
+    },
+    { enabled: !guest && !preview, interval: 30000 },
+  )
   const [editingHealth, setEditingHealth] = useState(false)
   const [healthUpdatedAt, setHealthUpdatedAt] = useState(() =>
     formatUpdatedAt(initialHealthRecord?.atualizadaEm),
@@ -257,7 +271,8 @@ function ClientAppView({
         `${bookingDate.getFullYear()}-${pad(bookingDate.getMonth() + 1)}`,
       ),
     [clinicSlug, bookingMonthOffset],
-    { initialData: { diasLotados: [], diasSemanaFechados: [0], diasBloqueados: [] } },
+    // live: false = esta tela já tem a própria atualização (useLiveRefresh abaixo).
+    { initialData: { diasLotados: [], diasSemanaFechados: [0], diasBloqueados: [] }, live: false },
   )
   const busyDays = calendarQuery.data?.diasLotados ?? []
   const closedWeekdays = calendarQuery.data?.diasSemanaFechados ?? [0]
@@ -279,9 +294,50 @@ function ClientAppView({
   const timesQuery = useApiQuery(
     () => api.clinic.getAvailableTimes(clinicSlug, selectedDateIso, service.id),
     [clinicSlug, selectedDateIso, service.id],
-    { initialData: [] },
+    { initialData: [], live: false },
   )
   const timePeriods = timesQuery.data ?? []
+
+  /* ---------- AO VIVO: mudanças da gestora e de outras clientes ---------- */
+  // Serviço desativado (ou alterado) pela gestora enquanto a cliente estava na
+  // tela: o catálogo chega atualizado (useAppSession); aqui a escolha acompanha.
+  // (setState no efeito é intencional: sincroniza com um dado que vem de fora.)
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!service?.id) return
+    const fresh = serviceCatalog.find((item) => String(item.id) === String(service.id))
+    if (fresh?.active) {
+      if (fresh !== service) setService(fresh) // preço, duração ou foto mudaram
+      return
+    }
+    setService(serviceCatalog.find((item) => item.active) || EMPTY_SERVICE)
+    setSelectedTime("")
+    setDepositStep(false)
+    notify(
+      `O serviço "${service.name}" não está mais disponível para agendamento. Escolha outro serviço.`,
+      "error",
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceCatalog])
+  // Na aba Agendar, dias lotados e horários livres são reconsultados: um
+  // horário que outra cliente acabou de marcar deixa de aparecer como livre.
+  useLiveRefresh(
+    async () => {
+      await Promise.all([calendarQuery.reload(), timesQuery.reload()])
+    },
+    { enabled: tab === "schedule" && !confirmed, interval: 20000 },
+  )
+  // Horário escolhido foi ocupado nesse meio-tempo: desmarca e avisa.
+  useEffect(() => {
+    if (!selectedTime) return
+    const slot = timePeriods.flatMap((p) => p.slots ?? []).find((x) => x.time === selectedTime)
+    if (slot?.occupied) {
+      setSelectedTime("")
+      notify("O horário que você escolheu acabou de ser reservado. Escolha outro horário.", "error")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timePeriods])
+  /* eslint-enable react-hooks/set-state-in-effect */
   const bookingTitle = bookingDate
     .toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
     .replace(/^./, (letter) => letter.toUpperCase())
@@ -1019,18 +1075,33 @@ function ClientAppView({
                       <strong>{formatPrice(service.price)}</strong>
                     </div>
 
-                    <div className="bk-loyal">
-                      <Icon name={preview ? "lock" : "check"} size={18} />
+                    {/* Mesma regra do resumo (DepositStep): recorrente é isenta do
+                        sinal; cliente nova (ou visitante) paga 30% para reservar. */}
+                    <div
+                      className={`bk-loyal ${
+                        !preview && !clientSession.recurring ? "is-signal" : ""
+                      }`}
+                    >
+                      <Icon
+                        name={preview ? "lock" : clientSession.recurring ? "check" : "clock"}
+                        size={18}
+                      />
                       <div>
                         <strong>
                           {preview
                             ? "Modo de visualização"
-                            : "Cliente recorrente"}
+                            : clientSession.recurring
+                              ? "Cliente recorrente · isenta de sinal"
+                              : `Sinal de ${SIGNAL_PERCENT}%: ${formatPrice(
+                                  Math.round(Number(service.price || 0) * SIGNAL_PERCENT) / 100,
+                                )}`}
                         </strong>
                         <small>
                           {preview
                             ? "A gestora não pode concluir agendamentos."
-                            : "Você tem benefícios exclusivos!"}
+                            : clientSession.recurring
+                              ? "Você confirma a presença até 24 horas antes do horário."
+                              : "Pago na próxima etapa para garantir o horário. O restante é pago no atendimento."}
                         </small>
                       </div>
                     </div>
@@ -1080,6 +1151,7 @@ function ClientAppView({
               signal={signalValue}
               payment={paymentInfo}
               clientName={clientSession.name}
+              clientWhatsapp={clientSession.whatsapp}
               onBack={() => {
                 setTab("home")
                 setConfirmed(false)
@@ -1111,7 +1183,7 @@ function ClientAppView({
                 <div className="pf-avatar">{clientSession.name[0]}</div>
                 <div>
                   <span className="pf-kicker">MINHA CONTA</span>
-                  <h1>Olá, {clientSession.name}</h1>
+                  <h1>Olá, {clientSession.name.split(" ")[0]}</h1>
                   <span className="pf-sub">
                     <Icon name="sparkle" size={14} /> Cliente da {company.name}
                   </span>
@@ -1201,8 +1273,13 @@ function ClientAppView({
               <div className="pf-card">
                 <h2 className="pf-title">Seus benefícios</h2>
                 <div className="pf-benefit">
-                  <div className="pf-icon-box pf-icon-green">
-                    <Icon name="check" size={22} />
+                  {/* Recorrente: benefício já conquistado (✓ verde). Cliente nova:
+                      benefício a conquistar (presente), sem parecer concedido. */}
+                  <div
+                    className={`pf-icon-box ${clientSession.recurring ? "pf-icon-green" : "pf-icon-purple"}`}
+                    aria-hidden="true"
+                  >
+                    <Icon name={clientSession.recurring ? "check" : "gift"} size={22} />
                   </div>
                   {clientSession.recurring ? (
                     <div>
@@ -1217,7 +1294,8 @@ function ClientAppView({
                       <strong>Isenção da taxa de sinal</strong>
                       <p>
                         Clientes recorrentes da {company.name} ficam isentas do
-                        sinal. Continue agendando para conquistar.
+                        sinal. Continue agendando para se tornar um cliente
+                        recorrente e conquistar esse benefício.
                       </p>
                     </div>
                   )}
@@ -1444,7 +1522,7 @@ function ClientAppView({
                 <Action
                   onClick={() =>
                     openWhatsApp(
-                      `Olá! Segue o comprovante do meu agendamento: ${selectedAppointment.name} em ${selectedAppointment.date} às ${selectedAppointment.time} na ${company.name}.`,
+                      `Olá! Sou ${clientSession.name}. Segue o comprovante do meu agendamento: ${selectedAppointment.name} em ${selectedAppointment.date} às ${selectedAppointment.time} na ${company.name}.`,
                       company.phone, // WhatsApp da clínica
                     )
                   }
@@ -1734,7 +1812,8 @@ function ClientApp(props) {
       return { profile, healthRecord, appointments }
     },
     [],
-    { enabled: !props.preview && !props.guest },
+    // live: false = os agendamentos já se atualizam sozinhos dentro da tela.
+    { enabled: !props.preview && !props.guest, live: false },
   )
   // Visualização da gestora ou visitante sem login: não chama a API da conta.
   if (props.preview || props.guest)

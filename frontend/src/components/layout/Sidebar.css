@@ -152,3 +152,39 @@
 .sidebar .nav::-webkit-scrollbar-thumb { background: #64748b; border-radius: 999px; border: 0; }
 .sidebar .nav::-webkit-scrollbar-thumb:hover { background: var(--gold); }
 .nav-item:focus-visible { background: rgba(255, 255, 255, 0.12); }
+/* MENU DA CONTA (botão "⋯" do perfil): abre para cima, sobre o rodapé da barra.
+   Fundo branco com texto navy (17,85:1); item com foco/hover em âmbar claro (8,15:1). */
+.profile-menu-wrap { position: relative; }
+.profile-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% - 8px);
+  z-index: 20;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+.profile-menu [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.profile-menu [role="menuitem"]:hover,
+.profile-menu [role="menuitem"]:focus-visible { background: var(--amber-pale); color: var(--amber-text); }
+.profile-menu [role="menuitem"]:focus-visible { outline: 2px solid var(--navy) !important; outline-offset: -2px; }
+.profile-menu svg { color: var(--amber-text); flex: none; }

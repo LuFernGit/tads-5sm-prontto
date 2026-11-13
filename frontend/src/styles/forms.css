@@ -186,3 +186,13 @@ small.ff-error { color: var(--red); font-weight: 700; font-size: 12px; }
 .af-blocks-card .ff-actions { margin-top: 16px; }
 .af-blocks-card .ff-check { margin: 12px 0; padding: 13px 15px; border: 1px solid #eee5e6; border-radius: 10px; background: #fff; }
 .af-blocks-card .af-list { margin-top: 16px; }
+
+/* MENSAGENS — cabeçalho no mesmo padrão das outras telas do painel (.page-card):
+   24px de respiro interno, 7px entre título e texto e 22px até o conteúdo.
+   O seletor com .af-wrap vence a regra da Agenda (.af-wrap .ff-card .ff-copy). */
+.af-wrap .af-card[aria-labelledby="mg-h1"] { padding: 24px; }
+.af-wrap .af-card[aria-labelledby="mg-h1"] .mg-heading .section-title { margin-top: 4px; }
+.af-wrap .af-card[aria-labelledby="mg-h1"] > .ff-copy { margin: -11px 0 4px; }
+@media (max-width: 700px) {
+  .af-wrap .af-card[aria-labelledby="mg-h1"] { padding: 20px 16px; }
+}

@@ -8,7 +8,8 @@ import { http } from "../http"
  *   address (endereco), description (descricao), logoImage (logo_clinica),
  *   instagram, tagline (slogan), heroTitle (titulo_principal),
  *   heroImage (imagem_capa), favicon,
- *   ownerName (nome da gestora, vem de USUARIO), initials (calculado no front)
+ *   ownerName (nome da gestora, vem de USUARIO), initials (iniciais/monograma,
+ *   CLINICA.iniciais; o backend grava o que a gestora digita em Personalização)
  * }
  * As cores da vitrine NÃO são personalizáveis (decisão do projeto): o front usa
  * sempre as cores padrão do Prontto.

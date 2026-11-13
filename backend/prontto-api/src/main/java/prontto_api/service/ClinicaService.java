@@ -3,7 +3,10 @@ package prontto_api.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import prontto_api.domain.Servico;
+import prontto_api.domain.DocumentoTermo;
 import prontto_api.domain.Clinica;
+import prontto_api.domain.EnderecoParser;
 import prontto_api.domain.Horario;
 import prontto_api.domain.Usuario;
 import prontto_api.domain.enums.DiaSemana;
@@ -12,6 +15,7 @@ import prontto_api.dto.CalendarioDisponibilidadeResponse;
 import prontto_api.dto.ClinicaVitrineResponse;
 import prontto_api.dto.EmpresaResponse;
 import prontto_api.dto.ServicoResponse;
+import prontto_api.infra.web.IpOrigem;
 import prontto_api.infra.exceptions.RecursoNaoEncontradoException;
 import prontto_api.infra.exceptions.RegraNegocioException;
 import prontto_api.repository.*;
@@ -29,6 +33,22 @@ public class ClinicaService {
     @Autowired private LogAuditoriaRepository logAuditoriaRepository;
     @Autowired private BloqueioHorarioRepository bloqueioHorarioRepository;
     @Autowired private AgendamentoRepository agendamentoRepository;
+    @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private DocumentoTermoRepository documentoTermoRepository;
+
+    /** Versão PUBLICADA mais recente de um tipo de documento da clínica (ou null). */
+    private DocumentoTermo publicado(Clinica clinica, String tipo) {
+        return documentoTermoRepository.findByClinicaIdAndTipoDocumento(clinica.getId(), tipo).stream()
+                .filter(d -> "PUBLICADO".equals(d.getStatus()))
+                .max(java.util.Comparator.comparing(DocumentoTermo::getDataPublicacao,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .orElse(null);
+    }
+
+    private String textoPublicado(Clinica clinica, String tipo) {
+        DocumentoTermo d = publicado(clinica, tipo);
+        return d != null ? d.getConteudo() : null;
+    }
 
     public ClinicaVitrineResponse obterVitrinePorSlug(String slug) {
         Clinica clinica = clinicaRepository.findBySlug(slug)
@@ -60,7 +80,7 @@ public class ClinicaService {
         var empresaPublica = new ClinicaVitrineResponse.EmpresaPublicaResponse(
                 clinica.getSlug(),
                 clinica.getNome(),
-                obterIniciais(clinica.getNome()),
+                iniciaisDa(clinica),
                 clinica.getLogoClinica(),
                 clinica.getImagemCapa(),
                 clinica.getFavicon(),
@@ -71,13 +91,42 @@ public class ClinicaService {
                 clinica.getEmailContato(),
                 clinica.getInstagram(),
                 clinica.getEndereco(),
-                null,
-                null,
-                null,
-                null
+                textoPublicado(clinica, "TERMOS_USO"),
+                textoPublicado(clinica, "POLITICA_PRIVACIDADE"),
+                publicado(clinica, "TERMO_CLINICA") != null ? publicado(clinica, "TERMO_CLINICA").getCaminhoArquivo() : null,
+                publicado(clinica, "TERMO_CLINICA") != null ? publicado(clinica, "TERMO_CLINICA").getNomeArquivo() : null,
+                clinica.getTextoHorario(),
+                clinica.getPoliticaCancelamento()
         );
 
         return new ClinicaVitrineResponse(empresaPublica, servicosAtivos, categorias);
+    }
+
+    /** Hash dos dados públicos da vitrine (sem transferir as imagens). */
+    public String obterVersaoVitrine(String slug) {
+        Clinica c = buscarClinicaPorSlugAtiva(slug);
+        StringBuilder sb = new StringBuilder();
+        java.util.function.Consumer<Object> add = v -> sb.append(java.util.Objects.hashCode(v)).append('|');
+        for (Object v : new Object[]{c.getNome(), c.getIniciais(), c.getSlogan(), c.getTituloPrincipal(),
+                c.getDescricao(), c.getWhatsapp(), c.getEmailContato(), c.getInstagram(), c.getEndereco(),
+                c.getLogoClinica(), c.getImagemCapa(), c.getFavicon(), c.getTextoHorario(),
+                c.getPoliticaCancelamento(), c.getStatus()}) {
+            add.accept(v);
+        }
+        servicoRepository.findByClinicaIdAndAtivoTrue(c.getId()).stream()
+                .sorted(java.util.Comparator.comparing(Servico::getId))
+                .forEach(s -> {
+                    for (Object v : new Object[]{s.getId(), s.getNome(), s.getPreco(), s.getDuracao(),
+                            s.getDescricao(), s.getFotoServico(),
+                            s.getCategoria() != null ? s.getCategoria().getNome() : null}) {
+                        add.accept(v);
+                    }
+                });
+        categoriaRepository.findByClinicaId(c.getId()).forEach(cat -> add.accept(cat.getNome()));
+        documentoTermoRepository.findByClinicaIdOuPlataforma(c.getId()).stream()
+                .filter(d -> "PUBLICADO".equals(d.getStatus()))
+                .forEach(d -> add.accept(d.getId()));
+        return Integer.toHexString(sb.toString().hashCode());
     }
 
     public CalendarioDisponibilidadeResponse obterCalendarioMensal(String slug, String mes) {
@@ -176,6 +225,30 @@ public class ClinicaService {
         clinica.setImagemCapa(request.heroImage());
         clinica.setFavicon(request.favicon());
 
+        // V5: monograma, endereço em partes e textos de Configurações.
+        String iniciais = request.initials() == null ? "" : request.initials().trim().toUpperCase();
+        if (iniciais.length() > 3) {
+            throw new RegraNegocioException("As iniciais podem ter no máximo 3 letras. Exemplo: CA.");
+        }
+        clinica.setIniciais(iniciais.isEmpty() ? null : iniciais);
+        clinica.setCep(request.cep() != null ? request.cep().replaceAll("\\D", "") : null);
+        clinica.setLogradouro(request.street());
+        clinica.setNumero(request.number());
+        clinica.setComplemento(request.complement());
+        clinica.setBairro(request.neighborhood());
+        clinica.setCidade(request.city());
+        clinica.setUf(request.state() != null ? request.state().trim().toUpperCase() : null);
+        clinica.setTextoHorario(request.hoursText());
+        clinica.setPoliticaCancelamento(request.cancellationPolicy());
+
+        // "Responsável" (Configurações) = nome da gestora.
+        if (request.ownerName() != null && !request.ownerName().isBlank()) {
+            usuarioRepository.findById(gestoraAutenticada.getId()).ifPresent(g -> {
+                g.setNome(request.ownerName().trim());
+                usuarioRepository.save(g);
+            });
+        }
+
         clinica = clinicaRepository.save(clinica);
         return converterParaEmpresaResponse(clinica);
     }
@@ -189,7 +262,7 @@ public class ClinicaService {
         var log = new prontto_api.domain.LogAuditoria();
         log.setUsuario(gestoraAutenticada);
         log.setAcao("ENCERRAMENTO_CLINICA_SOLICITADO");
-        log.setIpOrigem("127.0.0.1");
+        log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
     }
 
@@ -207,7 +280,40 @@ public class ClinicaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Clínica não encontrada para a gestora logada."));
     }
 
+    private static boolean vazio(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private static String primeiro(String... valores) {
+        for (String v : valores) if (!vazio(v)) return v;
+        return null;
+    }
+
+    /**
+     * Endereço em partes. Clínicas cadastradas antes das colunas separadas (ou
+     * pelo cadastro, que manda o texto montado) têm só o texto completo, às
+     * vezes também gravado no logradouro. Sem número salvo, separa esse texto
+     * (EnderecoParser); o que já estiver salvo em cada coluna tem prioridade.
+     */
+    private EnderecoParser.Partes partesEndereco(Clinica c) {
+        EnderecoParser.Partes salvo = new EnderecoParser.Partes(c.getCep(), c.getLogradouro(), c.getNumero(),
+                c.getComplemento(), c.getBairro(), c.getCidade(), c.getUf());
+        if (!vazio(c.getNumero())) return salvo;
+        EnderecoParser.Partes doTexto = EnderecoParser.separar(primeiro(c.getLogradouro(), c.getEndereco()));
+        if (doTexto == null) return salvo;
+        EnderecoParser.Partes doEndereco = EnderecoParser.separar(c.getEndereco());
+        return new EnderecoParser.Partes(
+                primeiro(c.getCep(), doTexto.cep(), doEndereco != null ? doEndereco.cep() : null),
+                doTexto.logradouro(),
+                doTexto.numero(),
+                primeiro(c.getComplemento(), doTexto.complemento()),
+                primeiro(c.getBairro(), doTexto.bairro()),
+                primeiro(c.getCidade(), doTexto.cidade()),
+                primeiro(c.getUf(), doTexto.uf()));
+    }
+
     private EmpresaResponse converterParaEmpresaResponse(Clinica clinica) {
+        EnderecoParser.Partes end = partesEndereco(clinica);
         return new EmpresaResponse(
                 clinica.getSlug(),
                 clinica.getStatus().name(),
@@ -224,12 +330,28 @@ public class ClinicaService {
                 clinica.getImagemCapa(),
                 clinica.getFavicon(),
                 clinica.getGestora() != null ? clinica.getGestora().getNome() : null,
-                obterIniciais(clinica.getNome()),
-                null,
-                null,
-                null,
-                null
+                iniciaisDa(clinica),
+                textoPublicado(clinica, "TERMOS_USO"),
+                textoPublicado(clinica, "POLITICA_PRIVACIDADE"),
+                null,   // o PDF não volta aqui (é grande); fica em Documentos e na vitrine
+                publicado(clinica, "TERMO_CLINICA") != null ? publicado(clinica, "TERMO_CLINICA").getNomeArquivo() : null,
+                end.cep(),
+                end.logradouro(),
+                end.numero(),
+                end.complemento(),
+                end.bairro(),
+                end.cidade(),
+                end.uf(),
+                clinica.getTextoHorario(),
+                clinica.getPoliticaCancelamento()
         );
+    }
+
+    /** Monograma salvo pela gestora; se não houver, calcula pelo nome. */
+    private String iniciaisDa(Clinica clinica) {
+        return clinica.getIniciais() != null && !clinica.getIniciais().isBlank()
+                ? clinica.getIniciais()
+                : obterIniciais(clinica.getNome());
     }
 
     private String obterIniciais(String nome) {

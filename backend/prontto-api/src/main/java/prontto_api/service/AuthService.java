@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import prontto_api.domain.*;
 import prontto_api.domain.enums.*;
 import prontto_api.dto.*;
+import prontto_api.infra.web.IpOrigem;
 import prontto_api.infra.exceptions.ConflitoException;
 import prontto_api.infra.exceptions.RecursoNaoEncontradoException;
 import prontto_api.infra.exceptions.RegraNegocioException;
@@ -32,10 +33,30 @@ public class AuthService {
     @Autowired private ServicoRepository servicoRepository;
     @Autowired private HorarioRepository horarioRepository;
     @Autowired private FichaAnamneseRepository fichaAnamneseRepository;
+    @Autowired private FichaVersaoService fichaVersaoService;
     @Autowired private DocumentoTermoRepository documentoTermoRepository;
     @Autowired private AceiteDocumentoRepository aceiteDocumentoRepository;
     @Autowired private LogAuditoriaRepository logAuditoriaRepository;
     @Autowired private ModeloMensagemRepository modeloMensagemRepository;
+
+    /** Cria um documento publicado da clínica, se houver texto ou arquivo. */
+    private void criarDocumentoClinica(Clinica clinica, String titulo, String tipo,
+                                       String conteudo, String arquivo, String nomeArquivo) {
+        boolean temTexto = conteudo != null && !conteudo.isBlank();
+        boolean temArquivo = arquivo != null && !arquivo.isBlank();
+        if (!temTexto && !temArquivo) return;
+        DocumentoTermo doc = new DocumentoTermo();
+        doc.setClinica(clinica);
+        doc.setTitulo(titulo.length() > 100 ? titulo.substring(0, 100) : titulo);
+        doc.setTipoDocumento(tipo);
+        doc.setVersao("1.0");
+        doc.setConteudo(temTexto ? conteudo.trim() : null);
+        doc.setCaminhoArquivo(temArquivo ? arquivo : null);
+        doc.setNomeArquivo(temArquivo ? (nomeArquivo != null ? nomeArquivo : "termo.pdf") : null);
+        doc.setStatus("PUBLICADO");
+        doc.setDataPublicacao(LocalDateTime.now());
+        documentoTermoRepository.save(doc);
+    }
     @Autowired private TokenService tokenService;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuthenticationManager authenticationManager;
@@ -90,12 +111,19 @@ public class AuthService {
         }
 
         if (usuarioRepository.findByEmail(emailGestora).isPresent()) {
-            throw new ConflitoException("E-mail de acesso já cadastrado no sistema.");
+            throw new ConflitoException("Este e-mail já está cadastrado. Entre com sua senha ou use outro e-mail.");
+        }
+        String whatsGestora = request.gestora().whatsapp() != null ? request.gestora().whatsapp().replaceAll("\\D", "") : "";
+        if (!whatsGestora.isEmpty() && usuarioRepository.existsByWhatsapp(whatsGestora)) {
+            throw new ConflitoException("Este WhatsApp já está cadastrado em outra conta. Use outro número ou entre na sua conta.");
         }
 
         String rawDoc = request.empresa().cpfCnpj() != null ? request.empresa().cpfCnpj().replaceAll("\\D", "") : "";
         if (rawDoc.length() != 11 && rawDoc.length() != 14) {
             throw new RegraNegocioException("CPF ou CNPJ inválido. Digite 11 dígitos para CPF ou 14 para CNPJ.");
+        }
+        if (clinicaRepository.existsByCpfCnpj(rawDoc)) {
+            throw new ConflitoException("Este CPF/CNPJ já está cadastrado em outra clínica. Confira o número digitado.");
         }
 
         LocalDate dataNascimento = LocalDate.parse(request.gestora().dataNascimento());
@@ -123,6 +151,18 @@ public class AuthService {
         clinica.setEmailContato(emailEmpresa);
         clinica.setInstagram(request.empresa().instagram());
         clinica.setEndereco(request.empresa().address());
+        // O cadastro manda o endereço montado em um texto ("Rua, nº · Bairro,
+        // Cidade — UF · CEP ..."): grava também as partes (CEP, rua, número...).
+        EnderecoParser.Partes partes = EnderecoParser.separar(request.empresa().address());
+        if (partes != null) {
+            clinica.setCep(partes.cep());
+            clinica.setLogradouro(partes.logradouro());
+            clinica.setNumero(partes.numero());
+            clinica.setComplemento(partes.complemento());
+            clinica.setBairro(partes.bairro());
+            clinica.setCidade(partes.cidade());
+            clinica.setUf(partes.uf());
+        }
         clinica.setSlogan(request.empresa().tagline());
         clinica.setTituloPrincipal(request.empresa().heroTitle());
         clinica.setDescricao(request.empresa().description());
@@ -181,6 +221,15 @@ public class AuthService {
             }
         }
 
+        // Termos da clínica enviados no cadastro: viram documentos PUBLICADOS
+        // (versão 1.0), editáveis depois em "Documentos e termos".
+        criarDocumentoClinica(clinica, "Termos de uso — " + clinica.getNome(), "TERMOS_USO",
+                request.empresa().termsOfUse(), null, null);
+        criarDocumentoClinica(clinica, "Política de privacidade — " + clinica.getNome(), "POLITICA_PRIVACIDADE",
+                request.empresa().privacyPolicy(), null, null);
+        criarDocumentoClinica(clinica, "Termo de consentimento — " + clinica.getNome(), "TERMO_CLINICA",
+                null, request.empresa().clinicTermsDocument(), request.empresa().clinicTermsFileName());
+
         List<DocumentoTermo> termosPlataforma = documentoTermoRepository.findByClinicaIsNull();
         for (DocumentoTermo termo : termosPlataforma) {
             AceiteDocumento aceite = new AceiteDocumento();
@@ -188,7 +237,7 @@ public class AuthService {
             aceite.setDocumento(termo);
             aceite.setPapelNoAceite("GESTORA");
             aceite.setDataHoraAceite(LocalDateTime.now());
-            aceite.setIpOrigem("127.0.0.1");
+            aceite.setIpOrigem(IpOrigem.atual());
             aceiteDocumentoRepository.save(aceite);
         }
 
@@ -198,13 +247,35 @@ public class AuthService {
         return new TokenResponse(token, montarUsuarioSessao(gestora, clinica.getSlug()));
     }
 
+    /**
+     * Diz se e-mail, WhatsApp e CPF/CNPJ já estão em uso. Usado pelos cadastros
+     * (empresa e cliente) para avisar na etapa certa, antes de chegar aos Termos.
+     */
+    public java.util.Map<String, Boolean> verificarDisponibilidade(String email, String whatsapp, String cpfCnpj) {
+        var r = new java.util.LinkedHashMap<String, Boolean>();
+        if (email != null && !email.isBlank()) {
+            r.put("emailEmUso", usuarioRepository.existsByEmail(email.trim().toLowerCase()));
+        }
+        if (whatsapp != null && !whatsapp.isBlank()) {
+            r.put("whatsappEmUso", usuarioRepository.existsByWhatsapp(whatsapp.replaceAll("\\D", "")));
+        }
+        if (cpfCnpj != null && !cpfCnpj.isBlank()) {
+            r.put("cpfCnpjEmUso", clinicaRepository.existsByCpfCnpj(cpfCnpj.replaceAll("\\D", "")));
+        }
+        return r;
+    }
+
     @Transactional
     public TokenResponse cadastrarCliente(String slug, CadastroClienteRequest request) {
         Clinica clinica = buscarClinicaPorSlug(slug);
         String email = request.usuario().email().trim().toLowerCase();
 
         if (usuarioRepository.findByEmail(email).isPresent()) {
-            throw new ConflitoException("E-mail já cadastrado no sistema.");
+            throw new ConflitoException("Este e-mail já está cadastrado. Entre com sua senha ou use outro e-mail.");
+        }
+        String whatsCliente = request.usuario().whatsapp() != null ? request.usuario().whatsapp().replaceAll("\\D", "") : "";
+        if (usuarioRepository.existsByWhatsapp(whatsCliente)) {
+            throw new ConflitoException("Este WhatsApp já está cadastrado em outra conta. Use outro número ou entre na sua conta.");
         }
 
         LocalDate dataNascimento = LocalDate.parse(request.usuario().data_nascimento());
@@ -219,7 +290,10 @@ public class AuthService {
         cliente.setWhatsapp(request.usuario().whatsapp().replaceAll("\\D", ""));
         cliente.setTipo(TipoUsuario.CLIENTE);
         cliente.setStatus(StatusUsuario.ATIVO);
-        cliente.setRecorrente(request.usuario().recorrente() != null ? request.usuario().recorrente() : false);
+        // Conta nova NUNCA nasce recorrente (o valor enviado pelo front é ignorado):
+        // a cliente vira recorrente sozinha depois do 1º atendimento CONCLUÍDO
+        // (AgendamentoAutoCancelamentoJob.concluirAtendimentosRealizados).
+        cliente.setRecorrente(false);
         cliente.setSolicitouExclusao(false);
         cliente = usuarioRepository.save(cliente);
 
@@ -234,7 +308,9 @@ public class AuthService {
                 ficha.setRespostas("{}");
             }
             ficha.setDataAtualizacao(LocalDateTime.now());
-            fichaAnamneseRepository.save(ficha);
+            ficha = fichaAnamneseRepository.save(ficha);
+            // Versão 1 da ficha (a do cadastro) no histórico por versões.
+            fichaVersaoService.registrarVersao(ficha);
         }
 
         List<DocumentoTermo> termosPlataforma = documentoTermoRepository.findByClinicaIsNull();
@@ -244,7 +320,7 @@ public class AuthService {
             aceite.setDocumento(termo);
             aceite.setPapelNoAceite("CLIENTE");
             aceite.setDataHoraAceite(LocalDateTime.now());
-            aceite.setIpOrigem("127.0.0.1");
+            aceite.setIpOrigem(IpOrigem.atual());
             aceiteDocumentoRepository.save(aceite);
         }
 
@@ -306,7 +382,7 @@ public class AuthService {
         LogAuditoria log = new LogAuditoria();
         log.setUsuario(usuario);
         log.setAcao(acao);
-        log.setIpOrigem("127.0.0.1");
+        log.setIpOrigem(IpOrigem.atual());
         log.setDataHora(LocalDateTime.now());
         logAuditoriaRepository.save(log);
     }

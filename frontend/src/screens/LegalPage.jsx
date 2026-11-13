@@ -1,29 +1,113 @@
-import ExternalLink from "@/components/ui/ExternalLink"
+import Icon from "@/components/ui/Icon"
+import StorefrontFooter from "@/components/layout/StorefrontFooter"
+import { instagramLink } from "@/lib/instagram"
+import { maskPhone } from "@/lib/masks"
+import "./LegalPage.css"
+
+// Rótulo pequeno acima do título, no padrão das outras telas (section-kicker).
+const KICKER = {
+  termos: "DOCUMENTO DA CLÍNICA",
+  privacidade: "PRIVACIDADE E DADOS",
+  contato: "ATENDIMENTO",
+}
+
+/* Ícones que não existem em components/ui/Icon (traço igual ao dos outros). */
+const svgProps = {
+  width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor",
+  strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true,
+}
+const MailIcon = () => (
+  <svg {...svgProps}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+)
+const InstagramIcon = () => (
+  <svg {...svgProps}><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" /></svg>
+)
+const PinIcon = () => (
+  <svg {...svgProps}><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
+)
+
+/** Linha de um canal de contato. Com href, a linha inteira é o link. */
+function ContactCard({ icon, label, value, href, hint, external = false }) {
+  const arrow = external && (
+    <>
+      {" "}
+      <span aria-hidden="true">↗</span>
+      <span className="sr-only"> (abre em nova guia)</span>
+    </>
+  )
+  const content = (
+    <>
+      <span className="lg-contact-icon">{icon}</span>
+      <span className="lg-contact-text">
+        <small>{label}</small>
+        <strong>
+          {value}
+          {!hint && arrow}
+        </strong>
+        {hint && (
+          <span className="lg-contact-hint">
+            {hint}
+            {arrow}
+          </span>
+        )}
+      </span>
+    </>
+  )
+  return (
+    <li>
+      {href ? (
+        <a
+          className="lg-contact"
+          href={href}
+          {...(external
+            ? { target: "_blank", rel: "noopener noreferrer", title: "Abre em nova guia" }
+            : {})}
+        >
+          {content}
+        </a>
+      ) : (
+        <div className="lg-contact">{content}</div>
+      )}
+    </li>
+  )
+}
 
 /**
  * Exibe termos de uso, política de privacidade ou canais de contato da empresa.
+ * Visual da área da cliente: logo e nome da clínica no topo e rodapé da vitrine.
  */
 // kind = 'termos' | 'privacidade' | 'contato' (vem do # da URL, veja App.jsx).
 function LegalPage({ kind, company, onBack }) {
   const wa = `https://wa.me/55${company.phone.replace(/\D/g, "")}`
   const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`
+  const instagram = instagramLink(company.instagram)
   return (
-    <main className="ff-page">
+    <main className="ff-page lg-page">
       <header className="ff-header">
-        <strong>prontto</strong>
+        {/* Marca da clínica do link (logo + nome), como no cadastro da cliente */}
+        <button
+          type="button"
+          className="lg-brand"
+          aria-label={`${company.name} — voltar para a clínica`}
+          onClick={onBack}
+        >
+          <span className="lg-logo">
+            {company.logoImage ? <img src={company.logoImage} alt="" /> : company.initials}
+          </span>
+          <strong>{company.name}</strong>
+        </button>
         <button type="button" onClick={onBack}>
-          ← Voltar
+          ← Voltar para a clínica
         </button>
       </header>
-      <article className="ff-card legal" aria-labelledby="lg-title">
+      <article className="ff-card legal lg-card" aria-labelledby="lg-title">
+        <span className="section-kicker">{KICKER[kind]}</span>
         {/* Termos de uso */}
         {kind === "termos" &&
           (company.termsOfUse?.trim() ? (
             <>
               <h1 id="lg-title">Termos de uso — {company.name}</h1>
-              <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.75 }}>
-                {company.termsOfUse}
-              </div>
+              <div className="lg-text">{company.termsOfUse}</div>
             </>
           ) : (
             <>
@@ -73,9 +157,7 @@ function LegalPage({ kind, company, onBack }) {
           (company.privacyPolicy?.trim() ? (
             <>
               <h1 id="lg-title">Política de privacidade — {company.name}</h1>
-              <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.75 }}>
-                {company.privacyPolicy}
-              </div>
+              <div className="lg-text">{company.privacyPolicy}</div>
             </>
           ) : (
             <>
@@ -127,43 +209,68 @@ function LegalPage({ kind, company, onBack }) {
         {kind === "contato" && (
           <>
             <h1 id="lg-title">Fale com a clínica</h1>
-            <dl className="ff-summary">
-              <div>
-                <dt>Empresa</dt>
-                <dd>{company.name}</dd>
-              </div>
-              <div>
-                <dt>Endereço</dt>
-                <dd>{company.address}</dd>
-              </div>
-              <div>
-                <dt>WhatsApp</dt>
-                <dd>{company.phone}</dd>
-              </div>
-              <div>
-                <dt>E-mail</dt>
-                <dd>
-                  <a href={`mailto:${company.email}`}>{company.email}</a>
-                </dd>
-              </div>
-              <div>
-                <dt>Instagram</dt>
-                <dd>{company.instagram}</dd>
-              </div>
-            </dl>
-            <p>
-              Use este canal para dúvidas, reclamações e solicitações sobre seus
-              agendamentos.
+            <p className="lg-intro">
+              Dúvidas, reclamações ou pedidos sobre seus agendamentos? Fale
+              direto com a {company.name} por um dos canais abaixo.
             </p>
-            <div className="ff-actions ff-wrap">
-              <ExternalLink href={wa}>Chamar no WhatsApp</ExternalLink>
-              <ExternalLink href={maps}>
-                Ver localização no Google Maps
-              </ExternalLink>
+            <ul className="lg-contacts" aria-label="Canais de contato">
+              <ContactCard
+                icon={<Icon name="whatsapp" size={20} />}
+                label="WhatsApp"
+                value={maskPhone(company.phone)}
+                href={wa}
+                external
+              />
+              <ContactCard
+                icon={<MailIcon />}
+                label="E-mail"
+                value={company.email}
+                href={`mailto:${company.email}`}
+              />
+              {instagram && (
+                <ContactCard
+                  icon={<InstagramIcon />}
+                  label="Instagram"
+                  value={instagram.label}
+                  href={instagram.url}
+                  external
+                />
+              )}
+              {company.address && (
+                <ContactCard
+                  icon={<PinIcon />}
+                  label="Endereço"
+                  value={company.address}
+                  hint="Como chegar"
+                  href={maps}
+                  external
+                />
+              )}
+              {company.hoursText && (
+                <ContactCard
+                  icon={<Icon name="clock" size={20} />}
+                  label="Horário"
+                  value={company.hoursText}
+                />
+              )}
+            </ul>
+            <div className="lg-cta">
+              <a
+                className="ff-btn ff-primary lg-cta-btn"
+                href={wa}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Abre em nova guia"
+              >
+                <Icon name="whatsapp" size={18} /> Chamar no WhatsApp
+                <span aria-hidden="true">↗</span>
+                <span className="sr-only"> (abre em nova guia)</span>
+              </a>
             </div>
           </>
         )}
       </article>
+      <StorefrontFooter company={company} />
     </main>
   )
 }

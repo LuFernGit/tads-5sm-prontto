@@ -24,6 +24,8 @@ public record ClinicaVitrineResponse(
             String termsOfUse,
             String privacyPolicy,
             String clinicTermsDocument,
-            String clinicTermsFileName
+            String clinicTermsFileName,
+            String hoursText,
+            String cancellationPolicy
     ) {}
 }

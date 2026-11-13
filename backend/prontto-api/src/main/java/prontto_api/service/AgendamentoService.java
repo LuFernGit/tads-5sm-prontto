@@ -8,6 +8,7 @@ import prontto_api.domain.enums.DiaSemana;
 import prontto_api.domain.enums.StatusAgendamento;
 import prontto_api.dto.AgendamentoGestoraResponse;
 import prontto_api.dto.PeriodoHorarioResponse;
+import prontto_api.infra.web.IpOrigem;
 import prontto_api.infra.exceptions.ConflitoException;
 import prontto_api.infra.exceptions.RecursoNaoEncontradoException;
 import prontto_api.infra.exceptions.RegraNegocioException;
@@ -35,6 +36,14 @@ public class AgendamentoService {
 
         Servico servico = servicoRepository.findById(servicoId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Serviço não encontrado."));
+        // Serviço de outra clínica ou desativado pela gestora: sem horários.
+        if (servico.getClinica() == null || !servico.getClinica().getId().equals(clinica.getId())) {
+            throw new RecursoNaoEncontradoException("Serviço não encontrado.");
+        }
+        if (!Boolean.TRUE.equals(servico.getAtivo())) {
+            throw new prontto_api.infra.exceptions.RegraNegocioException(
+                    "Este serviço não está mais disponível para agendamento. Escolha outro serviço.");
+        }
 
         LocalDate data = LocalDate.parse(dataStr);
         DiaSemana diaSemana = converterDiaSemana(data.getDayOfWeek());
@@ -158,7 +167,7 @@ public class AgendamentoService {
         LogAuditoria log = new LogAuditoria();
         log.setUsuario(gestora);
         log.setAcao("CANCELAMENTO_GESTORA");
-        log.setIpOrigem("127.0.0.1");
+        log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
 
         return new AgendamentoGestoraResponse(

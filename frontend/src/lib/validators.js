@@ -140,6 +140,7 @@ const validateAnamnesis = (h) => {
     "condicaoOcular",
     "herpesLabial",
     "lentesContato",
+    "gravidezAmamentacao",
     "complicacaoAnterior",
     "procedimentosAnteriores",
     "problemaProcedimento",

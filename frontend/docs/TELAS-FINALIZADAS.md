@@ -31,14 +31,14 @@ Status: `✅ Finalizada` · `🚧 Em andamento` · `⏸️ Não iniciada`
 
 | Tela | Arquivos próprios | Status | Finalizada em / por | Observações |
 | --- | --- | --- | --- | --- |
-| Estrutura do painel (menu lateral e topo) | `screens/admin/AdminApp.jsx` + `.css`, `components/layout/Sidebar.*`, `components/layout/Topbar.*` | ✅ Finalizada | | |
-| Painel / agenda semanal | `screens/admin/DashboardPage.jsx` + `.css` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Integrado ao backend; mensagens de WhatsApp usam os modelos da clínica (`lib/messageTemplates.js`) |
-| Horários de funcionamento e bloqueios | `screens/admin/SchedulePage.jsx` + `.css` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Agenda: lista com "Ver detalhes"; cancelamento pede motivo |
-| Serviços e categorias | `screens/admin/ServicesPage.jsx` + `.css` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Inclui enquadramento da foto (`components/ui/ImageFramer`) |
+| Estrutura do painel (menu lateral e topo) | `screens/admin/AdminApp.jsx` + `.css`, `components/layout/Sidebar.*`, `components/layout/Topbar.*` | ✅ Finalizada | | 12/11/2026 (pedido da equipe): botão ⋯ do perfil virou menu da conta (Configurações, Personalização, Sair). |
+| Painel / agenda semanal | `screens/admin/DashboardPage.jsx` + `.css` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Integrado ao backend; mensagens de WhatsApp usam os modelos da clínica (`lib/messageTemplates.js`) 12/11/2026 (pedido da equipe): quadro "Próxima cliente" de 270 → 300px. 13/11/2026 (pedido da equipe): código reorganizado para zerar os avisos do SonarQube (componentes `DashboardMetrics`, `SlotTooltip`, `NextClient` e funções auxiliares), sem mudança visual nem de comportamento. |
+| Horários de funcionamento e bloqueios | `screens/admin/SchedulePage.jsx` + `.css` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Agenda: lista com "Ver detalhes"; cancelamento pede motivo. 12/11/2026 (pedido da equipe): bloqueios e horários se atualizam ao vivo; horário em edição não é sobrescrito. |
+| Serviços e categorias | `screens/admin/ServicesPage.jsx` + `.css` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Inclui enquadramento da foto (`components/ui/ImageFramer`) 12/11/2026 (pedido da equipe): excluir categoria com serviços move os serviços para outra categoria. 12/11/2026 (pedido da equipe): descrição do serviço até 500 caracteres (antes 280). |
 | Clientes | `screens/admin/ClientsPage.jsx` + `.css` | ✅ Finalizada | 12/11/2026 · GBsouza9 | |
-| Fichas de saúde | `screens/admin/HealthPage.jsx` + `.css` | 🚧 Em andamento | | |
-| Mensagens (WhatsApp) | `screens/admin/MessagesPage.jsx` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Abas "Enviar mensagem" e "Modelos da clínica" (CRUD). Cancelamento é feito no Painel/Agenda, não aqui |
-| Documentos e termos | `screens/admin/DocumentsPage.jsx` + `.css` | 🚧 Em andamento | | |
+| Fichas de saúde | `screens/admin/HealthPage.jsx` + `.css` | 🚧 Em andamento | | Histórico por versões completas da ficha ("Ver ficha completa" de cada versão) |
+| Mensagens (WhatsApp) | `screens/admin/MessagesPage.jsx` | ✅ Finalizada | 12/11/2026 · GBsouza9 | Abas "Enviar mensagem" e "Modelos da clínica" (CRUD). Cancelamento é feito no Painel/Agenda, não aqui 12/11/2026 (pedido da equipe): cabeçalho no espaçamento padrão (24px). 12/11/2026 (pedido da equipe): modelos se atualizam ao vivo (`useServerSync`). |
+| Documentos e termos | `screens/admin/DocumentsPage.jsx` + `.css` | 🚧 Em andamento | | Exclusão lógica: "Documentos excluídos" com "Restaurar" |
 | Personalização da marca | `screens/admin/CustomizationPage.jsx` + `.css` | 🚧 Em andamento | | |
 | Configurações da conta | `screens/admin/SettingsPage.jsx` + `.css` | 🚧 Em andamento | | |
 | Auditoria | `screens/admin/AuditPage.jsx` + `.css` | 🚧 Em andamento | | |
@@ -52,7 +52,7 @@ Status: `✅ Finalizada` · `🚧 Em andamento` · `⏸️ Não iniciada`
 | Meu perfil e ficha de saúde | `screens/client/ClientApp.jsx` (aba Meu perfil) + `.css`, `components/forms/AnamnesisFields.*` | 🚧 Em andamento | | |
 | Pagamento do sinal (Pix/cartão simulado) | `screens/client/DepositStep.jsx` + `.css`, `lib/pix.js` | 🚧 Em andamento | | Pagamento continua simulado no front |
 | Confirmação do agendamento | `screens/client/BookingConfirmation.jsx` + `.css`, `BookingFlowLayout.*` | 🚧 Em andamento | | |
-| Páginas legais (termos e privacidade) | `screens/LegalPage.jsx` | 🚧 Em andamento | | |
+| Páginas legais (termos e privacidade) | `screens/LegalPage.jsx` + `.css` | 🚧 Em andamento | | Visual da área da cliente: logo e nome da clínica no topo, rótulo + título sem serifa, rodapé da vitrine. Instagram clicável em "Fale com a clínica" |
 
 ## Arquivos compartilhados
 
@@ -83,9 +83,12 @@ afetada estiver finalizada, a mudança precisa de autorização antes.
 | `components/ui/Modal.*`, `ConfirmModal.jsx` | Painel, serviços, clientes, agenda, área da cliente |
 | `components/ui/Icon.jsx`, `Brand.*`, `Toast.*`, `NewTabHint.jsx`, `ExternalLink.*` | Várias telas (praticamente todas) |
 | `components/forms/AnamnesisFields.*` | Cadastro da cliente e Meu perfil |
+| `lib/anamnesis.js` (resumo da ficha, rótulos das perguntas e `anamnesisEntries` para mostrar uma versão completa) — 🚧 Em andamento | Cadastro da cliente, Meu perfil, Fichas de saúde |
 | `hooks/useFieldErrors.jsx` (erros embaixo dos campos) | Logins, cadastro da empresa, serviços, painel, mensagens, personalização |
-| `hooks/useApiQuery.js`, `hooks/useAppSession.js` | Todas as telas que carregam dados |
+| `hooks/useApiQuery.js`, `hooks/useAppSession.js` | Todas as telas que carregam dados. 12/11/2026 (pedido da equipe): **tudo se atualiza ao vivo** — `useApiQuery` refaz a busca em segundo plano a cada 20s e ao voltar à aba (`live: false` desliga); `useAppSession` faz o mesmo com empresa, serviços e categorias da gestora. `useAppSession` também mantém a vitrine ao vivo (consulta `/clinicas/{slug}/versao`) e `updateCompany` devolve `true/false` |
+| `hooks/useLiveRefresh.js` (atualizar sem recarregar: intervalo + ao voltar à aba; `useServerSync` repassa dados novos para telas com estado próprio) — 🚧 Em andamento | Todas as telas que carregam dados (via `useApiQuery`); `useServerSync` em Documentos, Mensagens e Horários |
 | `lib/validators.js` (mensagens de validação) | Logins, cadastros, personalização, configurações, área da cliente |
+| `lib/instagram.js` (link do Instagram a partir de "@perfil" ou do endereço) — 🚧 Em andamento | Rodapé da vitrine, páginas legais |
 | `lib/whatsapp.js` (abrir conversa no WhatsApp; número obrigatório) | Painel, mensagens, clientes, serviços, área da cliente |
 | `lib/masks.js`, `lib/format.js` | Cadastros, serviços, personalização, configurações, área da cliente |
 | `api/**` (chamadas ao backend) | Comportamento de todas as telas (não o visual) |

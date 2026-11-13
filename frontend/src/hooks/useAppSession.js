@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "@/api"
+import { useLiveRefresh, useVersionRefresh } from "@/hooks/useLiveRefresh"
 import {
   clearToken,
   getToken,
@@ -121,6 +122,33 @@ export function useAppSession() {
     [notify, visitorMode],
   )
 
+  // VITRINE AO VIVO: enquanto a cliente (ou visitante) está na vitrine, consulta
+  // a versão leve da clínica e recarrega os dados se a gestora mudou algo
+  // (ex.: serviço desativado some na hora e não pode mais ser agendado).
+  useVersionRefresh(
+    () => api.clinic.getVersion(clinicSlug),
+    async () => setClinic(await api.clinic.getPublic(clinicSlug)),
+    { enabled: Boolean(clinicSlug) && (mode === "client" || mode === "guest"), interval: 15000 },
+  )
+
+  // PAINEL AO VIVO: empresa, serviços e categorias da gestora (usados em
+  // Serviços, Personalização e Configurações) se atualizam sem recarregar,
+  // ex.: alteração feita em outra aba ou outro aparelho. Só troca o que mudou.
+  useLiveRefresh(
+    async () => {
+      const [empresa, servicos, categorias] = await Promise.all([
+        api.company.get(),
+        api.catalog.listServices(),
+        api.catalog.listCategories(),
+      ])
+      const changed = (a, b) => JSON.stringify(a) !== JSON.stringify(b)
+      setCompany((current) => (changed(current, empresa) ? empresa : current))
+      setServiceCatalog((current) => (changed(current, servicos) ? servicos : current))
+      setServiceCategories((current) => (changed(current, categorias) ? categorias : current))
+    },
+    { enabled: mode === "admin", interval: 20000 },
+  )
+
   /** Ir para "login" ou voltar para a vitrine ("guest") encerra a sessão (logout). */
   const setMode = useCallback((next) => {
     if (next === "login" || next === "guest") api.auth.logout()
@@ -165,9 +193,11 @@ export function useAppSession() {
     setCompany(next)
     try {
       setCompany(await api.company.update(next))
+      return true // quem chamou avisa o sucesso (ex.: Configurações, Personalização)
     } catch (error) {
       setCompany(previous)
-      notify(`Não foi possível salvar: ${error.message}`)
+      notify(`Não foi possível salvar: ${error.message}`, "error")
+      return false
     }
   }
 
@@ -196,8 +226,11 @@ export function useAppSession() {
   const addCategory = async (nome) =>
     setServiceCategories(await api.catalog.createCategory(nome))
 
-  const removeCategory = async (nome) =>
-    setServiceCategories(await api.catalog.deleteCategory(nome))
+  /** Exclui a categoria; com "moverPara", os serviços dela vão para a outra categoria. */
+  const removeCategory = async (nome, moverPara) => {
+    setServiceCategories(await api.catalog.deleteCategory(nome, moverPara))
+    if (moverPara) setServiceCatalog(await api.catalog.listServices())
+  }
 
   /* ---------- o que cada tela enxerga ---------- */
 

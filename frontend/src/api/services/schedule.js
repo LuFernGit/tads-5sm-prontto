@@ -24,6 +24,12 @@ export const scheduleApi = {
    * BACKEND: calcula os slots a partir de HORARIO, BLOQUEIO_HORARIO e AGENDAMENTO
    * (implementação de referência na rota /gestora/painel de src/mocks/handlers.js).
    */
+  /**
+   * GET /gestora/agenda/versao → { versao } (leve). Muda quando uma cliente
+   * agenda, confirma ou cancela, ou quando há bloqueio/cliente nova.
+   */
+  getAgendaVersion: () => http.get("/gestora/agenda/versao"),
+
   getDashboard: (semana) =>
     http.get("/gestora/painel", semana ? { semana } : undefined),
 

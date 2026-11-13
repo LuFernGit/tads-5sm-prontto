@@ -29,6 +29,15 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    /** GET /auth/disponibilidade?email=&whatsapp=&cpfCnpj= → { emailEmUso, whatsappEmUso, cpfCnpjEmUso } */
+    @GetMapping("/disponibilidade")
+    public ResponseEntity<java.util.Map<String, Boolean>> verificarDisponibilidade(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String whatsapp,
+            @RequestParam(required = false) String cpfCnpj) {
+        return ResponseEntity.ok(authService.verificarDisponibilidade(email, whatsapp, cpfCnpj));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UsuarioSessaoResponse> obterUsuarioAutenticado(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof Usuario usuario)) {

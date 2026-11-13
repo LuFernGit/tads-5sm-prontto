@@ -39,8 +39,17 @@ public class DocumentoTermo {
     @Column(columnDefinition = "TEXT")
     private String conteudo;
 
+    // Nome do PDF anexado (o arquivo em si fica em caminhoArquivo, como data URL).
+    @Column(name = "nome_arquivo", length = 255)
+    private String nomeArquivo;
+
     @Column(name = "data_publicacao")
     private LocalDateTime dataPublicacao;
+
+    // Exclusão lógica: o documento sai da lista mas continua no banco (com o PDF)
+    // e pode ser restaurado. null = não excluído.
+    @Column(name = "excluido_em")
+    private LocalDateTime excluidoEm;
 
     @Column(nullable = false, length = 20)
     private String status = "RASCUNHO";

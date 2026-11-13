@@ -293,7 +293,17 @@ router.post("/clinicas/:slug/clientes", ({ params, body }) => {
     observacoes: body?.ficha?.observacoes_medicas || "Nenhuma",
     notasGestora: "",
     atualizadaEm: new Date().toISOString().slice(0, 10),
-    historico: [],
+    // FICHA_ANAMNESE_VERSAO: versão 1 = ficha do cadastro (cópia completa).
+    versoes: [
+      {
+        id: Date.now(),
+        numero: 1,
+        data: new Date().toISOString(),
+        alergias: body?.ficha?.alergias || "Nenhuma",
+        observacoes: body?.ficha?.observacoes_medicas || "Nenhuma",
+        respostas: body?.ficha?.respostas ?? {},
+      },
+    ],
   })
   audit(clinic, u.nome, "CADASTRO_CLIENTE")
   return {
@@ -431,14 +441,63 @@ router.delete("/gestora/categorias/:nome", (ctx) => {
 /** BACKEND: USUARIO com tipo CLIENTE e id_clinica da gestora + FICHA_ANAMNESE + HISTORICO_ANAMNESE. */
 router.get("/gestora/clientes", (ctx) => manager(ctx).clinic.clientes)
 
-router.put("/gestora/clientes/:id/notas", (ctx) => {
+/** Notas internas da gestora (NOTA_CLIENTE): várias por cliente. */
+const clientOf = (ctx) => {
   const { clinic } = manager(ctx)
   const found = clinic.clientes.find((c) => String(c.id) === ctx.params.id)
   if (!found) fail(404, "Cliente não encontrada.")
-  const notas = String(ctx.body?.notasGestora ?? "")
-  if (notas.length > 500) fail(400, "As notas podem ter no máximo 500 caracteres.")
-  found.notasGestora = notas
+  found.notas ??= found.notasGestora
+    ? [{ id: 1, texto: found.notasGestora, criadaEm: new Date().toISOString(), atualizadaEm: null }]
+    : []
   return found
+}
+const noteText = (body) => {
+  const texto = String(body?.texto ?? "").trim()
+  requireText(texto, "Escreva a nota. Exemplo: prefere horários pela manhã.")
+  if (texto.length > 1000) fail(400, "A nota pode ter no máximo 1000 caracteres.")
+  return texto
+}
+router.get("/gestora/clientes/:id/notas", (ctx) => clientOf(ctx).notas)
+
+/**
+ * BACKEND: FICHA_ANAMNESE_VERSAO — versões COMPLETAS da ficha, da atual para a
+ * mais antiga. Sem versão gravada, a ficha atual é a versão 1.
+ */
+router.get("/gestora/clientes/:id/ficha/versoes", (ctx) => {
+  const found = clientOf(ctx)
+  const versoes = found.versoes?.length
+    ? found.versoes
+    : [
+        {
+          id: null,
+          numero: 1,
+          data: found.atualizadaEm || null,
+          alergias: found.alergias,
+          observacoes: found.observacoes,
+          respostas: {},
+        },
+      ]
+  return [...versoes]
+    .sort((a, b) => b.numero - a.numero)
+    .map((v, i) => ({ ...v, atual: i === 0 }))
+})
+router.post("/gestora/clientes/:id/notas", (ctx) => {
+  const found = clientOf(ctx)
+  const nota = { id: Date.now(), texto: noteText(ctx.body), criadaEm: new Date().toISOString(), atualizadaEm: null }
+  found.notas.unshift(nota)
+  return nota
+})
+router.put("/gestora/clientes/:id/notas/:notaId", (ctx) => {
+  const nota = clientOf(ctx).notas.find((n) => String(n.id) === ctx.params.notaId)
+  if (!nota) fail(404, "Nota não encontrada.")
+  nota.texto = noteText(ctx.body)
+  nota.atualizadaEm = new Date().toISOString()
+  return nota
+})
+router.delete("/gestora/clientes/:id/notas/:notaId", (ctx) => {
+  const found = clientOf(ctx)
+  found.notas = found.notas.filter((n) => String(n.id) !== ctx.params.notaId)
+  return null
 })
 
 /* ---------------- gestora: agendamentos e agenda ---------------- */
@@ -606,7 +665,31 @@ const findDoc = (clinic, id) => {
   return doc
 }
 
-router.get("/gestora/documentos", (ctx) => manager(ctx).clinic.documentos)
+router.get("/gestora/documentos", (ctx) =>
+  manager(ctx).clinic.documentos.filter((d) => !d.excluidoEm),
+)
+
+/** BACKEND: exclusão LÓGICA (DOCUMENTO_TERMO.excluido_em): o documento continua salvo. */
+router.get("/gestora/documentos/excluidos", (ctx) =>
+  manager(ctx).clinic.documentos.filter((d) => d.excluidoEm),
+)
+
+router.delete("/gestora/documentos/:id", (ctx) => {
+  const doc = findDoc(manager(ctx).clinic, ctx.params.id)
+  if (doc.plataforma) fail(400, "Os documentos do Prontto são só de leitura.")
+  if (doc.status === "PUBLICADO") fail(400, "Documento publicado não pode ser excluído. Inative-o antes.")
+  if (doc.aceites > 0)
+    fail(400, "Este documento tem aceites registrados e precisa ser guardado (LGPD). Ele pode ficar inativo.")
+  doc.excluidoEm = new Date().toISOString()
+  return null
+})
+
+router.post("/gestora/documentos/:id/restauracao", (ctx) => {
+  const doc = findDoc(manager(ctx).clinic, ctx.params.id)
+  if (!doc.excluidoEm) fail(400, "Este documento não está excluído.")
+  doc.excluidoEm = null
+  return doc
+})
 
 router.post("/gestora/documentos/:id/versoes", (ctx) => {
   const { clinic } = manager(ctx)
@@ -739,8 +822,8 @@ router.put("/cliente/perfil", (ctx) => {
 
 /**
  * BACKEND: FICHA_ANAMNESE.respostas (JSON) + alergias/observacoes_medicas (resumo).
- * A cada alteração, gravar em HISTORICO_ANAMNESE cada campo alterado
- * (campo_alterado, valor_anterior, valor_novo).
+ * A cada salvamento, gravar em FICHA_ANAMNESE_VERSAO uma cópia COMPLETA da
+ * ficha (salvar sem mudar nada não gera versão).
  */
 router.get("/cliente/ficha-saude", (ctx) => {
   const { account } = client(ctx)
@@ -748,9 +831,27 @@ router.get("/cliente/ficha-saude", (ctx) => {
 })
 
 router.put("/cliente/ficha-saude", (ctx) => {
-  const { account } = client(ctx)
-  account.respostas = ctx.body?.respostas ?? null
+  const { account, clinic } = client(ctx)
+  const respostas = ctx.body?.respostas ?? null
+  if (JSON.stringify(respostas) === JSON.stringify(account.respostas))
+    return { respostas: account.respostas, atualizadaEm: account.atualizadaEm }
+  account.respostas = respostas
   account.atualizadaEm = new Date().toISOString()
+  const ficha = clinic.clientes.find((c) => c.email === account.profile.email)
+  if (ficha) {
+    ficha.alergias = ctx.body?.alergias || "Nenhuma"
+    ficha.observacoes = ctx.body?.observacoes_medicas || "Nenhuma"
+    ficha.atualizadaEm = account.atualizadaEm
+    ficha.versoes ??= []
+    ficha.versoes.push({
+      id: Date.now(),
+      numero: ficha.versoes.length + 1,
+      data: account.atualizadaEm,
+      alergias: ficha.alergias,
+      observacoes: ficha.observacoes,
+      respostas,
+    })
+  }
   return { respostas: account.respostas, atualizadaEm: account.atualizadaEm }
 })
 

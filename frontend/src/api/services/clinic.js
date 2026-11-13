@@ -10,6 +10,13 @@ export const clinicApi = {
   getPublic: (slug) => http.get(`/clinicas/${slug}`),
 
   /**
+   * GET /clinicas/{slug}/versao → { versao } (leve, sem imagens). Muda quando a
+   * gestora altera serviços, categorias, identidade ou termos: a vitrine então
+   * recarrega os dados completos sem a cliente recarregar a página.
+   */
+  getVersion: (slug) => http.get(`/clinicas/${slug}/versao`),
+
+  /**
    * GET /clinicas/{slug}/calendario?mes=YYYY-MM
    * → { diasLotados: number[], diasSemanaFechados: number[] (0 = domingo) }
    */

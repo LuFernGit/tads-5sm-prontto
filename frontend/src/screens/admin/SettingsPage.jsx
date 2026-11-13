@@ -1,6 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
+import Modal from "@/components/ui/Modal"
+import { api } from "@/api"
 import {
   PLACEHOLDER,
   maskCep,
@@ -11,8 +13,50 @@ import {
 import { cpfCnpjError, emailError } from "@/lib/validators"
 import "./SettingsPage.css"
 
+/** Siglas dos estados (CLINICA.uf). */
+const UFS = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
+
+const DEFAULT_CANCELLATION =
+  "Cancelamentos e reagendamentos devem ser solicitados com no mínimo 24 horas de antecedência."
+
+/** "09:00" → "09h", "09:30" → "09h30". */
+const hourLabel = (hhmm = "") => {
+  const [h, m] = hhmm.split(":")
+  return m && m !== "00" ? `${h}h${m}` : `${h}h`
+}
+
+/**
+ * Resume o horário cadastrado na Agenda num texto:
+ * "Segunda a sábado, das 09h às 19h (intervalo das 12h às 13h)".
+ * rules = regras da Agenda (fromHorarioRows): { label, ativo, inicio, fim, almocoIni, almocoFim }.
+ */
+const summarizeHours = (rules = []) => {
+  const groups = []
+  rules.forEach((r) => {
+    const key = r.ativo ? `${r.inicio}|${r.fim}|${r.almocoIni}|${r.almocoFim}` : "fechado"
+    const last = groups[groups.length - 1]
+    const day = String(r.label).replace("-feira", "") // "Segunda-feira" → "Segunda"
+    if (last && last.key === key) last.days.push(day)
+    else groups.push({ key, rule: r, days: [day] })
+  })
+  const parts = groups
+    .filter((g) => g.key !== "fechado")
+    .map(({ rule, days }) => {
+      const label =
+        days.length === 1 ? days[0] : `${days[0]} a ${days[days.length - 1].toLowerCase()}`
+      const lunch =
+        rule.almocoIni && rule.almocoFim
+          ? ` (intervalo das ${hourLabel(rule.almocoIni)} às ${hourLabel(rule.almocoFim)})`
+          : ""
+      return `${label}, das ${hourLabel(rule.inicio)} às ${hourLabel(rule.fim)}${lunch}`
+    })
+  return parts.join("; ")
+}
+
 /**
  * Edita dados cadastrais, contatos, localização e políticas da empresa.
+ * Tudo é salvo no backend (PUT /gestora/empresa): endereço em partes,
+ * horário de atendimento (texto) e política de cancelamento (tabela CLINICA).
  */
 function SettingsPage({
   notify,
@@ -30,32 +74,60 @@ function SettingsPage({
     whatsapp: company.phone,
     email: company.email,
     instagram: company.instagram,
-    cep: "",
-    address: company.address,
-    number: "",
-    complement: "",
-    neighborhood: "",
-    city: "",
-    state: "",
+    // Endereço em partes (CLINICA.cep, logradouro...). Cadastros antigos só
+    // têm o texto completo: ele vai para o campo "Endereço".
+    cep: company.cep ? maskCep(company.cep) : "",
+    address: company.street || company.address || "",
+    number: company.number ?? "",
+    complement: company.complement ?? "",
+    neighborhood: company.neighborhood ?? "",
+    city: company.city ?? "",
+    state: company.state ?? "",
     presentation: company.description,
-    hours: "Segunda a sábado, das 09h às 19h",
-    cancellation:
-      "Cancelamentos e reagendamentos devem ser solicitados com no mínimo 24 horas de antecedência.",
+    hours: company.hoursText ?? "",
+    cancellation: company.cancellationPolicy || DEFAULT_CANCELLATION,
   })
+  const [confirmSave, setConfirmSave] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Sem texto salvo: sugere o horário real cadastrado na Agenda.
+  useEffect(() => {
+    if (company.hoursText) return undefined
+    let active = true
+    api.schedule
+      .getBusinessHours()
+      .then((rules) => {
+        const text = summarizeHours(rules)
+        if (active && text)
+          setProfile((current) => (current.hours ? current : { ...current, hours: text }))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [company.hoursText])
   /** Atualiza um campo do formulário sem apagar os outros. */
   const updateProfile = (field, value) =>
     setProfile((current) => ({ ...current, [field]: value }))
-  /** Valida CPF/CNPJ e e-mail, junta o endereço em um texto só e salva (setCompany → PUT /gestora/empresa). */
-  const saveProfile = () => {
+  /** Valida CPF/CNPJ e e-mail e pede confirmação antes de salvar. */
+  const askSave = () => {
     const documentError = cpfCnpjError(profile.document)
     if (documentError) {
-      notify(documentError)
+      notify(documentError, "error")
       return
     }
     if (emailError(profile.email ?? "")) {
-      notify(emailError(profile.email ?? ""))
+      notify(emailError(profile.email ?? ""), "error")
       return
     }
+    if (profile.cep && onlyDigits(profile.cep).length !== 8) {
+      notify("O CEP precisa ter 8 números. Exemplo: 01310-100.", "error")
+      return
+    }
+    setConfirmSave(true)
+  }
+  /** Junta o endereço em um texto só (vitrine) e salva tudo (setCompany → PUT /gestora/empresa). */
+  const saveProfile = async () => {
     // O backend confere se o e-mail de contato é diferente do e-mail de acesso.
     const formattedAddress = profile.number
       ? `${profile.address}, ${profile.number}${
@@ -64,7 +136,8 @@ function SettingsPage({
           profile.city ? `, ${profile.city}` : ""
         }${profile.state ? ` — ${profile.state}` : ""}`
       : profile.address
-    setCompany((current) => ({
+    setSaving(true)
+    const ok = await setCompany((current) => ({
       ...current,
       name: profile.clinicName,
       ownerName: profile.responsible,
@@ -73,9 +146,20 @@ function SettingsPage({
       email: profile.email,
       instagram: profile.instagram,
       address: formattedAddress,
+      cep: onlyDigits(profile.cep),
+      street: profile.address,
+      number: profile.number,
+      complement: profile.complement,
+      neighborhood: profile.neighborhood,
+      city: profile.city,
+      state: profile.state.trim().toUpperCase(),
       description: profile.presentation,
+      hoursText: profile.hours.trim(),
+      cancellationPolicy: profile.cancellation.trim(),
     }))
-    notify("Perfil da empresa salvo e vitrine atualizada.")
+    setSaving(false)
+    setConfirmSave(false)
+    if (ok) notify("Perfil da empresa salvo e vitrine atualizada.", "success")
   }
   return (
     <section className="settings-grid">
@@ -186,7 +270,7 @@ function SettingsPage({
               />
             </label>
             <label htmlFor="cfg-endereco">
-              <span>ENDEREÇO</span>
+              <span>RUA</span>
               <input id="cfg-endereco"
                 value={profile.address}
                 onChange={(event) =>
@@ -230,10 +314,18 @@ function SettingsPage({
             </label>
             <label htmlFor="cfg-estado">
               <span>ESTADO</span>
-              <input id="cfg-estado"
-                value={profile.state}
+              <select
+                id="cfg-estado"
+                value={profile.state.toUpperCase()}
                 onChange={(event) => updateProfile("state", event.target.value)}
-              />
+              >
+                <option value="">Selecione</option>
+                {UFS.map((uf) => (
+                  <option key={uf} value={uf}>
+                    {uf}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
         </div>
@@ -285,7 +377,7 @@ function SettingsPage({
         </div>
         <div className="settings-save">
           <small>As alterações serão refletidas na vitrine pública.</small>
-          <Action onClick={saveProfile}>Salvar alterações</Action>
+          <Action onClick={askSave}>Salvar alterações</Action>
         </div>
         <div className="clinic-account-danger">
           <span className="section-kicker">CONTA DA CLÍNICA</span>
@@ -302,6 +394,34 @@ function SettingsPage({
           </Action>
         </div>
       </div>
+      {confirmSave && (
+        <Modal
+          kicker="CONFIGURAÇÕES"
+          title="Salvar alterações?"
+          onClose={() => !saving && setConfirmSave(false)}
+        >
+          <div className="confirmation-content">
+            <div className="confirmation-icon success">
+              <Icon name="check" />
+            </div>
+            <p>
+              Os dados da clínica serão atualizados e as mudanças aparecem na
+              vitrine pública para as clientes.
+            </p>
+          </div>
+          <div className="modal-actions">
+            <Action variant="secondary" onClick={() => setConfirmSave(false)}>
+              Não, continuar editando
+            </Action>
+            <Action
+              className={saving ? "disabled" : ""}
+              onClick={() => !saving && saveProfile()}
+            >
+              {saving ? "Salvando…" : "Sim, salvar alterações"}
+            </Action>
+          </div>
+        </Modal>
+      )}
     </section>
   )
 }

@@ -37,9 +37,10 @@ const weekRangeLabel = (startIso) => {
   const end = parseIso(addDays(startIso, 6))
   const sameMonth = start.getMonth() === end.getMonth()
   const sameYear = start.getFullYear() === end.getFullYear()
+  const yearSuffix = sameYear ? "" : ` de ${start.getFullYear()}`
   const from = sameMonth
     ? start.getDate()
-    : `${start.getDate()} de ${monthName(start)}${sameYear ? "" : ` de ${start.getFullYear()}`}`
+    : `${start.getDate()} de ${monthName(start)}${yearSuffix}`
   return `${from} a ${end.getDate()} de ${monthName(end)} de ${end.getFullYear()}`
 }
 /** "09:00" + 90 min → "10:30". */
@@ -70,6 +71,290 @@ const nextToAppt = (item) => ({
   status: item.status,
 })
 const STATUS_LABEL ={ CONFIRMADO: "Confirmado", PENDENTE: "Aguardando confirmação da cliente" }
+const pad2 = (n) => String(n).padStart(2, "0")
+/** Agendamentos (não cancelados) agrupados por dia ("2026-11-12" → [...]), em ordem de horário. */
+const groupByDay = (appointments) => {
+  const byDay = {}
+  appointments
+    .filter((item) => item.status !== "CANCELADO")
+    .sort((a, b) => a.horario.localeCompare(b.horario))
+    .forEach((item) => {
+      byDay[item.dataIso] = [...(byDay[item.dataIso] ?? []), item]
+    })
+  return byDay
+}
+const isPending = (slot) => slot.appointmentStatus === "PENDENTE"
+/** Situação do horário para o leitor de tela: "agendado com X, confirmado" | "bloqueado" | "livre". */
+const slotStatusText = (slot) => {
+  if (slot.status === "busy") {
+    const confirmation = isPending(slot) ? ", aguardando confirmação" : ", confirmado"
+    return `agendado com ${slot.client}${confirmation}`
+  }
+  return slot.status === "blocked" ? "bloqueado" : "livre"
+}
+/** Resumo do horário no modal "Ajustar": cliente · serviço | "Bloqueado" | "Disponível". */
+const slotSummary = (slot) => {
+  if (slot.status === "busy") return `${slot.client} · ${slot.service}`
+  return slot.status === "blocked" ? "Bloqueado" : "Disponível"
+}
+/** Balão do mês não sai pelas bordas: 1ª coluna abre para a direita, as últimas para a esquerda. */
+const tooltipEdge = (column) => {
+  if (column === 0) return "edge-left"
+  return column >= 5 ? "edge-right" : ""
+}
+
+/**
+ * Grade do mês: espaços até a 1ª segunda-feira + dias do mês + espaços até
+ * completar a última semana. null = dia de outro mês (aparece apagado).
+ * outsideDayLabel(index) = número a mostrar num espaço de outro mês.
+ */
+const buildMonthGrid = (monthCursor) => {
+  const year = monthCursor.getFullYear()
+  const month = monthCursor.getMonth()
+  const leadingBlanks = (monthCursor.getDay() + 6) % 7
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const daysInPrevMonth = new Date(year, month, 0).getDate()
+  const monthDays = [
+    ...Array.from({ length: leadingBlanks }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => toIso(new Date(year, month, index + 1))),
+  ]
+  const cells = [
+    ...monthDays,
+    ...Array.from({ length: (7 - (monthDays.length % 7)) % 7 }, () => null),
+  ]
+  const outsideDayLabel = (index) =>
+    index < leadingBlanks
+      ? daysInPrevMonth - leadingBlanks + index + 1
+      : index - leadingBlanks - daysInMonth + 1
+  return { cells, rows: Math.ceil(cells.length / 7), leadingBlanks, outsideDayLabel }
+}
+/**
+ * Situação do dia, com as MESMAS cores da agenda da cliente:
+ * passado/fechado = cinza · lotado = âmbar claro · livre = branco com "Livre"
+ * verde · hoje = âmbar escuro preenchido.
+ * availability = resposta de GET /clinicas/{slug}/calendario.
+ */
+const dayStateOf = (iso, todayIso, availability) => {
+  if (iso === todayIso) return { cls: "today", tag: "Hoje" }
+  if (iso < todayIso) return { cls: "past", tag: "" }
+  const day = Number(iso.slice(8, 10))
+  const weekday = parseIso(iso).getDay()
+  const closed =
+    (availability?.diasSemanaFechados ?? []).includes(weekday) ||
+    (availability?.diasBloqueados ?? []).includes(day)
+  if (closed) return { cls: "closed", tag: "Fechado" }
+  if ((availability?.diasLotados ?? []).includes(day)) return { cls: "full", tag: "Lotado" }
+  return { cls: "free", tag: "Livre" }
+}
+/** Texto de quanto um bloqueio cobre (para avisar antes de liberar). */
+const blockRange = (slot) =>
+  slot.bloqueio?.inicio
+    ? `das ${slot.bloqueio.inicio.slice(0, 5)} às ${slot.bloqueio.fim.slice(0, 5)}`
+    : "o dia inteiro"
+/**
+ * Pedido de bloqueio: com horário, bloqueia só aquele intervalo; sem horário,
+ * o dia inteiro (hora_inicio/hora_fim NULL). Devolve o corpo e o aviso de sucesso.
+ */
+const blockRequest = (date, slot) =>
+  slot
+    ? {
+        body: { data: date, inicio: slot.time, fim: slot.end, motivo: "Horário bloqueado pelo painel" },
+        success: "Horário bloqueado com sucesso.",
+      }
+    : {
+        body: { data: date, inicio: null, fim: null, motivo: "Dia bloqueado pelo painel" },
+        success: "Dia bloqueado. Os agendamentos existentes foram preservados.",
+      }
+
+/** Cartão "Próxima cliente": quem é, quando, procedimento e atalho do WhatsApp. */
+function NextClient({ item, open, onToggle, now, messageTemplates, company }) {
+  return (
+    <>
+      <div className="next-profile">
+        <div className="large-avatar">{item.initial}</div>
+        <div>
+          <strong>{item.name}</strong>
+          <span>
+            {item.recorrente ? "Cliente recorrente" : "Cliente nova"}
+          </span>
+        </div>
+        <button
+          type="button"
+          className={`expand-btn ${open ? "open" : ""}`}
+          aria-expanded={open}
+          aria-controls="next-main"
+          aria-label={`Detalhes do atendimento de ${item.name}`}
+          onClick={onToggle}
+        >
+          <Icon name="chevron" />
+        </button>
+      </div>
+
+      <div
+        id="next-main"
+        className={`expand-panel ${open ? "open" : ""}`}
+      >
+        <div>
+          <div className="appointment-time">
+            <div>
+              <Icon name="clock" />
+              <span>
+                {dayLabel(item.data, now)}, {item.time}
+              </span>
+            </div>
+            {item.duracao && <small>{item.duracao} min</small>}
+          </div>
+          <div className="procedure">
+            <span>PROCEDIMENTO</span>
+            <strong>{item.service}</strong>
+            <small>
+              {item.time} — {item.end}
+            </small>
+          </div>
+          <div className="next-tags">
+            <span>
+              <Icon
+                name={item.status === "CONFIRMADO" ? "check" : "clock"}
+                size={13}
+              />{" "}
+              {item.status === "PENDENTE"
+                ? "AGUARDANDO CONFIRMAÇÃO"
+                : item.status}
+            </span>
+            {item.signal && (
+              <span>{item.signal.toUpperCase()}</span>
+            )}
+          </div>
+          <Action
+            className="full"
+            onClick={() =>
+              openWhatsApp(
+                reminderFor(messageTemplates, nextToAppt(item), company),
+                item.whatsapp,
+              )
+            }
+          >
+            <Icon name="whatsapp" />{" "}
+            {item.status === "PENDENTE"
+              ? "Lembrar de confirmar"
+              : "Ir para o WhatsApp"}{" "}
+            <NewTabHint compact />
+          </Action>
+        </div>
+      </div>
+    </>
+  )
+}
+
+/** Cartões de números no topo do painel (dados reais do backend). */
+function DashboardMetrics({ todayCount, confirmedToday, freeSlots, isCurrentWeek, clientsTotal }) {
+  const noneToday = todayCount === 0
+  return (
+    <section className="metrics">
+      <div className="metric-card">
+        <div className="metric-icon rose">
+          <Icon name="calendar" />
+        </div>
+        <div>
+          <small>AGENDAMENTOS HOJE</small>
+          <strong>{pad2(todayCount)}</strong>
+          <span>{noneToday ? "Nenhum atendimento hoje" : "Sem contar os cancelados"}</span>
+        </div>
+      </div>
+      <div className="metric-card">
+        <div className="metric-icon green">
+          <Icon name="check" />
+        </div>
+        <div>
+          <small>CONFIRMADOS</small>
+          <strong>{pad2(confirmedToday)}</strong>
+          <span>{noneToday ? "Nenhum atendimento hoje" : `de ${todayCount} agendados hoje`}</span>
+        </div>
+      </div>
+      <div className="metric-card">
+        <div className="metric-icon gold">
+          <Icon name="clock" />
+        </div>
+        <div>
+          <small>HORÁRIOS LIVRES</small>
+          <strong>{pad2(freeSlots)}</strong>
+          <span>{isCurrentWeek ? "Disponíveis esta semana" : "Disponíveis na semana exibida"}</span>
+        </div>
+      </div>
+      <div className="metric-card">
+        <div className="metric-icon navy">
+          <Icon name="users" />
+        </div>
+        <div>
+          <small>TOTAL DE CLIENTES</small>
+          <strong>{clientsTotal == null ? "—" : pad2(clientsTotal)}</strong>
+          <span>Cadastradas na clínica</span>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Balão de um horário agendado na semana (abre ao passar o mouse ou focar). */
+function SlotTooltip({ slot, dateIso, messageTemplates, company }) {
+  const pending = isPending(slot)
+  return (
+    <div className="slot-tooltip">
+      <div className="tooltip-head">
+        <div className="client-avatar">
+          {slot.client?.slice(0, 1)}
+        </div>
+        <div>
+          <strong>{slot.client}</strong>
+          <span>{pending ? "Aguardando confirmação" : "Cliente confirmada"}</span>
+        </div>
+        <div
+          className={`status-dot ${pending ? "pending" : ""}`}
+          aria-hidden="true"
+        />
+      </div>
+      <div className="tooltip-detail">
+        <Icon name="sparkle" />
+        <div>
+          <small>PROCEDIMENTO</small>
+          <span>{slot.service}</span>
+        </div>
+      </div>
+      <div className="tooltip-row">
+        <span>
+          <Icon name="clock" size={14} /> {slot.time} —{" "}
+          {slot.end}
+        </span>
+        <span className={pending ? "pending" : "confirmed"}>
+          {pending ? "Pendente" : "Confirmado"}
+        </span>
+      </div>
+      <div>
+        <Action
+          onClick={() =>
+            openWhatsApp(
+              reminderFor(
+                messageTemplates,
+                {
+                  cliente: slot.client,
+                  servico: slot.service,
+                  dataIso: dateIso,
+                  horario: slot.time,
+                  status: slot.appointmentStatus,
+                },
+                company,
+              ),
+              slot.whatsapp,
+            )
+          }
+        >
+          <Icon name="whatsapp" size={15} /> Chamar no
+          WhatsApp <NewTabHint compact />
+        </Action>
+      </div>
+    </div>
+  )
+}
 
 /**
  * Visão geral da operação com métricas, agenda semanal e próximos atendimentos.
@@ -164,47 +449,15 @@ function DashboardPageView({
     (item) => item.status === "CONFIRMADO",
   ).length
   const freeSlots = slots.flat().filter((slot) => slot.status === "free").length
-  const pad2 = (n) => String(n).padStart(2, "0")
   // Agendamentos (não cancelados) agrupados por dia, em ordem de horário.
-  const appointmentsByDay = {}
-  appointments
-    .filter((item) => item.status !== "CANCELADO")
-    .sort((a, b) => a.horario.localeCompare(b.horario))
-    .forEach((item) => {
-      ;(appointmentsByDay[item.dataIso] ||= []).push(item)
-    })
-  // Células do mês: espaços vazios até a 1ª segunda-feira + os dias do mês.
-  const leadingBlanks = (monthCursor.getDay() + 6) % 7
-  const daysInMonth = new Date(
-    monthCursor.getFullYear(),
-    monthCursor.getMonth() + 1,
-    0,
-  ).getDate()
-  // Dias do mês + espaços completados com o fim do mês anterior e o começo do
-  // seguinte (apagados, igual à agenda da cliente). null = dia de outro mês.
-  const daysInPrevMonth = new Date(
-    monthCursor.getFullYear(),
-    monthCursor.getMonth(),
-    0,
-  ).getDate()
-  const monthDays = [
-    ...Array.from({ length: leadingBlanks }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, index) =>
-      toIso(
-        new Date(monthCursor.getFullYear(), monthCursor.getMonth(), index + 1),
-      ),
-    ),
-  ]
-  const monthCells = [
-    ...monthDays,
-    ...Array.from({ length: (7 - (monthDays.length % 7)) % 7 }, () => null),
-  ]
-  /** Número a mostrar num espaço de outro mês (anterior ou seguinte). */
-  const outsideDayLabel = (index) =>
-    index < leadingBlanks
-      ? daysInPrevMonth - leadingBlanks + index + 1
-      : index - leadingBlanks - daysInMonth + 1
-  const monthRows = Math.ceil(monthCells.length / 7)
+  const appointmentsByDay = groupByDay(appointments)
+  // Células do mês (dias de outros meses = null, aparecem apagados).
+  const {
+    cells: monthCells,
+    rows: monthRows,
+    leadingBlanks,
+    outsideDayLabel,
+  } = buildMonthGrid(monthCursor)
   // Disponibilidade do mês — a MESMA rota que a agenda da cliente usa
   // (GET /clinicas/{slug}/calendario?mes=YYYY-MM): lotados, fechados e bloqueados.
   const monthKey = toIso(monthCursor).slice(0, 7)
@@ -213,24 +466,7 @@ function DashboardPageView({
     [company?.slug, monthKey],
     { enabled: Boolean(company?.slug) },
   )
-  const fullDays = availabilityQuery.data?.diasLotados ?? []
-  const closedWeekdays = availabilityQuery.data?.diasSemanaFechados ?? []
-  const blockedDays = availabilityQuery.data?.diasBloqueados ?? []
-  /**
-   * Situação do dia, com as MESMAS cores da agenda da cliente:
-   * passado/fechado = cinza · lotado = âmbar claro · livre = branco com "Livre"
-   * verde · hoje = âmbar escuro preenchido.
-   */
-  const dayState = (iso) => {
-    if (iso === todayIso) return { cls: "today", tag: "Hoje" }
-    if (iso < todayIso) return { cls: "past", tag: "" }
-    const day = Number(iso.slice(8, 10))
-    const weekday = parseIso(iso).getDay()
-    if (closedWeekdays.includes(weekday) || blockedDays.includes(day))
-      return { cls: "closed", tag: "Fechado" }
-    if (fullDays.includes(day)) return { cls: "full", tag: "Lotado" }
-    return { cls: "free", tag: "Livre" }
-  }
+  const dayState = (iso) => dayStateOf(iso, todayIso, availabilityQuery.data)
   // Qual item da lista 'Próximos atendimentos' está aberto (sanfona).
   const [openNext, setOpenNext] = useState("main")
   // Atualiza a cada minuto o selo "EM X MIN" da próxima cliente.
@@ -255,11 +491,6 @@ function DashboardPageView({
       return false
     }
   }
-  /** Texto de quanto um bloqueio cobre (para avisar antes de liberar). */
-  const blockRange = (slot) =>
-    !slot.bloqueio?.inicio
-      ? "o dia inteiro"
-      : `das ${slot.bloqueio.inicio.slice(0, 5)} às ${slot.bloqueio.fim.slice(0, 5)}`
   /**
    * Clique em um horário da agenda semanal:
    *   ocupado/cancelado → abre os detalhes do atendimento
@@ -320,19 +551,8 @@ function DashboardPageView({
     if (!pendingBlock) return
     const { dayIndex, slot } = pendingBlock
     setPendingBlock(null)
-    // Horário: bloqueio só daquele intervalo. Dia: hora_inicio/hora_fim NULL.
-    await run(
-      () =>
-        api.schedule.createBlock({
-          data: dates[dayIndex],
-          inicio: slot ? slot.time : null,
-          fim: slot ? slot.end : null,
-          motivo: slot ? "Horário bloqueado pelo painel" : "Dia bloqueado pelo painel",
-        }),
-      slot
-        ? "Horário bloqueado com sucesso."
-        : "Dia bloqueado. Os agendamentos existentes foram preservados.",
-    )
+    const { body, success } = blockRequest(dates[dayIndex], slot)
+    await run(() => api.schedule.createBlock(body), success)
   }
   /** Cancela o atendimento selecionado (motivo obrigatório) e abre o WhatsApp para avisar a cliente. */
   const confirmCalendarCancellation = async () => {
@@ -362,60 +582,13 @@ function DashboardPageView({
   return (
     <>
       {/* Cartões de números no topo (atendimentos, faturamento etc.). */}
-      <section className="metrics">
-        <div className="metric-card">
-          <div className="metric-icon rose">
-            <Icon name="calendar" />
-          </div>
-          <div>
-            <small>AGENDAMENTOS HOJE</small>
-            <strong>{pad2(todayAppointments.length)}</strong>
-            <span>
-              {todayAppointments.length === 0
-                ? "Nenhum atendimento hoje"
-                : "Sem contar os cancelados"}
-            </span>
-          </div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-icon green">
-            <Icon name="check" />
-          </div>
-          <div>
-            <small>CONFIRMADOS</small>
-            <strong>{pad2(confirmedToday)}</strong>
-            <span>
-              {todayAppointments.length === 0
-                ? "Nenhum atendimento hoje"
-                : `de ${todayAppointments.length} agendados hoje`}
-            </span>
-          </div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-icon gold">
-            <Icon name="clock" />
-          </div>
-          <div>
-            <small>HORÁRIOS LIVRES</small>
-            <strong>{pad2(freeSlots)}</strong>
-            <span>
-              {weekStart === currentWeek
-                ? "Disponíveis esta semana"
-                : "Disponíveis na semana exibida"}
-            </span>
-          </div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-icon navy">
-            <Icon name="users" />
-          </div>
-          <div>
-            <small>TOTAL DE CLIENTES</small>
-            <strong>{clientsTotal == null ? "—" : pad2(clientsTotal)}</strong>
-            <span>Cadastradas na clínica</span>
-          </div>
-        </div>
-      </section>
+      <DashboardMetrics
+        todayCount={todayAppointments.length}
+        confirmedToday={confirmedToday}
+        freeSlots={freeSlots}
+        isCurrentWeek={weekStart === currentWeek}
+        clientsTotal={clientsTotal}
+      />
       {/* Agenda (semana ou mês) à esquerda e próximos atendimentos à direita. */}
       <section className="dashboard-grid">
         <div className="calendar-card">
@@ -467,16 +640,13 @@ function DashboardPageView({
           {view === "Semana" && (
             <div className="calendar-legend">
               <span>
-                <i className="dot free" />
-                Disponível
+                <i className="dot free" />Disponível
               </span>
               <span>
-                <i className="dot busy" />
-                Agendado
+                <i className="dot busy" />Agendado
               </span>
               <span>
-                <i className="dot blocked" />
-                Bloqueado
+                <i className="dot blocked" />Bloqueado
               </span>
               <small>
                 <Icon name="lock" size={13} /> Clique em um horário livre para
@@ -511,17 +681,7 @@ function DashboardPageView({
                         type="button"
                         onClick={() => handleSlot(slot, dayIndex)}
                         className={`time-slot ${slot.status}`}
-                        aria-label={`${days[dayIndex]} ${slot.time}: ${
-                          slot.status === "busy"
-                            ? `agendado com ${slot.client}${
-                                slot.appointmentStatus === "PENDENTE"
-                                  ? ", aguardando confirmação"
-                                  : ", confirmado"
-                              }`
-                            : slot.status === "blocked"
-                                ? "bloqueado"
-                                : "livre"
-                        }`}
+                        aria-label={`${days[dayIndex]} ${slot.time}: ${slotStatusText(slot)}`}
                       >
                         <span>{slot.time}</span>
                         {slot.status === "busy" && <i />}
@@ -530,74 +690,12 @@ function DashboardPageView({
                         )}
                       </button>
                         {slot.status === "busy" && (
-                          <div className="slot-tooltip">
-                            <div className="tooltip-head">
-                              <div className="client-avatar">
-                                {slot.client?.slice(0, 1)}
-                              </div>
-                              <div>
-                                <strong>{slot.client}</strong>
-                                <span>
-                                  {slot.appointmentStatus === "PENDENTE"
-                                    ? "Aguardando confirmação"
-                                    : "Cliente confirmada"}
-                                </span>
-                              </div>
-                              <div
-                                className={`status-dot ${
-                                  slot.appointmentStatus === "PENDENTE" ? "pending" : ""
-                                }`}
-                                aria-hidden="true"
-                              />
-                            </div>
-                            <div className="tooltip-detail">
-                              <Icon name="sparkle" />
-                              <div>
-                                <small>PROCEDIMENTO</small>
-                                <span>{slot.service}</span>
-                              </div>
-                            </div>
-                            <div className="tooltip-row">
-                              <span>
-                                <Icon name="clock" size={14} /> {slot.time} —{" "}
-                                {slot.end}
-                              </span>
-                              <span
-                                className={
-                                  slot.appointmentStatus === "PENDENTE"
-                                    ? "pending"
-                                    : "confirmed"
-                                }
-                              >
-                                {slot.appointmentStatus === "PENDENTE"
-                                  ? "Pendente"
-                                  : "Confirmado"}
-                              </span>
-                            </div>
-                            <div>
-                              <Action
-                                onClick={() =>
-                                  openWhatsApp(
-                                    reminderFor(
-                                      messageTemplates,
-                                      {
-                                        cliente: slot.client,
-                                        servico: slot.service,
-                                        dataIso: dates[dayIndex],
-                                        horario: slot.time,
-                                        status: slot.appointmentStatus,
-                                      },
-                                      company,
-                                    ),
-                                    slot.whatsapp,
-                                  )
-                                }
-                              >
-                                <Icon name="whatsapp" size={15} /> Chamar no
-                                WhatsApp <NewTabHint compact />
-                              </Action>
-                            </div>
-                          </div>
+                          <SlotTooltip
+                            slot={slot}
+                            dateIso={dates[dayIndex]}
+                            messageTemplates={messageTemplates}
+                            company={company}
+                          />
                         )}
                       </div>
                     ))}
@@ -624,16 +722,20 @@ function DashboardPageView({
                 </span>
               ))}
               {monthCells.map((iso, index) => {
-                if (!iso)
+                if (!iso) {
+                  // Dia do mês anterior ("prev-30") ou do seguinte ("next-1").
+                  const outsideDay = outsideDayLabel(index)
+                  const side = index < leadingBlanks ? "prev" : "next"
                   return (
                     <span
                       className="month-out"
-                      key={`out-${index}`}
+                      key={`${side}-${outsideDay}`}
                       aria-hidden="true"
                     >
-                      {outsideDayLabel(index)}
+                      {outsideDay}
                     </span>
                   )
+                }
                 const state = dayState(iso)
                 const dayNumber = Number(iso.slice(8, 10))
                 const list = appointmentsByDay[iso] || []
@@ -641,7 +743,7 @@ function DashboardPageView({
                 const row = Math.floor(index / 7)
                 // Posição do balão: não sair pelas bordas do calendário.
                 const tooltipPosition = [
-                  column === 0 ? "edge-left" : column >= 5 ? "edge-right" : "",
+                  tooltipEdge(column),
                   row >= monthRows - 2 && monthRows > 3 ? "above" : "",
                 ].join(" ")
                 const summary = list.length
@@ -720,86 +822,20 @@ function DashboardPageView({
             <span className="section-kicker">PRÓXIMA CLIENTE</span>
           </div>
 
-          {!firstNext ? (
+          {firstNext ? (
+            <NextClient
+              item={firstNext}
+              open={openNext === "main"}
+              onToggle={() => toggleNext("main")}
+              now={now}
+              messageTemplates={messageTemplates}
+              company={company}
+            />
+          ) : (
             <p className="next-empty">
               Nenhum atendimento agendado a partir de agora. Quando uma cliente
               agendar, ela aparece aqui.
             </p>
-          ) : (
-            <>
-              <div className="next-profile">
-                <div className="large-avatar">{firstNext.initial}</div>
-                <div>
-                  <strong>{firstNext.name}</strong>
-                  <span>
-                    {firstNext.recorrente ? "Cliente recorrente" : "Cliente nova"}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className={`expand-btn ${openNext === "main" ? "open" : ""}`}
-                  aria-expanded={openNext === "main"}
-                  aria-controls="next-main"
-                  aria-label={`Detalhes do atendimento de ${firstNext.name}`}
-                  onClick={() => toggleNext("main")}
-                >
-                  <Icon name="chevron" />
-                </button>
-              </div>
-
-              <div
-                id="next-main"
-                className={`expand-panel ${openNext === "main" ? "open" : ""}`}
-              >
-                <div>
-                  <div className="appointment-time">
-                    <div>
-                      <Icon name="clock" />
-                      <span>
-                        {dayLabel(firstNext.data, now)}, {firstNext.time}
-                      </span>
-                    </div>
-                    {firstNext.duracao && <small>{firstNext.duracao} min</small>}
-                  </div>
-                  <div className="procedure">
-                    <span>PROCEDIMENTO</span>
-                    <strong>{firstNext.service}</strong>
-                    <small>
-                      {firstNext.time} — {firstNext.end}
-                    </small>
-                  </div>
-                  <div className="next-tags">
-                    <span>
-                      <Icon
-                        name={firstNext.status === "CONFIRMADO" ? "check" : "clock"}
-                        size={13}
-                      />{" "}
-                      {firstNext.status === "PENDENTE"
-                        ? "AGUARDANDO CONFIRMAÇÃO"
-                        : firstNext.status}
-                    </span>
-                    {firstNext.signal && (
-                      <span>{firstNext.signal.toUpperCase()}</span>
-                    )}
-                  </div>
-                  <Action
-                    className="full"
-                    onClick={() =>
-                      openWhatsApp(
-                        reminderFor(messageTemplates, nextToAppt(firstNext), company),
-                        firstNext.whatsapp,
-                      )
-                    }
-                  >
-                    <Icon name="whatsapp" />{" "}
-                    {firstNext.status === "PENDENTE"
-                      ? "Lembrar de confirmar"
-                      : "Ir para o WhatsApp"}{" "}
-                    <NewTabHint compact />
-                  </Action>
-                </div>
-              </div>
-            </>
           )}
 
           {otherNext.length > 0 && (
@@ -1053,11 +1089,7 @@ function DashboardPageView({
                 <span>
                   <strong>{slot.time}</strong>
                   <small>
-                    {slot.status === "busy"
-                      ? `${slot.client} · ${slot.service}`
-                      : slot.status === "blocked"
-                        ? "Bloqueado"
-                        : "Disponível"}
+                    {slotSummary(slot)}
                   </small>
                 </span>
                 {slot.status === "busy" ? (
@@ -1066,15 +1098,13 @@ function DashboardPageView({
                     Agendado
                   </span>
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      className={`slot-status-button ${slot.status}`}
-                      onClick={() => handleSlot(slot, managingDay)}
-                    >
-                      {slot.status === "blocked" ? "Liberar" : "Bloquear"}
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className={`slot-status-button ${slot.status}`}
+                    onClick={() => handleSlot(slot, managingDay)}
+                  >
+                    {slot.status === "blocked" ? "Liberar" : "Bloquear"}
+                  </button>
                 )}
               </div>
             ))}

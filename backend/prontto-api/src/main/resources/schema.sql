@@ -468,6 +468,199 @@ ALTER TABLE AGENDAMENTO
 
 
 -- ============================================
+-- V5 (idempotente)
+--  - CLINICA: iniciais (monograma), endereço em partes, texto do horário de
+--    atendimento e política de cancelamento (tela Configurações/Personalização).
+--  - NOTA_CLIENTE: várias notas internas da gestora por cliente (CRUD).
+-- ============================================
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'iniciais');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN iniciais VARCHAR(3) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'cep');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN cep VARCHAR(8) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'logradouro');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN logradouro VARCHAR(150) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'numero');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN numero VARCHAR(20) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'complemento');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN complemento VARCHAR(100) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'bairro');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN bairro VARCHAR(100) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'cidade');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN cidade VARCHAR(100) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'uf');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN uf CHAR(2) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'texto_horario');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN texto_horario VARCHAR(200) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLINICA' AND COLUMN_NAME = 'politica_cancelamento');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CLINICA ADD COLUMN politica_cancelamento VARCHAR(500) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+
+-- DOCUMENTO_TERMO.nome_arquivo: nome do PDF anexado (o conteúdo fica em
+-- caminho_arquivo, como data URL base64).
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'DOCUMENTO_TERMO' AND COLUMN_NAME = 'nome_arquivo');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE DOCUMENTO_TERMO ADD COLUMN nome_arquivo VARCHAR(255) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+
+-- Recorrência é regra do sistema: só é recorrente quem tem atendimento
+-- CONCLUÍDO. Corrige contas que nasceram recorrentes sem nenhum atendimento.
+UPDATE USUARIO u
+SET u.recorrente = FALSE
+WHERE u.tipo = 'CLIENTE' AND u.recorrente = TRUE
+  AND NOT EXISTS (SELECT 1 FROM AGENDAMENTO a WHERE a.id_usuario = u.id_usuario AND a.status = 'CONCLUIDO');
+
+CREATE TABLE IF NOT EXISTS NOTA_CLIENTE (
+    id_nota INT PRIMARY KEY AUTO_INCREMENT,
+    id_clinica INT NOT NULL,
+    id_usuario INT NOT NULL,          -- a cliente
+    texto VARCHAR(1000) NOT NULL,
+    criada_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizada_em DATETIME NULL,
+
+    CONSTRAINT fk_nota_clinica
+        FOREIGN KEY (id_clinica) REFERENCES CLINICA(id_clinica)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_nota_cliente
+        FOREIGN KEY (id_usuario) REFERENCES USUARIO(id_usuario)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+
+    INDEX idx_nota_cliente (id_usuario)
+) ENGINE=InnoDB;
+
+-- A nota única antiga (FICHA_ANAMNESE.notas_gestora) vira a primeira nota da
+-- lista, uma vez só (se a cliente ainda não tiver nenhuma nota).
+INSERT INTO NOTA_CLIENTE (id_clinica, id_usuario, texto, criada_em)
+SELECT u.id_clinica, f.id_usuario, f.notas_gestora, COALESCE(f.data_atualizacao, NOW())
+FROM FICHA_ANAMNESE f
+JOIN USUARIO u ON u.id_usuario = f.id_usuario
+WHERE f.notas_gestora IS NOT NULL AND TRIM(f.notas_gestora) <> ''
+  AND u.id_clinica IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM NOTA_CLIENTE n WHERE n.id_usuario = f.id_usuario);
+
+
+-- ============================================
+-- V6 (idempotente)
+--  - DOCUMENTO_TERMO.excluido_em: exclusão LÓGICA dos documentos (o documento
+--    sai da lista, mas fica salvo com texto e PDF e pode ser restaurado).
+--  - FICHA_ANAMNESE_VERSAO: histórico da ficha de saúde por VERSÕES COMPLETAS
+--    (uma cópia inteira da ficha a cada salvamento da cliente).
+-- ============================================
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'DOCUMENTO_TERMO' AND COLUMN_NAME = 'excluido_em');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE DOCUMENTO_TERMO ADD COLUMN excluido_em DATETIME NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+
+CREATE TABLE IF NOT EXISTS FICHA_ANAMNESE_VERSAO (
+    id_versao INT PRIMARY KEY AUTO_INCREMENT,
+    id_anamnese INT NOT NULL,
+    numero_versao INT NOT NULL,             -- 1, 2, 3... por ficha
+    alergias VARCHAR(255) NULL,
+    observacoes_medicas VARCHAR(500) NULL,
+    respostas JSON NULL,                    -- a ficha INTEIRA naquele momento
+    criada_em DATETIME NULL,                -- data e hora do salvamento
+
+    CONSTRAINT uq_ficha_versao
+        UNIQUE (id_anamnese, numero_versao),
+    CONSTRAINT fk_versao_anamnese
+        FOREIGN KEY (id_anamnese)
+        REFERENCES FICHA_ANAMNESE(id_anamnese)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    INDEX idx_versao_anamnese (id_anamnese)
+) ENGINE=InnoDB;
+
+-- Migração do histórico antigo (uma vez só: só para fichas sem nenhuma versão).
+-- Cada registro de HISTORICO_ANAMNESE já guardava a ficha inteira (JSON) antes e
+-- depois de cada salvamento, então dá para remontar as versões completas:
+--   versão 1 = ficha antes do 1º salvamento (data desconhecida: fica NULL);
+--   versões seguintes = ficha depois de cada salvamento, com a data dele.
+-- A tabela HISTORICO_ANAMNESE é mantida (não é apagada).
+INSERT INTO FICHA_ANAMNESE_VERSAO (id_anamnese, numero_versao, alergias, observacoes_medicas, respostas, criada_em)
+SELECT h.id_anamnese, 1, NULL, NULL, h.valor_anterior, NULL
+FROM (
+    SELECT id_anamnese, valor_anterior,
+           ROW_NUMBER() OVER (PARTITION BY id_anamnese ORDER BY data_alteracao, id_historico) AS n
+    FROM HISTORICO_ANAMNESE
+    WHERE campo_alterado = 'respostas' AND JSON_VALID(valor_novo)
+) h
+WHERE h.n = 1 AND JSON_VALID(h.valor_anterior)
+  AND NOT EXISTS (SELECT 1 FROM FICHA_ANAMNESE_VERSAO v WHERE v.id_anamnese = h.id_anamnese);
+
+INSERT INTO FICHA_ANAMNESE_VERSAO (id_anamnese, numero_versao, alergias, observacoes_medicas, respostas, criada_em)
+SELECT h.id_anamnese,
+       h.n + (SELECT COUNT(*) FROM FICHA_ANAMNESE_VERSAO v1 WHERE v1.id_anamnese = h.id_anamnese AND v1.numero_versao = 1 AND v1.criada_em IS NULL),
+       NULL, NULL, h.valor_novo, h.data_alteracao
+FROM (
+    SELECT id_anamnese, valor_novo, data_alteracao,
+           ROW_NUMBER() OVER (PARTITION BY id_anamnese ORDER BY data_alteracao, id_historico) AS n
+    FROM HISTORICO_ANAMNESE
+    WHERE campo_alterado = 'respostas' AND JSON_VALID(valor_novo)
+) h
+WHERE NOT EXISTS (SELECT 1 FROM FICHA_ANAMNESE_VERSAO v
+                  WHERE v.id_anamnese = h.id_anamnese AND v.criada_em IS NOT NULL);
+
+-- A versão mais recente é a ficha atual: completa com alergias e observações.
+UPDATE FICHA_ANAMNESE_VERSAO v
+JOIN FICHA_ANAMNESE f ON f.id_anamnese = v.id_anamnese
+SET v.alergias = f.alergias, v.observacoes_medicas = f.observacoes_medicas
+WHERE v.alergias IS NULL
+  AND v.numero_versao = (SELECT m.maior FROM (SELECT id_anamnese, MAX(numero_versao) AS maior
+                                              FROM FICHA_ANAMNESE_VERSAO GROUP BY id_anamnese) m
+                         WHERE m.id_anamnese = v.id_anamnese);
+
+-- Fichas sem histórico: a ficha atual vira a versão 1.
+INSERT INTO FICHA_ANAMNESE_VERSAO (id_anamnese, numero_versao, alergias, observacoes_medicas, respostas, criada_em)
+SELECT f.id_anamnese, 1, f.alergias, f.observacoes_medicas,
+       IF(JSON_VALID(f.respostas), f.respostas, NULL), f.data_atualizacao
+FROM FICHA_ANAMNESE f
+WHERE NOT EXISTS (SELECT 1 FROM FICHA_ANAMNESE_VERSAO v WHERE v.id_anamnese = f.id_anamnese);
+
+
+-- ============================================
 -- DADOS INICIAIS
 -- Documentos gerais do Prontto (id_clinica NULL).
 -- ============================================

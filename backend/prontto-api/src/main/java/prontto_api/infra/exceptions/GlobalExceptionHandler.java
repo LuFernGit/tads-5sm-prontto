@@ -83,6 +83,26 @@ public class GlobalExceptionHandler {
     }
 
     // 409 - Conflito (ex: e-mail já cadastrado, categoria com serviços)
+    /**
+     * Violação de restrição do banco (UNIQUE, FK...). Nunca mostra o nome técnico
+     * da restrição: traduz para uma mensagem que diz como resolver.
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ProblemDetail> handleIntegridade(org.springframework.dao.DataIntegrityViolationException ex) {
+        String causa = String.valueOf(ex.getMostSpecificCause().getMessage()).toLowerCase();
+        String mensagem;
+        if (causa.contains("uq_usuario_whatsapp")) mensagem = "Este WhatsApp já está cadastrado em outra conta. Use outro número ou entre na sua conta.";
+        else if (causa.contains("uq_usuario_email")) mensagem = "Este e-mail já está cadastrado. Entre com sua senha ou use outro e-mail.";
+        else if (causa.contains("uq_clinica_cpf_cnpj")) mensagem = "Este CPF/CNPJ já está cadastrado em outra clínica. Confira o número digitado.";
+        else if (causa.contains("uq_categoria_clinica_nome")) mensagem = "Já existe uma categoria com esse nome. Use outro nome.";
+        else if (causa.contains("foreign key")) mensagem = "Este registro está ligado a outros dados e não pode ser removido ou alterado assim.";
+        else mensagem = "Não foi possível salvar: algum dado já está em uso ou é inválido. Confira os campos e tente de novo.";
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, mensagem);
+        problemDetail.setTitle("Conflito de Dados");
+        problemDetail.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
+    }
+
     @ExceptionHandler(ConflitoException.class)
     public ResponseEntity<ProblemDetail> handleConflito(ConflitoException ex) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());

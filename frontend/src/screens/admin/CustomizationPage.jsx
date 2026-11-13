@@ -1,6 +1,7 @@
 import { useState } from "react"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
+import Modal from "@/components/ui/Modal"
 import { PLACEHOLDER, maskPhone } from "@/lib/masks"
 import { emailError, phoneError } from "@/lib/validators"
 import { useFieldErrors } from "@/hooks/useFieldErrors"
@@ -14,6 +15,8 @@ import "./CustomizationPage.css"
 function CustomizationPage({ company, setCompany, notify }) {
   // 'draft' = rascunho. A gestora edita aqui e vê a prévia; só salva ao clicar em 'Salvar personalização'.
   const [draft, setDraft] = useState(company)
+  const [confirmSave, setConfirmSave] = useState(false)
+  const [saving, setSaving] = useState(false)
   // Erros mostrados embaixo de cada campo (borda vermelha + orientação).
   const { a11y, errorFor, showErrors, clearOnInput, clearError } =
     useFieldErrors(notify)
@@ -43,8 +46,8 @@ function CustomizationPage({ company, setCompany, notify }) {
     }
     reader.readAsDataURL(file)
   }
-  /** Confere os campos obrigatórios e salva (setCompany → PUT /gestora/empresa). */
-  const save = () => {
+  /** Confere os campos obrigatórios e pede confirmação antes de salvar. */
+  const askSave = () => {
     // Uma mensagem embaixo de cada campo, dizendo como corrigir (WCAG 3.3.3).
     if (
       showErrors({
@@ -62,9 +65,16 @@ function CustomizationPage({ company, setCompany, notify }) {
       })
     )
       return
+    setConfirmSave(true)
+  }
+  /** Salva no backend (setCompany → PUT /gestora/empresa) e só avisa sucesso se der certo. */
+  const save = async () => {
+    setSaving(true)
     // O backend confere se o e-mail de contato é diferente do e-mail de acesso.
-    setCompany(draft)
-    notify("Personalização salva e aplicada à vitrine.")
+    const ok = await setCompany({ ...draft, initials: draft.initials.trim().toUpperCase() })
+    setSaving(false)
+    setConfirmSave(false)
+    if (ok) notify("Personalização salva e aplicada à vitrine.", "success")
   }
   return (
     <section className="customization-layout">
@@ -152,7 +162,21 @@ function CustomizationPage({ company, setCompany, notify }) {
             <span>ENDEREÇO EXIBIDO</span>
             <input id="per-endereco-exibido"
               value={draft.address}
-              onChange={(event) => update("address", event.target.value)}
+              onChange={(event) =>
+                // Endereço digitado aqui é o texto completo: as partes salvas em
+                // Configurações (rua, número...) deixam de valer e são limpas.
+                setDraft((current) => ({
+                  ...current,
+                  address: event.target.value,
+                  cep: null,
+                  street: null,
+                  number: null,
+                  complement: null,
+                  neighborhood: null,
+                  city: null,
+                  state: null,
+                }))
+              }
             />
           </label>
         </div>
@@ -226,43 +250,37 @@ function CustomizationPage({ company, setCompany, notify }) {
           <small>
             Você poderá alterar estas informações sempre que precisar.
           </small>
-          <Action onClick={save}>Salvar personalização</Action>
+          <Action onClick={askSave}>Salvar personalização</Action>
         </div>
       </div>
-      <aside
-        className="brand-preview page-card"
-        style={{
-          // paleta padrão do Prontto (as cores não são personalizáveis)
-          "--preview-accent": "var(--rose, #6e3a44)", // branco sobre #6e3a44 = 8,93:1 (AAA)
-          "--preview-secondary": "var(--gold)",
-          "--preview-base": "var(--navy)",
-        }}
-      >
-        <span className="section-kicker">PRÉ-VISUALIZAÇÃO</span>
-        {/* PRÉVIA: mostra como a vitrine vai ficar, usando o rascunho em tempo real. */}
-        <div className="preview-window">
-          <div className="preview-brand">
-            {draft.logoImage ? (
-              <img src={draft.logoImage} alt="" />
-            ) : (
-              <i>{draft.initials}</i>
-            )}
-            <span>
-              <strong>{draft.name}</strong>
-              <small>{draft.tagline}</small>
-            </span>
+      {confirmSave && (
+        <Modal
+          kicker="PERSONALIZAÇÃO"
+          title="Salvar personalização?"
+          onClose={() => !saving && setConfirmSave(false)}
+        >
+          <div className="confirmation-content">
+            <div className="confirmation-icon success">
+              <Icon name="check" />
+            </div>
+            <p>
+              A identidade da clínica será atualizada no painel e na vitrine
+              que as clientes acessam.
+            </p>
           </div>
-          <div className="preview-hero">
-            <img src={draft.heroImage} alt="" />
-            <div />
-            <span>
-              <strong>{draft.heroTitle}</strong>
-              <small>{draft.description}</small>
-              <b>Conheça nossos serviços</b>
-            </span>
+          <div className="modal-actions">
+            <Action variant="secondary" onClick={() => setConfirmSave(false)}>
+              Não, continuar editando
+            </Action>
+            <Action
+              className={saving ? "disabled" : ""}
+              onClick={() => !saving && save()}
+            >
+              {saving ? "Salvando…" : "Sim, salvar personalização"}
+            </Action>
           </div>
-        </div>
-      </aside>
+        </Modal>
+      )}
     </section>
   )
 }

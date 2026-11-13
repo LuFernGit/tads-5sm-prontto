@@ -1,33 +1,265 @@
 /* Estilos de HealthPage.jsx (importado só por ele). */
 
 /* Fichas de saúde (gestora) */
-.health-layout { display: grid; grid-template-columns: 285px 1fr; gap: 18px; }
-.health-client { padding: 11px 8px; display: flex; align-items: center; gap: 9px; border-radius: 11px; cursor: pointer; }
-.health-client.selected { background: var(--amber-pale); }
-.health-client > div { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.health-client strong { font-size: 12px; }
-.health-client small { font-size: 12px; color: var(--muted); }
-.health-client > svg { color: #475569; }
-.record-hero { display: flex; align-items: center; gap: 13px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
-.record-hero > div:nth-child(2) { flex: 1; }
-.record-hero p { font-size: 12px; color: var(--muted); margin: 4px 0; }
-.health-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
-.health-cards > div { border: 1px solid var(--line); border-radius: 13px; padding: 15px; display: flex; flex-direction: column; gap: 6px; }
-.health-cards span { display: flex; gap: 6px; font-size: 12px; color: var(--amber-text); font-weight: 800; }
-.health-cards strong { font-size: 12px; }
-.health-cards small { font-size: 12px; color: var(--muted); }
-.health-readonly { display: flex; align-items: center; gap: 9px; padding: 12px; border-radius: 10px; background: var(--cream); color: var(--muted); margin-bottom: 16px; }
-.health-readonly > span { display: flex; flex-direction: column; gap: 3px; }
-.health-readonly strong { font-size: 12px; color: var(--navy); }
-.health-readonly small { font-size: 12px; }
-.manager-observations { border: 1px solid var(--line); border-radius: 13px; padding: 15px; }
-.history { margin-top: 20px; }
-.history > div { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.history i { width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; background: var(--green-bg); color: var(--green); }
-.history div span { display: flex; flex-direction: column; gap: 3px; }
-.history strong { font-size: 12px; }
-.history small { font-size: 12px; color: var(--muted); }
+.health-layout {
+  display: grid;
+  grid-template-columns: 285px 1fr;
+  gap: 18px;
+}
+.health-client {
+  padding: 11px 8px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-radius: 11px;
+  cursor: pointer;
+}
+.health-client.selected {
+  background: var(--amber-pale);
+}
+.health-client > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.health-client strong {
+  font-size: 12px;
+}
+.health-client small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.health-client > svg {
+  color: #475569;
+}
+.record-hero {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.record-hero > div:nth-child(2) {
+  flex: 1;
+}
+.record-hero p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 0;
+}
+.health-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 18px 0;
+}
+.health-cards > div {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.health-cards span {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--amber-text);
+  font-weight: 800;
+}
+.health-cards strong {
+  font-size: 12px;
+}
+.health-cards small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.health-readonly {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--cream);
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.health-readonly > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.health-readonly strong {
+  font-size: 12px;
+  color: var(--navy);
+}
+.health-readonly small {
+  font-size: 12px;
+}
+.manager-observations {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 15px;
+}
+.history {
+  margin-top: 20px;
+}
+.history > div {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.history i {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--green-bg);
+  color: var(--green);
+}
+.history div span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.history strong {
+  font-size: 12px;
+}
+.history small {
+  font-size: 12px;
+  color: var(--muted);
+}
 /* Clientes e fichas (agora com botões/links reais) */
-.health-client { width: 100%; border: 0; background: transparent; font: inherit; text-align: left; color: inherit; }
-.health-client:hover { background: var(--cream); }
-.notes-area { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid #94a3b8; border-radius: 10px; font: inherit; font-size: 14px; color: var(--navy); resize: vertical; }
+.health-client {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+.health-client:hover {
+  background: var(--cream);
+}
+.notes-area {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #94a3b8;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--navy);
+  resize: vertical;
+}
+/* Notas internas da gestora (várias por cliente) */
+.manager-observations .settings-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.notes-empty {
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+.notes-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.notes-list li {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.notes-list p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--navy);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.notes-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.notes-actions small {
+  flex: 1 1 200px;
+  font-size: 12px;
+  color: #475569;
+}
+.notes-actions .action {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+/* Histórico da ficha por versões completas */
+.history-help {
+  margin: 0 0 6px;
+}
+.history > .history-version {
+  align-items: center;
+}
+.history-version > span {
+  flex: 1;
+  min-width: 0;
+}
+.version-meta {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.version-answers {
+  margin: 16px 0 0;
+  display: grid;
+  gap: 0;
+}
+.version-answers > div {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.version-answers dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+.version-answers dd {
+  margin: 0;
+  color: var(--navy);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+/* Ajuste do espaçamento entre o título e a busca de clientes */
+.client-sidebar .section-title {
+  margin-top: 0;
+  margin-bottom: 18px;
+}
+
+.client-sidebar .search-box {
+  margin-top: 0;
+}
+@media (max-width: 600px) {
+  .history > .history-version {
+    flex-wrap: wrap;
+  }
+  .version-answers > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
