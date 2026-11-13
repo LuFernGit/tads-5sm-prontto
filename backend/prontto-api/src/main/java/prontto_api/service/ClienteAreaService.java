@@ -133,6 +133,7 @@ public class ClienteAreaService {
     public List<AgendamentoClienteResponse> listarAgendamentos(Usuario cliente) {
         return agendamentoRepository.findByClienteId(cliente.getId())
                 .stream()
+                .sorted(RegrasAgendamento.ORDEM_DATA_HORA) // o 1º futuro é o "próximo"
                 .map(this::paraResponse)
                 .toList();
     }
@@ -200,13 +201,14 @@ public class ClienteAreaService {
         agendamento.setData(data);
         agendamento.setHora(hora);
         agendamento.setValorSinal(recorrente ? null : request.valorSinal());
-        // Sinal pago → CONFIRMADO. Recorrente → PENDENTE (confirma até 24h antes).
-        // Recorrente agendando já dentro das 24h: o próprio agendamento vale como
+        // Qualquer agendamento (cliente nova ou recorrente) nasce PENDENTE e só vira
+        // CONFIRMADO quando a cliente confirma a presença (até 24h antes).
+        // Agendado já dentro das 24h: o próprio agendamento vale como
         // confirmação (senão seria cancelado na hora pelo job automático).
         boolean dentroDoPrazo = RegrasAgendamento.prazoConfirmacao(agendamento).isAfter(RegrasAgendamento.agora());
-        agendamento.setStatus(!recorrente || !dentroDoPrazo
-                ? StatusAgendamento.CONFIRMADO
-                : StatusAgendamento.PENDENTE);
+        agendamento.setStatus(dentroDoPrazo
+                ? StatusAgendamento.PENDENTE
+                : StatusAgendamento.CONFIRMADO);
 
         agendamento = agendamentoRepository.save(agendamento);
 
@@ -271,27 +273,67 @@ public class ClienteAreaService {
                 a.getMotivoCancelamento(),
                 a.getStatus() == StatusAgendamento.PENDENTE
                         ? RegrasAgendamento.prazoConfirmacao(a).toString()
-                        : null
+                        : null,
+                a.getCancelamentoNoPrazo(),
+                RegrasAgendamento.cancelarComReembolsoAte(a)
         );
     }
 
-    @Transactional
-    public AgendamentoClienteResponse cancelarAgendamento(Usuario cliente, Long idAgendamento, String motivo) {
+    /** Agendamento da própria cliente que ainda pode ser cancelado (senão, erro). */
+    private Agendamento agendamentoCancelavel(Usuario cliente, Long idAgendamento, LocalDateTime agora) {
         Agendamento a = agendamentoRepository.findById(idAgendamento)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Agendamento não encontrado."));
 
         if (!a.getCliente().getId().equals(cliente.getId())) {
             throw new RegraNegocioException("Agendamento não pertence ao usuário.");
         }
-
         if (a.getStatus() == StatusAgendamento.CANCELADO) {
             throw new ConflitoException("Este agendamento já está cancelado.");
         }
+        if (a.getStatus() != StatusAgendamento.PENDENTE && a.getStatus() != StatusAgendamento.CONFIRMADO) {
+            throw new ConflitoException("Só é possível cancelar um agendamento que ainda não aconteceu.");
+        }
+        if (!RegrasAgendamento.inicio(a).isAfter(agora)) {
+            throw new RegraNegocioException("O horário deste agendamento já passou. Fale com a clínica pelo WhatsApp.");
+        }
+        return a;
+    }
+
+    /**
+     * Prévia do cancelamento: diz à cliente, ANTES de confirmar, se ela está
+     * dentro do prazo de 24 horas para pedir o reembolso do sinal.
+     */
+    public CancelamentoPreviaResponse previaCancelamento(Usuario cliente, Long idAgendamento) {
+        LocalDateTime agora = RegrasAgendamento.agora();
+        Agendamento a = agendamentoCancelavel(cliente, idAgendamento, agora);
+        return new CancelamentoPreviaResponse(
+                a.getId().toString(),
+                RegrasAgendamento.noPrazoDeReembolso(a, agora),
+                RegrasAgendamento.temSinalRegistrado(a),
+                a.getValorSinal(),
+                RegrasAgendamento.prazoReembolso(a).toString(),
+                RegrasAgendamento.PRAZO_REEMBOLSO_HORAS
+        );
+    }
+
+    @Transactional
+    public AgendamentoClienteResponse cancelarAgendamento(Usuario cliente, Long idAgendamento, String motivo) {
+        // Mesmo relógio (fuso de São Paulo) da prévia: o resultado gravado é o
+        // do momento real do cancelamento.
+        LocalDateTime agora = RegrasAgendamento.agora();
+        Agendamento a = agendamentoCancelavel(cliente, idAgendamento, agora);
 
         a.setStatus(StatusAgendamento.CANCELADO);
         a.setCanceladoPor("CLIENTE");
         a.setMotivoCancelamento(motivo);
-        a.setDataCancelamento(LocalDateTime.now());
+        a.setDataCancelamento(agora);
+        boolean noPrazo = RegrasAgendamento.noPrazoDeReembolso(a, agora);
+        a.setCancelamentoNoPrazo(noPrazo);
+        // Com 24h ou mais e sinal registrado → a gestora verifica o reembolso.
+        // Menos de 24h: o sinal é retido (força maior: a cliente fala com a clínica).
+        if (noPrazo && RegrasAgendamento.temSinalRegistrado(a)) {
+            a.setReembolsoStatus(RegrasAgendamento.REEMBOLSO_A_VERIFICAR);
+        }
         agendamentoRepository.save(a);
 
         LogAuditoria log = new LogAuditoria();

@@ -1,4 +1,4 @@
-import { API_TIMEOUT_MS, API_URL, USE_MOCKS } from "./config"
+import { API_TIMEOUT_MS, API_URL } from "./config"
 import { clearToken, emitSessionExpired, getToken } from "./session"
 
 /**
@@ -7,23 +7,13 @@ import { clearToken, emitSessionExpired, getToken } from "./session"
  * - Envia/recebe JSON e anexa "Authorization: Bearer <token>" automaticamente.
  * - Converte os erros do Spring (ResponseStatusException, ProblemDetail ou
  *   @ControllerAdvice com "errors") em ApiError, com mensagem pronta para a tela.
- * - Com VITE_USE_MOCKS=true, as requisições são respondidas por src/mocks.
- *   Se a pasta src/mocks for apagada, o glob abaixo fica vazio e tudo vai
- *   direto para o backend, sem precisar mudar nenhum outro arquivo.
+ * - Sempre chama o backend Spring Boot (o backend falso de src/mocks foi
+ *   removido quando a integração terminou). Não precisa de .env para isso.
  */
 
-// import.meta.glob (recurso do Vite) carrega os mocks só quando necessário.
-const mockLoaders = import.meta.glob("../mocks/index.js")
-const loadMock = Object.values(mockLoaders)[0]
-let mockWarningShown = false
-
-// Mostra no console (F12) qual backend está em uso. Só em desenvolvimento.
+// Mostra no console (F12) para onde as chamadas vão. Só em desenvolvimento.
 if (import.meta.env.DEV) {
-  console.info(
-    USE_MOCKS && loadMock
-      ? "[api] Modo: MOCK (backend falso de src/mocks)"
-      : `[api] Modo: BACKEND REAL (${API_URL} → Spring Boot)`,
-  )
+  console.info(`[api] Backend: ${API_URL} → Spring Boot`)
 }
 
 /** Erro padrão das chamadas: guarda o status HTTP e os erros por campo do formulário. */
@@ -86,28 +76,7 @@ function buildUrl(path, query) {
   return qs ? `${url}?${qs}` : url
 }
 
-/** Envia a requisição ao backend FALSO (src/mocks), sem usar a rede. */
-async function sendToMock(method, path, { body, query }) {
-  const { handleMockRequest } = await loadMock()
-  const result = await handleMockRequest({
-    method,
-    path,
-    query: query ?? {},
-    body,
-    token: getToken(),
-  })
-  if (result.status >= 400) {
-    const { message, fieldErrors } = parseSpringError(result.status, result.body)
-    throw new ApiError(message, {
-      status: result.status,
-      fieldErrors,
-      data: result.body,
-    })
-  }
-  return result.body ?? null
-}
-
-/** Envia a requisição ao backend REAL com fetch, com tempo limite e token JWT. */
+/** Envia a requisição ao backend com fetch, com tempo limite e token JWT. */
 async function sendToServer(method, path, { body, query, headers = {} }) {
   const controller = new AbortController()
   // AbortController cancela a requisição se passar do tempo limite.
@@ -171,13 +140,6 @@ async function sendToServer(method, path, { body, query, headers = {} }) {
  * @param {{ body?: unknown, query?: Record<string, unknown>, headers?: Record<string,string> }} [options]
  */
 export async function request(method, path, options = {}) {
-  if (USE_MOCKS && loadMock) return sendToMock(method, path, options)
-  if (USE_MOCKS && !loadMock && !mockWarningShown) {
-    mockWarningShown = true
-    console.warn(
-      "[api] VITE_USE_MOCKS=true, mas a pasta src/mocks não existe. Usando o backend real.",
-    )
-  }
   return sendToServer(method, path, options)
 }
 

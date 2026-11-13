@@ -73,6 +73,72 @@ const todayIsOver = (duration) => {
   return !fitsBusinessHours(`${pad(now.getHours())}:${pad(now.getMinutes())}`, duration)
 }
 
+/**
+ * Aviso sobre o sinal no "Cancelar agendamento?" (política de 24 horas).
+ * preview = resposta do backend (GET /cliente/agendamentos/{id}/cancelamento):
+ *   { noPrazo, temSinal, valorSinal, prazoReembolso, prazoHoras }.
+ * O Prontto não faz reembolso: o texto orienta a pedir à clínica. Fora do
+ * prazo o sinal é perdido, exceto em caso de força maior — aí a cliente deve
+ * falar com a clínica, que avalia o caso.
+ */
+function CancelRefundNotice({ preview, recurring }) {
+  if (!preview) return null
+  const hours = preview.prazoHoras ?? 24
+  // Formato único dos avisos: ícone + título curto + texto.
+  const notice = (tone, icon, title, text, role = "note") => (
+    <div className={`cancel-refund-notice ${tone}`} role={role}>
+      <Icon name={icon} size={18} />
+      <div>
+        <strong className="cancel-refund-title">{title}</strong>
+        <p>{text}</p>
+      </div>
+    </div>
+  )
+  if (!preview.temSinal)
+    return recurring
+      ? notice(
+          "is-neutral",
+          "check",
+          "Sem sinal a reembolsar",
+          "Como cliente recorrente, você é isenta do sinal. Este cancelamento não gera cobrança nem reembolso.",
+        )
+      : notice(
+          "is-neutral",
+          "check",
+          "Nenhum sinal registrado",
+          "Este agendamento não possui sinal registrado, portanto não há valor a reembolsar. Caso tenha feito algum pagamento diretamente à clínica, entre em contato antes de cancelar.",
+        )
+  const signal = preview.valorSinal ? (
+    <>
+      {" "}
+      Sinal registrado: <strong>{formatPrice(preview.valorSinal)}</strong>.
+    </>
+  ) : null
+  if (preview.noPrazo)
+    return notice(
+      "is-ok",
+      "check",
+      "Reembolso do sinal disponível",
+      <>
+        Seu cancelamento está sendo realizado com {hours} horas ou mais de
+        antecedência. Caso tenha realizado o pagamento do sinal, você poderá
+        solicitar o reembolso diretamente à clínica. O reembolso não é
+        realizado automaticamente pelo Prontto.{signal}
+      </>,
+    )
+  return notice(
+    "is-warning",
+    "clock",
+    `Menos de ${hours} horas para o horário`,
+    <>
+      Conforme a política da clínica, ao cancelar agora o valor do sinal será
+      perdido, exceto em casos de força maior. Se for o seu caso, entre em
+      contato com a clínica antes de continuar.{signal}
+    </>,
+    "alert",
+  )
+}
+
 /** true se a data (AAAA-MM-DD) é hoje e o horário (HH:mm) já passou. */
 const isPastTime = (dateIso, time) => {
   const now = new Date()
@@ -91,6 +157,8 @@ function ClientAppView({
   notify,
   serviceCatalog,
   serviceCategories,
+  // { [nome]: capa } — fotos de capa enviadas pela gestora (CATEGORIA.capa).
+  categoryCovers,
   company,
   preview = false,
   // guest = visitante sem login: vê vitrine, serviços e agenda; para confirmar, faz login.
@@ -126,11 +194,10 @@ function ClientAppView({
   // Aba aberta e escolhas do agendamento (categoria, serviço, dia, horário, pagamento).
   const [tab, setTab] = useState(resumed ? "schedule" : "home")
   const [category, setCategory] = useState("")
-  const [service, setService] = useState(
-    resumed?.service ||
-      serviceCatalog.find((item) => item.active) ||
-      EMPTY_SERVICE,
-  )
+  // Sem serviço pré-escolhido: o calendário só aparece depois que a cliente
+  // escolhe um serviço (a duração dele define os horários livres).
+  const [service, setService] = useState(resumed?.service || EMPTY_SERVICE)
+  const hasService = Boolean(service?.id)
   const [selectedTime, setSelectedTime] = useState(resumed?.time ?? "")
   const [selectedDay, setSelectedDay] = useState(resumed?.day ?? new Date().getDate())
   const [bookingMonthOffset, setBookingMonthOffset] = useState(resumed?.monthOffset ?? 0)
@@ -148,10 +215,19 @@ function ClientAppView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [signalValue, setSignalValue] = useState(null)
+  // Agendamento recém-criado (vem do backend): diz se nasceu PENDENTE (precisa
+  // confirmar a presença) e até quando confirmar — usado na tela "Tudo certo".
+  const [createdAppointment, setCreatedAppointment] = useState(null)
+  // "Confirmar presença" pede confirmação antes de enviar (agendamento escolhido).
+  const [presenceToConfirm, setPresenceToConfirm] = useState(null)
+  const [confirmingPresence, setConfirmingPresence] = useState(false)
   // Meu perfil
   const [appointments, setAppointments] = useState(initialAppointments)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [cancelling, setCancelling] = useState(null)
+  // Prévia do cancelamento (backend): está no prazo de 24h? tem sinal registrado?
+  const [cancelPreview, setCancelPreview] = useState(null)
+  const [loadingCancel, setLoadingCancel] = useState(false)
   // Meus agendamentos ao vivo: cancelamento pela gestora (ou automático) aparece
   // sem a cliente recarregar a página.
   useLiveRefresh(
@@ -207,10 +283,12 @@ function ClientAppView({
       ),
     [category, serviceCatalog],
   )
-  /** Vai para a aba de agendamento, já com o serviço escolhido. */
-  const goSchedule = (
-    chosen = serviceCatalog.find((item) => item.active) || EMPTY_SERVICE,
-  ) => {
+  /**
+   * Vai para a aba de agendamento com o serviço escolhido. Sem serviço (ex.:
+   * "Agendar agora" no topo), mantém o que já estava escolhido; se não houver
+   * nenhum, a aba pede para escolher um serviço antes do calendário.
+   */
+  const goSchedule = (chosen = service) => {
     if (preview) {
       notify(
         "Ações de agendamento ficam desativadas no modo de visualização da gestora.",
@@ -272,7 +350,12 @@ function ClientAppView({
       ),
     [clinicSlug, bookingMonthOffset],
     // live: false = esta tela já tem a própria atualização (useLiveRefresh abaixo).
-    { initialData: { diasLotados: [], diasSemanaFechados: [0], diasBloqueados: [] }, live: false },
+    // Sem serviço escolhido o calendário não aparece, então não consulta.
+    {
+      initialData: { diasLotados: [], diasSemanaFechados: [0], diasBloqueados: [] },
+      live: false,
+      enabled: hasService,
+    },
   )
   const busyDays = calendarQuery.data?.diasLotados ?? []
   const closedWeekdays = calendarQuery.data?.diasSemanaFechados ?? [0]
@@ -294,7 +377,7 @@ function ClientAppView({
   const timesQuery = useApiQuery(
     () => api.clinic.getAvailableTimes(clinicSlug, selectedDateIso, service.id),
     [clinicSlug, selectedDateIso, service.id],
-    { initialData: [], live: false },
+    { initialData: [], live: false, enabled: hasService },
   )
   const timePeriods = timesQuery.data ?? []
 
@@ -310,7 +393,7 @@ function ClientAppView({
       if (fresh !== service) setService(fresh) // preço, duração ou foto mudaram
       return
     }
-    setService(serviceCatalog.find((item) => item.active) || EMPTY_SERVICE)
+    setService(EMPTY_SERVICE) // volta para "escolha um serviço"
     setSelectedTime("")
     setDepositStep(false)
     notify(
@@ -325,7 +408,7 @@ function ClientAppView({
     async () => {
       await Promise.all([calendarQuery.reload(), timesQuery.reload()])
     },
-    { enabled: tab === "schedule" && !confirmed, interval: 20000 },
+    { enabled: tab === "schedule" && !confirmed && hasService, interval: 20000 },
   )
   // Horário escolhido foi ocupado nesse meio-tempo: desmarca e avisa.
   useEffect(() => {
@@ -417,6 +500,27 @@ function ClientAppView({
     setSelectedAppointment(null)
     goSchedule(chosen)
   }
+  /**
+   * "Cancelar agendamento": antes de abrir a confirmação, pergunta ao backend
+   * se o cancelamento agora fica dentro das 24h (regra só no backend) para
+   * mostrar o aviso certo sobre o reembolso do sinal.
+   */
+  const askCancel = async (appointment) => {
+    if (loadingCancel) return
+    setLoadingCancel(true)
+    try {
+      setCancelPreview(await api.me.getCancellationPreview(appointment.id))
+      setCancelling(appointment)
+    } catch (error) {
+      notify(error.message, "error")
+    } finally {
+      setLoadingCancel(false)
+    }
+  }
+  const closeCancel = () => {
+    setCancelling(null)
+    setCancelPreview(null)
+  }
   /** Cliente confirma o cancelamento: cancela no backend e abre o WhatsApp da clínica. */
   const confirmCancel = async () => {
     if (
@@ -425,8 +529,9 @@ function ClientAppView({
       cancelling.status === "Realizado"
     )
       return
+    let updated
     try {
-      const updated = await api.me.cancelAppointment(
+      updated = await api.me.cancelAppointment(
         cancelling.id,
         "Solicitado pela cliente",
       )
@@ -437,16 +542,36 @@ function ClientAppView({
       notify(error.message)
       return
     }
-    const message = `Olá! Sou ${profileData.name || clientSession.name}. Gostaria de confirmar o cancelamento do meu agendamento de ${cancelling.name}, marcado para ${cancelling.date} às ${cancelling.time}. Poderiam confirmar o recebimento?`
+    // O resultado vale pelo momento REAL do cancelamento (backend), não pela prévia.
+    const hasSignal = Boolean(cancelPreview?.temSinal)
+    const canAskRefund = hasSignal && updated.cancelledInTime === true
+    const refundLine = canAskRefund
+      ? ` Como cancelei com 24 horas ou mais de antecedência, gostaria de solicitar o reembolso do sinal${
+          cancelPreview.valorSinal ? ` (${formatPrice(cancelPreview.valorSinal)})` : ""
+        }, caso o pagamento tenha sido confirmado.`
+      : ""
+    const message = `Olá! Sou ${profileData.name || clientSession.name}. Gostaria de confirmar o cancelamento do meu agendamento de ${cancelling.name}, marcado para ${cancelling.date} às ${cancelling.time}.${refundLine} Poderiam confirmar o recebimento?`
     openWhatsApp(message, company.phone)
-    setCancelling(null)
+    closeCancel()
     setSelectedAppointment(null)
+    let outcome = ""
+    if (canAskRefund)
+      outcome = " A clínica foi avisada para analisar o reembolso do sinal."
+    else if (hasSignal)
+      outcome = " Como faltavam menos de 24 horas, o sinal não será devolvido, exceto em caso de força maior: nesse caso, fale com a clínica."
     notify(
-      "Agendamento cancelado. O WhatsApp foi aberto com a mensagem pronta.",
+      `Agendamento cancelado.${outcome} O WhatsApp foi aberto com a mensagem pronta.`,
     )
   }
-  /** Cliente confirma a presença num agendamento pendente (isenta de sinal). */
-  const confirmPresence = async (appointment) => {
+  /**
+   * "Confirmar presença" (todo agendamento nasce PENDENTE): abre o modal
+   * "Confirmar presença?"; só depois do "Sim" o agendamento vira CONFIRMADO.
+   */
+  const confirmPresence = (appointment) => setPresenceToConfirm(appointment)
+  const sendPresenceConfirmation = async () => {
+    const appointment = presenceToConfirm
+    if (!appointment || confirmingPresence) return
+    setConfirmingPresence(true)
     try {
       const updated = await api.me.confirmAppointment(appointment.id)
       setAppointments((current) =>
@@ -455,9 +580,12 @@ function ClientAppView({
       setSelectedAppointment((current) =>
         current?.id === appointment.id ? updated : current,
       )
-      notify("Presença confirmada. Te esperamos!")
+      setPresenceToConfirm(null)
+      notify("Presença confirmada. Te esperamos!", "success")
     } catch (error) {
-      notify(error.message)
+      notify(error.message, "error")
+    } finally {
+      setConfirmingPresence(false)
     }
   }
   /** Abre o modal de edição da ficha de saúde com uma cópia dos dados atuais. */
@@ -600,7 +728,7 @@ function ClientAppView({
             className={tab === "services" ? "active" : ""}
             aria-current={tab === "services" ? "page" : undefined}
           >
-            Serviços
+            Catálogo
           </button>
           <button
             type="button"
@@ -668,7 +796,7 @@ function ClientAppView({
             <div className="client-section-title">Cuidado em cada detalhe</div>
             <div className="specialty-grid">
               {serviceCategories.map((categoryName, index) => {
-                const item = getCategoryMeta(categoryName)
+                const item = getCategoryMeta(categoryName, categoryCovers)
                 return (
                   <button
                     type="button"
@@ -710,7 +838,7 @@ function ClientAppView({
           {!category ? (
             <div className="category-showcase">
               {serviceCategories.map((categoryName) => {
-                const item = getCategoryMeta(categoryName)
+                const item = getCategoryMeta(categoryName, categoryCovers)
                 return (
                   <button
                     type="button"
@@ -749,13 +877,18 @@ function ClientAppView({
                 {filtered.map((item) => (
                   <div className="service-card" key={item.id}>
                     <img
-                      src={item.image || getCategoryMeta(item.category).image}
+                      src={item.image || getCategoryMeta(item.category, categoryCovers).image}
                       alt={item.name}
                     />
                     <div className="service-card-body">
                       <span>{item.category.toUpperCase()}</span>
                       <strong>{item.name}</strong>
-                      <p>
+                      {/* Resumo: o CSS mostra até 3 linhas; o texto completo
+                          fica no title (mouse) e é lido inteiro pelo leitor de tela. */}
+                      <p
+                        className="service-card-description"
+                        title={item.description || undefined}
+                      >
                         {item.description ||
                           "Resultado delicado e personalizado para valorizar sua beleza."}
                       </p>
@@ -808,6 +941,7 @@ function ClientAppView({
                     valorSinal: value ?? null,
                   })
                   setAppointments((current) => [created, ...current])
+                  setCreatedAppointment(created)
                 } catch (error) {
                   notify(error.message)
                   return
@@ -818,6 +952,29 @@ function ClientAppView({
               }}
               notify={notify}
             />
+          ) : !confirmed && !hasService ? (
+            // Sem serviço escolhido não há calendário: os horários livres
+            // dependem da duração do serviço.
+            // Mesmo cabeçalho da aba Catálogo (kicker + título + texto).
+            <section className="bk-choose-service" aria-labelledby="bk-choose-title">
+              <span className="section-kicker">AGENDE SEU HORÁRIO</span>
+              <h1 id="bk-choose-title" className="client-section-title">
+                Primeiro, escolha o serviço
+              </h1>
+              <p className="client-intro">
+                Para ver os dias e horários disponíveis, escolha antes qual
+                serviço você quer agendar. Os horários dependem da duração de
+                cada procedimento.
+              </p>
+              <Action
+                onClick={() => {
+                  setCategory("")
+                  setTab("services")
+                }}
+              >
+                Escolher um serviço <Icon name="arrow" size={15} />
+              </Action>
+            </section>
           ) : !confirmed ? (
             <>
               <div className="bk-head">
@@ -1048,7 +1205,7 @@ function ClientAppView({
                     <div className="bk-service">
                       <img
                         src={
-                          service.image || getCategoryMeta(service.category).image
+                          service.image || getCategoryMeta(service.category, categoryCovers).image
                         }
                         alt=""
                       />
@@ -1101,7 +1258,7 @@ function ClientAppView({
                             ? "A gestora não pode concluir agendamentos."
                             : clientSession.recurring
                               ? "Você confirma a presença até 24 horas antes do horário."
-                              : "Pago na próxima etapa para garantir o horário. O restante é pago no atendimento."}
+                              : "Pago na próxima etapa para garantir o horário. O restante é pago no atendimento. Depois, confirme sua presença em “Meu perfil” até 24 horas antes. Se cancelar com menos de 24 horas de antecedência, você perde o sinal (exceto em caso de força maior)."}
                         </small>
                       </div>
                     </div>
@@ -1150,6 +1307,9 @@ function ClientAppView({
               recurring={clientSession.recurring}
               signal={signalValue}
               payment={paymentInfo}
+              // Nasceu PENDENTE: a tela pede para confirmar a presença até o prazo.
+              needsConfirmation={Boolean(createdAppointment?.needsConfirmation)}
+              confirmByLabel={createdAppointment?.confirmByLabel ?? ""}
               clientName={clientSession.name}
               clientWhatsapp={clientSession.whatsapp}
               onBack={() => {
@@ -1202,7 +1362,7 @@ function ClientAppView({
 
           <div className="pf-container">
             {/* LEMBRETE: agendamentos que a cliente ainda precisa confirmar
-                (isenta de sinal). Sem confirmação até 24h antes, o sistema cancela. */}
+                (todos nascem pendentes). Sem confirmação até 24h antes, o sistema cancela. */}
             {pendingConfirmation.length > 0 && (
               <section
                 className="pf-confirm-alert"
@@ -1213,7 +1373,8 @@ function ClientAppView({
                 </h2>
                 <p>
                   Se não confirmar até o prazo, o horário é cancelado
-                  automaticamente e liberado para outra cliente.
+                  automaticamente e liberado para outra cliente. Se você pagou
+                  sinal, ele fica retido.
                 </p>
                 <ul>
                   {pendingConfirmation.map((item) => (
@@ -1476,12 +1637,25 @@ function ClientAppView({
                 </div>
               </div>
 
-              {selectedAppointment.status === "Agendado" && (
-                <p className="pf-policy">
-                  Cancelamentos e reagendamentos devem ser solicitados com no
-                  mínimo 24 horas de antecedência.
-                </p>
-              )}
+              {selectedAppointment.status === "Agendado" &&
+                (selectedAppointment.refundUntilLabel ? (
+                  // Com sinal: prazo exato (backend) para cancelar sem perder o sinal.
+                  <div className="cancel-refund-notice is-warning" role="note">
+                    <Icon name="clock" size={18} />
+                    <p>
+                      Se precisar cancelar, faça isso até{" "}
+                      <strong>{selectedAppointment.refundUntilLabel}</strong>{" "}
+                      (24 horas antes) para poder pedir o reembolso do sinal.
+                      Depois desse prazo, o sinal é perdido, exceto em caso de
+                      força maior; nesse caso, fale com a clínica.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="pf-policy">
+                    Cancelamentos e reagendamentos devem ser solicitados com no
+                    mínimo 24 horas de antecedência.
+                  </p>
+                ))}
 
               {selectedAppointment.needsConfirmation && (
                 <p className="pf-policy">
@@ -1505,9 +1679,10 @@ function ClientAppView({
                 {selectedAppointment.status === "Agendado" && (
                   <Action
                     variant="danger"
-                    onClick={() => setCancelling(selectedAppointment)}
+                    className={loadingCancel ? "disabled" : ""}
+                    onClick={() => askCancel(selectedAppointment)}
                   >
-                    Cancelar agendamento
+                    {loadingCancel ? "Verificando prazo..." : "Cancelar agendamento"}
                   </Action>
                 )}
                 <span />
@@ -1534,11 +1709,49 @@ function ClientAppView({
             </Modal>
           )}
 
+          {/* Modal: confirmar a presença (o agendamento só vira "Confirmado" aqui). */}
+          {presenceToConfirm && (
+            <Modal
+              title="Confirmar presença?"
+              onClose={() => setPresenceToConfirm(null)}
+            >
+              <div className="confirmation-content">
+                <div className="confirmation-icon success">
+                  <Icon name="check" />
+                </div>
+                <p>
+                  Você confirma que vai comparecer ao atendimento de{" "}
+                  <strong>{presenceToConfirm.name}</strong> em{" "}
+                  {presenceToConfirm.date} às {presenceToConfirm.time}?
+                </p>
+                <p>
+                  Depois de confirmado, o horário fica garantido para você. Se
+                  precisar desmarcar, cancele com pelo menos 24 horas de
+                  antecedência.
+                </p>
+              </div>
+              <div className="modal-actions">
+                <Action
+                  variant="secondary"
+                  onClick={() => setPresenceToConfirm(null)}
+                >
+                  Voltar
+                </Action>
+                <Action
+                  className={confirmingPresence ? "disabled" : ""}
+                  onClick={sendPresenceConfirmation}
+                >
+                  {confirmingPresence ? "Confirmando..." : "Sim, confirmar presença"}
+                </Action>
+              </div>
+            </Modal>
+          )}
+
           {/* Modal: confirmar cancelamento. */}
           {cancelling && (
             <Modal
               title="Cancelar agendamento?"
-              onClose={() => setCancelling(null)}
+              onClose={closeCancel}
             >
               <div className="confirmation-content">
                 <div className="confirmation-icon warning">
@@ -1550,8 +1763,13 @@ function ClientAppView({
                   outras clientes.
                 </p>
               </div>
+              {/* Aviso do sinal: regra de 24h calculada no backend (prévia). */}
+              <CancelRefundNotice
+                preview={cancelPreview}
+                recurring={Boolean(clientSession.recurring)}
+              />
               <div className="modal-actions">
-                <Action variant="secondary" onClick={() => setCancelling(null)}>
+                <Action variant="secondary" onClick={closeCancel}>
                   Manter agendamento
                 </Action>
                 <Action variant="danger" onClick={confirmCancel}>
@@ -1768,7 +1986,7 @@ function ClientAppView({
       <nav className="mobile-nav">
         {[
           { key: "home", icon: "home", label: "Início" },
-          { key: "services", icon: "sparkle", label: "Serviços" },
+          { key: "services", icon: "sparkle", label: "Catálogo" },
           { key: "schedule", icon: "calendar", label: "Agendar" },
           // Logada: aba Perfil. Visitante: botão Entrar. Gestora (visualização): nada.
           ...(preview

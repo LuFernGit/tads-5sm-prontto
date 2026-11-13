@@ -3,6 +3,9 @@ import { api } from "@/api"
 import Action from "@/components/ui/Action"
 import Brand from "@/components/ui/Brand"
 import Icon from "@/components/ui/Icon"
+import Modal from "@/components/ui/Modal"
+import CategoryCoverField from "@/components/forms/CategoryCoverField"
+import { getCategoryMeta } from "@/lib/booking"
 import { neutralLoginImage } from "@/constants"
 import { formatDuration, formatPrice, normalizeCategoryName } from "@/lib/format"
 import {
@@ -75,6 +78,11 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
   // já adicionados e o 'rascunho' do serviço que está sendo digitado.
   const [categories, setCategories] = useState([])
   const [newCategory, setNewCategory] = useState("")
+  // Fotos de capa: da nova categoria (opcional) e das já criadas { [nome]: capa }.
+  const [newCategoryCover, setNewCategoryCover] = useState("")
+  const [categoryCovers, setCategoryCovers] = useState({})
+  // Troca da capa de uma categoria já criada: { category, value } (modal).
+  const [coverEdit, setCoverEdit] = useState(null)
   const [initialServices, setInitialServices] = useState([])
   const [serviceDraft, setServiceDraft] = useState({
     name: "",
@@ -118,31 +126,61 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
     }
     reader.readAsDataURL(file)
   }
-  /** Adiciona uma categoria nova, sem permitir repetidas (ignora acentos e maiúsculas). */
+  /**
+   * Adiciona uma categoria nova, sem permitir repetidas (ignora acentos e
+   * maiúsculas). A foto de capa é obrigatória.
+   */
   const addCategory = () => {
     const category = newCategory.trim()
-    if (!category) {
-      showErrors({
-        "cad-nova-categoria":
-          "Digite o nome da categoria e depois clique em “Criar categoria”. Exemplo: Pilates.",
-      })
-      return
-    }
-    if (
+    const duplicated =
+      category &&
       categories.some(
         (item) =>
           normalizeCategoryName(item) === normalizeCategoryName(category),
       )
-    ) {
+    let nameError = false
+    if (!category)
+      nameError =
+        "Digite o nome da categoria e depois clique em “Criar categoria”. Exemplo: Pilates."
+    else if (duplicated)
+      nameError = `A categoria “${category}” já existe. Use outro nome ou escolha a categoria já criada.`
+    if (
       showErrors({
-        "cad-nova-categoria": `A categoria “${category}” já existe. Use outro nome ou escolha a categoria já criada.`,
+        "cad-nova-categoria": nameError,
+        "cad-capa-nova-categoria":
+          !newCategoryCover &&
+          "Escolha a foto de capa da categoria: clique no quadro e escolha uma imagem JPG, PNG ou WEBP de até 5 MB.",
       })
+    )
       return
-    }
-    clearError("cad-nova-categoria")
     setCategories((current) => [...current, category])
+    setCategoryCovers((current) => ({ ...current, [category]: newCategoryCover }))
     setServiceDraft((current) => ({ ...current, category }))
     setNewCategory("")
+    setNewCategoryCover("")
+  }
+  /** Remove uma categoria criada (e a foto de capa dela). */
+  const removeCategory = (category) => {
+    setCategories((current) => current.filter((item) => item !== category))
+    setCategoryCovers((current) => {
+      const next = { ...current }
+      delete next[category]
+      return next
+    })
+  }
+  /** Guarda a nova foto escolhida no modal "Foto de capa" (obrigatória). */
+  const saveCoverEdit = () => {
+    const { category, value } = coverEdit
+    if (
+      showErrors({
+        "cad-capa-categoria":
+          !value &&
+          "Escolha a foto de capa da categoria: clique no quadro e escolha uma imagem JPG, PNG ou WEBP de até 5 MB.",
+      })
+    )
+      return
+    setCategoryCovers((current) => ({ ...current, [category]: value }))
+    setCoverEdit(null)
   }
   /** Valida o serviço digitado, adiciona à lista e limpa o formulário do serviço. */
   const addInitialService = () => {
@@ -406,6 +444,12 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
         return sent
       }),
       categorias: categories,
+      // { [nome]: capa } só das categorias que ganharam foto de capa.
+      capasCategorias: Object.fromEntries(
+        categories
+          .filter((category) => categoryCovers[category])
+          .map((category) => [category, categoryCovers[category]]),
+      ),
       aceites,
     })
   }
@@ -806,7 +850,8 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                 <small>
                   Digite o nome de um grupo de serviços, como Pilates,
                   Consultas, Cabelo ou Massagens. O sistema não permite duas
-                  categorias com o mesmo nome.
+                  categorias com o mesmo nome. Cada categoria precisa de uma
+                  foto de capa, que aparece no cartão dela na vitrine.
                 </small>
               </div>
               <div className="registration-form registration-category-form">
@@ -831,25 +876,92 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   </div>
                   {errorFor("cad-nova-categoria")}
                 </label>
+                {/* Foto de capa da categoria na vitrine (obrigatória). */}
+                <div className="wide">
+                  <CategoryCoverField
+                    inputProps={a11y("cad-capa-nova-categoria")}
+                    value={newCategoryCover}
+                    onChange={(value) => {
+                      clearError("cad-capa-nova-categoria")
+                      setNewCategoryCover(value)
+                    }}
+                    onError={(message) =>
+                      showErrors({ "cad-capa-nova-categoria": message })
+                    }
+                    error={errorFor("cad-capa-nova-categoria")}
+                  />
+                </div>
               </div>
-              <div className="registration-chips">
-                {categories.map((category) => (
-                  <span key={category}>
-                    {category}
-                    <button
-                      type="button"
-                      aria-label={`Remover a categoria ${category}`}
-                      onClick={() =>
-                        setCategories((current) =>
-                          current.filter((item) => item !== category),
-                        )
-                      }
-                    >
-                      <span aria-hidden="true">×</span>
-                    </button>
-                  </span>
-                ))}
-              </div>
+              {categories.length > 0 && (
+                <ul className="registration-category-list" aria-label="Categorias criadas">
+                  {categories.map((category) => (
+                    <li key={category}>
+                      <img
+                        src={getCategoryMeta(category, categoryCovers).image}
+                        alt=""
+                      />
+                      <span>
+                        <strong>{category}</strong>
+                        <small>Com foto de capa</small>
+                      </span>
+                      <button
+                        type="button"
+                        className="registration-cover-btn"
+                        aria-label={`Trocar a foto de capa da categoria ${category}`}
+                        onClick={() => {
+                          clearError("cad-capa-categoria")
+                          setCoverEdit({
+                            category,
+                            value: categoryCovers[category] || "",
+                          })
+                        }}
+                      >
+                        <Icon name="edit" size={14} /> Trocar capa
+                      </button>
+                      <button
+                        type="button"
+                        className="registration-remove-btn"
+                        aria-label={`Remover a categoria ${category}`}
+                        onClick={() => removeCategory(category)}
+                      >
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Modal: trocar a foto de capa de uma categoria já criada. */}
+              {coverEdit && (
+                <Modal
+                  kicker="CATEGORIAS"
+                  title={`Foto de capa: ${coverEdit.category}`}
+                  onClose={() => setCoverEdit(null)}
+                >
+                  <p className="modal-copy">
+                    A foto de capa aparece no cartão da categoria na vitrine.
+                    Escolha uma nova foto e clique em “Usar esta capa”.
+                  </p>
+                  <CategoryCoverField
+                    label="FOTO DE CAPA"
+                    inputProps={a11y("cad-capa-categoria")}
+                    value={coverEdit.value}
+                    onChange={(value) => {
+                      clearError("cad-capa-categoria")
+                      setCoverEdit((current) => current && { ...current, value })
+                    }}
+                    onError={(message) =>
+                      showErrors({ "cad-capa-categoria": message })
+                    }
+                    error={errorFor("cad-capa-categoria")}
+                  />
+                  <div className="modal-actions">
+                    <Action variant="secondary" onClick={() => setCoverEdit(null)}>
+                      Cancelar
+                    </Action>
+                    <Action onClick={saveCoverEdit}>Usar esta capa</Action>
+                  </div>
+                </Modal>
+              )}
               {categories.length > 0 && (
                 <div className="initial-service-form">
                   <strong>Adicionar serviço inicial</strong>

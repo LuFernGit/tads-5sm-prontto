@@ -18,7 +18,9 @@ import prontto_api.repository.CategoriaRepository;
 import prontto_api.repository.ClinicaRepository;
 import prontto_api.repository.ServicoRepository;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -62,9 +64,55 @@ public class CatalogoService {
         Categoria novaCategoria = new Categoria();
         novaCategoria.setClinica(clinica);
         novaCategoria.setNome(nomeCategoria);
+        novaCategoria.setCapa(capaObrigatoria(request.capa(), nomeCategoria));
         categoriaRepository.save(novaCategoria);
 
         return listarCategorias(gestoraAutenticada);
+    }
+
+    /** { nome da categoria: capa } só das categorias com foto de capa própria. */
+    public Map<String, String> listarCapasCategorias(Usuario gestoraAutenticada) {
+        Clinica clinica = validarClinicaGestora(gestoraAutenticada);
+        return capasDaClinica(categoriaRepository.findByClinicaId(clinica.getId()));
+    }
+
+    /**
+     * Troca a foto de capa da categoria (obrigatória: não dá para deixar a
+     * categoria sem foto). Devolve o mapa de capas atualizado.
+     */
+    @Transactional
+    public Map<String, String> atualizarCapaCategoria(Usuario gestoraAutenticada, String nomeCategoria, String capa) {
+        Clinica clinica = validarClinicaGestora(gestoraAutenticada);
+        Categoria categoria = buscarCategoriaDaClinica(clinica, nomeCategoria);
+
+        categoria.setCapa(capaObrigatoria(capa, nomeCategoria));
+        categoriaRepository.save(categoria);
+        return listarCapasCategorias(gestoraAutenticada);
+    }
+
+    /** Monta { nome: capa } (na ordem das categorias), ignorando as sem capa. */
+    public static Map<String, String> capasDaClinica(List<Categoria> categorias) {
+        Map<String, String> capas = new LinkedHashMap<>();
+        for (Categoria c : categorias) {
+            if (c.getCapa() != null && !c.getCapa().isBlank()) {
+                capas.put(c.getNome(), c.getCapa());
+            }
+        }
+        return capas;
+    }
+
+    /**
+     * Foto de capa obrigatória: precisa vir preenchida e ser imagem em data URL.
+     * nomeCategoria entra na mensagem de erro (ex.: cadastro com várias categorias).
+     */
+    public static String capaObrigatoria(String capa, String nomeCategoria) {
+        if (capa == null || capa.isBlank()) {
+            throw new RegraNegocioException("Escolha a foto de capa da categoria '" + nomeCategoria + "'.");
+        }
+        if (!capa.startsWith("data:image/")) {
+            throw new RegraNegocioException("A foto de capa precisa ser uma imagem JPG, PNG ou WEBP.");
+        }
+        return capa;
     }
 
     @Transactional
@@ -80,12 +128,7 @@ public class CatalogoService {
     @org.springframework.transaction.annotation.Transactional
     public List<String> deletarCategoria(Usuario gestoraAutenticada, String nomeCategoria, String moverPara) {
         Clinica clinica = validarClinicaGestora(gestoraAutenticada);
-
-        Categoria categoria = categoriaRepository.findByClinicaId(clinica.getId())
-                .stream()
-                .filter(c -> c.getNome().equalsIgnoreCase(nomeCategoria))
-                .findFirst()
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria '" + nomeCategoria + "' não encontrada."));
+        Categoria categoria = buscarCategoriaDaClinica(clinica, nomeCategoria);
 
         var servicosDaCategoria = servicoRepository.findByClinicaId(clinica.getId())
                 .stream()
@@ -184,6 +227,15 @@ public class CatalogoService {
         return clinicaRepository.findByGestoraId(gestora.getId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
                         "A gestora não está vinculada a nenhuma clínica."));
+    }
+
+    /** Categoria da clínica pelo nome (sem diferenciar maiúsculas); 404 se não existir. */
+    private Categoria buscarCategoriaDaClinica(Clinica clinica, String nomeCategoria) {
+        return categoriaRepository.findByClinicaId(clinica.getId())
+                .stream()
+                .filter(c -> c.getNome().equalsIgnoreCase(nomeCategoria))
+                .findFirst()
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria '" + nomeCategoria + "' não encontrada."));
     }
 
     private Servico buscarServicoDaClinica(Long idServico, Long idClinica) {

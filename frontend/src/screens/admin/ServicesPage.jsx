@@ -12,7 +12,9 @@ import { maskMoney, moneyToMask, parseMoney } from "@/lib/masks"
 import { openWhatsApp } from "@/lib/whatsapp"
 import { useFieldErrors } from "@/hooks/useFieldErrors"
 import ImageFramer from "@/components/ui/ImageFramer"
+import CategoryCoverField from "@/components/forms/CategoryCoverField"
 import { DEFAULT_FRAMING, cropImage, isDefaultFraming } from "@/lib/imageCrop"
+import { getCategoryMeta } from "@/lib/booking"
 import "./ServicesPage.css"
 
 /**
@@ -23,9 +25,12 @@ function ServicesPage({
   notify,
   serviceRows,
   serviceCategories,
+  // { [nome]: capa } — fotos de capa das categorias (CATEGORIA.capa).
+  categoryCovers = {},
   onSaveService,
   onSetServiceActive,
   onAddCategory,
+  onSetCategoryCover,
   onRemoveCategory,
 }) {
   // Esta tela foi feita para listar serviços ou clientes; o painel usa só type='services'.
@@ -41,6 +46,11 @@ function ServicesPage({
   const [editingService, setEditingService] = useState(null)
   const [managingCategories, setManagingCategories] = useState(false)
   const [newCategory, setNewCategory] = useState("")
+  // Foto de capa da nova categoria (opcional; data URL já reduzida).
+  const [newCategoryCover, setNewCategoryCover] = useState("")
+  // Troca da capa de uma categoria existente: { category, value } (modal).
+  const [coverEdit, setCoverEdit] = useState(null)
+  const [savingCover, setSavingCover] = useState(false)
   // Categoria a excluir (modal de confirmação) e destino dos serviços dela.
   const [categoryToRemove, setCategoryToRemove] = useState(null)
   const [moveTo, setMoveTo] = useState("")
@@ -219,36 +229,68 @@ function ServicesPage({
     setFormImageName(service?.image ? "Foto atual do serviço" : "")
     setShowAdd(true)
   }
-  /** Cria uma categoria nova (sem repetir nomes). */
+  /** Cria uma categoria nova (sem repetir nomes e sempre com foto de capa). */
   const addCategory = async () => {
     const category = newCategory.trim()
-    if (!category) {
-      showErrors({
-        "srv-nova-categoria":
-          "Digite o nome da categoria e clique em “Adicionar categoria”. Exemplo: Pilates.",
-      })
-      return
-    }
-    if (
+    const duplicated =
+      category &&
       serviceCategories.some(
         (item) =>
           normalizeCategoryName(item) === normalizeCategoryName(category),
       )
-    ) {
+    let nameError = false
+    if (!category)
+      nameError =
+        "Digite o nome da categoria e clique em “Adicionar categoria”. Exemplo: Pilates."
+    else if (duplicated)
+      nameError = `A categoria “${category}” já existe. Use outro nome ou escolha a categoria existente.`
+    if (
       showErrors({
-        "srv-nova-categoria": `A categoria “${category}” já existe. Use outro nome ou escolha a categoria existente.`,
+        "srv-nova-categoria": nameError,
+        "srv-capa-nova-categoria":
+          !newCategoryCover &&
+          "Escolha a foto de capa da categoria: clique no quadro e escolha uma imagem JPG, PNG ou WEBP de até 5 MB.",
       })
+    )
       return
-    }
     try {
-      await onAddCategory(category)
+      await onAddCategory(category, newCategoryCover)
     } catch (error) {
       showErrors({ "srv-nova-categoria": error.message })
       return
     }
     setFormCategory(category)
     setNewCategory("")
+    setNewCategoryCover("")
     notify("Nova categoria criada.")
+  }
+  /** Salva a foto escolhida no modal "Foto de capa" (a foto é obrigatória). */
+  const saveCategoryCover = async () => {
+    if (!coverEdit || savingCover) return
+    const { category, value } = coverEdit
+    if (
+      showErrors({
+        "srv-capa-categoria":
+          !value &&
+          "Escolha a foto de capa da categoria: clique no quadro e escolha uma imagem JPG, PNG ou WEBP de até 5 MB.",
+      })
+    )
+      return
+    if (value === categoryCovers[category]) {
+      setCoverEdit(null)
+      return
+    }
+    setSavingCover(true)
+    try {
+      await onSetCategoryCover(category, value)
+    } catch (error) {
+      showErrors({ "srv-capa-categoria": error.message })
+      return
+    } finally {
+      setSavingCover(false)
+    }
+    setCoverEdit(null)
+    notify(`Foto de capa da categoria “${category}” atualizada.`, "success")
   }
   /** Remove uma categoria. */
   /**
@@ -878,17 +920,16 @@ function ServicesPage({
             vitrine.
           </p>
           <div className="category-field-help">
-            <strong>Digite o nome da categoria</strong>
+            <strong>Digite o nome da categoria e escolha a foto de capa</strong>
             <small>
               Exemplos: Pilates, Consultas, Cabelo ou Massagens. Não coloque o
-              nome de um serviço específico neste campo.
+              nome de um serviço específico neste campo. A foto de capa é
+              obrigatória e aparece no cartão da categoria na vitrine.
             </small>
           </div>
-          <div onInput={clearOnInput}>
-            <label htmlFor="srv-nova-categoria" className="sr-only">
-              Nome da nova categoria
-            </label>
-            <div className="category-create">
+          <div className="category-create-form" onInput={clearOnInput}>
+            <label htmlFor="srv-nova-categoria" className="category-create-name">
+              <span>NOME DA CATEGORIA</span>
               <input
                 {...a11y("srv-nova-categoria")}
                 autoFocus
@@ -897,26 +938,63 @@ function ServicesPage({
                 onKeyDown={(event) => event.key === "Enter" && addCategory()}
                 placeholder="Ex.: Pilates"
               />
+            </label>
+            {errorFor("srv-nova-categoria")}
+            {/* Foto de capa da categoria na vitrine (obrigatória). */}
+            <CategoryCoverField
+              label="FOTO DE CAPA"
+              inputProps={a11y("srv-capa-nova-categoria")}
+              value={newCategoryCover}
+              onChange={(value) => {
+                clearError("srv-capa-nova-categoria")
+                setNewCategoryCover(value)
+              }}
+              onError={(message) =>
+                showErrors({ "srv-capa-nova-categoria": message })
+              }
+              error={errorFor("srv-capa-nova-categoria")}
+            />
+            <div className="category-create">
               <Action onClick={addCategory}>
                 <Icon name="plus" size={15} />
                 Adicionar categoria
               </Action>
             </div>
-            {errorFor("srv-nova-categoria")}
           </div>
           <div className="category-manager-list">
             {serviceCategories.map((category) => {
               const count = serviceRows.filter(
                 (service) => service.category === category,
               ).length
+              const hasCover = Boolean(categoryCovers[category])
               return (
                 <div key={category}>
+                  <img
+                    className="category-thumb"
+                    src={getCategoryMeta(category, categoryCovers).image}
+                    alt=""
+                  />
                   <span>
                     <strong>{category}</strong>
                     <small>
-                      {count} {count === 1 ? "serviço" : "serviços"}
+                      {count} {count === 1 ? "serviço" : "serviços"} ·{" "}
+                      {hasCover ? "com foto de capa" : "sem foto de capa: adicione uma"}
                     </small>
                   </span>
+                  <button
+                    type="button"
+                    className="category-cover-btn"
+                    onClick={() => {
+                      clearError("srv-capa-categoria")
+                      setCoverEdit({
+                        category,
+                        value: categoryCovers[category] || "",
+                      })
+                    }}
+                    aria-label={`Trocar a foto de capa da categoria ${category}`}
+                  >
+                    <Icon name="edit" size={14} /> Trocar capa
+                  </button>
                   <button
                     type="button"
                     onClick={() => askRemoveCategory(category)}
@@ -939,6 +1017,45 @@ function ServicesPage({
               onClick={() => setManagingCategories(false)}
             >
               Concluir
+            </Action>
+          </div>
+        </Modal>
+      )}
+      {/* Modal: trocar a foto de capa de uma categoria (abre por cima do
+          "Gerenciar categorias"; só salva ao clicar em "Salvar capa"). */}
+      {coverEdit && (
+        <Modal
+          kicker="CATEGORIAS"
+          title={`Foto de capa: ${coverEdit.category}`}
+          onClose={() => setCoverEdit(null)}
+        >
+          <p className="modal-copy">
+            A foto de capa aparece no cartão da categoria na vitrine. Escolha
+            uma nova foto e clique em “Salvar capa”.
+          </p>
+          <div onInput={clearOnInput}>
+            <CategoryCoverField
+              label="FOTO DE CAPA"
+              inputProps={a11y("srv-capa-categoria")}
+              value={coverEdit.value}
+              fallback={getCategoryMeta(coverEdit.category).image}
+              onChange={(value) => {
+                clearError("srv-capa-categoria")
+                setCoverEdit((current) => current && { ...current, value })
+              }}
+              onError={(message) => showErrors({ "srv-capa-categoria": message })}
+              error={errorFor("srv-capa-categoria")}
+            />
+          </div>
+          <div className="modal-actions">
+            <Action variant="secondary" onClick={() => setCoverEdit(null)}>
+              Cancelar
+            </Action>
+            <Action
+              className={savingCover ? "disabled" : ""}
+              onClick={saveCategoryCover}
+            >
+              {savingCover ? "Salvando..." : "Salvar capa"}
             </Action>
           </div>
         </Modal>

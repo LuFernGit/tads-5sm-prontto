@@ -13,7 +13,9 @@ public record CadastroClinicaRequest(
 
         List<ServicoRequest> servicos,
         List<String> categorias,
-        Map<String, Object> aceites
+        Map<String, Object> aceites,
+        // { nome da categoria: foto de capa (data URL) }; opcional, por categoria.
+        Map<String, String> capasCategorias
 ) {
     public record EmpresaCadastroDto(
             String name,

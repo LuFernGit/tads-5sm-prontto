@@ -8,7 +8,7 @@ import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import { useServerSync } from "@/hooks/useLiveRefresh"
-import { br, formatDuration } from "@/lib/format"
+import { br, formatDuration, formatPrice } from "@/lib/format"
 import { ruleError, toHorarioRows } from "@/lib/schedule"
 import "./SchedulePage.css"
 
@@ -34,12 +34,37 @@ function appointmentStatus(a) {
 }
 
 /**
+ * Selo do sinal (política de 24 horas), ao lado do selo de situação. Só existe
+ * quando a CLIENTE cancelou um agendamento com sinal registrado; null nos outros.
+ *  - 24h ou mais de antecedência → "Cliente aguardando reembolso" (pode pedir reembolso)
+ *  - já analisado pela gestora → "Reembolso verificado"
+ *  - menos de 24h → "Sinal retido" (só informativo: exceto força maior, quando
+ *    a cliente entra em contato com a clínica)
+ */
+function refundTag(a) {
+  if (a.reembolsoStatus === "VERIFICADO")
+    return { label: "Reembolso verificado", className: "refund-done" }
+  if (a.reembolsoStatus === "A_VERIFICAR")
+    return { label: "Cliente aguardando reembolso", className: "refund" }
+  if (
+    a.status === "CANCELADO" &&
+    // Cliente cancelou com menos de 24h, ou o sistema cancelou por falta de
+    // confirmação da presença: o sinal fica retido.
+    (a.canceladoPor === "CLIENTE" || a.canceladoPor === "SISTEMA") &&
+    a.cancelamentoNoPrazo === false &&
+    Number(a.valorSinal) > 0
+  )
+    return { label: "Sinal retido", className: "refund-late" }
+  return null
+}
+
+/**
  * Configura horários de funcionamento, bloqueios e cancelamentos da agenda.
  */
 function SchedulePageView({
   notify,
   booked = [],
-  appointments = [],
+  appointments: loadedAppointments = [],
   onCancelAppointment,
   initialRules,
   initialBlocks,
@@ -89,6 +114,37 @@ function SchedulePageView({
   }
   // Agendamento aberto no modal "Detalhes do agendamento".
   const [appointmentDetails, setAppointmentDetails] = useState(null)
+  // Confirmação de "Marcar reembolso como verificado" (agendamento) e envio.
+  const [refundToVerify, setRefundToVerify] = useState(null)
+  const [verifyingRefund, setVerifyingRefund] = useState(false)
+  // Agendamentos já marcados aqui como verificados: o selo muda na hora, sem
+  // esperar a próxima atualização ao vivo da lista (que vem do painel).
+  const [verifiedNow, setVerifiedNow] = useState({})
+  // Lista da Agenda: agendamentos mais recentes primeiro (data e hora, do mais
+  // novo para o mais antigo). Os dados chegam em ordem crescente do backend.
+  const appointments = loadedAppointments
+    .map((a) =>
+      verifiedNow[a.id] && a.reembolsoStatus === "A_VERIFICAR"
+        ? { ...a, reembolsoStatus: "VERIFICADO" }
+        : a,
+    )
+    .sort((a, b) =>
+      `${b.dataIso} ${b.horario}`.localeCompare(`${a.dataIso} ${a.horario}`),
+    )
+  const confirmRefundVerified = async () => {
+    if (!refundToVerify || verifyingRefund) return
+    setVerifyingRefund(true)
+    try {
+      await api.appointments.markRefundVerified(refundToVerify.id)
+      setVerifiedNow((current) => ({ ...current, [refundToVerify.id]: true }))
+      setRefundToVerify(null)
+      notify("Reembolso marcado como verificado.", "success")
+    } catch (error) {
+      notify(error.message, "error")
+    } finally {
+      setVerifyingRefund(false)
+    }
+  }
   const [pendingScheduleAction, setPendingScheduleAction] = useState(null)
   /** Altera só alguns campos da regra de um dia. Ex.: patch('SEGUNDA', { ativo: false }). */
   const patch = (dia, p) =>
@@ -331,6 +387,7 @@ function SchedulePageView({
           <ul className="af-list af-appt-list" aria-label="Agendamentos da clínica">
             {appointments.map((a) => {
               const status = appointmentStatus(a)
+              const refund = refundTag(a)
               return (
                 <li key={a.id} className="af-appt">
                   {/* Data e hora em destaque, à esquerda */}
@@ -347,8 +404,16 @@ function SchedulePageView({
                     <strong>{a.cliente}</strong>
                     <span>{a.servico}</span>
                   </span>
-                  <span className={`af-status ${status.className}`}>
-                    {status.label}
+                  {/* Situação + selo do sinal (quando houver), um embaixo do outro */}
+                  <span className="af-appt-tags">
+                    <span className={`af-status ${status.className}`}>
+                      {status.label}
+                    </span>
+                    {refund && (
+                      <span className={`af-status ${refund.className}`}>
+                        {refund.label}
+                      </span>
+                    )}
                   </span>
                   {/* Um botão só por linha: o cancelamento fica dentro dos detalhes */}
                   <button
@@ -503,6 +568,51 @@ function SchedulePageView({
                 <p>{appointmentDetails.motivoCancelamento}</p>
               </div>
             )}
+          {/* Agendamento ativo com sinal: prazo (backend) para a cliente
+              cancelar ainda com direito a pedir o reembolso. */}
+          {CANCELLABLE.includes(appointmentDetails.status) &&
+            appointmentDetails.reembolsoAteLabel && (
+              <div className="service-description af-refund">
+                <span className="section-kicker">SINAL E CANCELAMENTO</span>
+                <p>
+                  Sinal registrado:{" "}
+                  <strong>{formatPrice(appointmentDetails.valorSinal)}</strong>.
+                  Se a cliente cancelar até{" "}
+                  <strong>{appointmentDetails.reembolsoAteLabel}</strong> (24
+                  horas antes), ela pode pedir o reembolso do sinal e o caso
+                  aparece aqui como “Cliente aguardando reembolso”. Depois desse prazo,
+                  o sinal fica retido, exceto em caso de força maior.
+                </p>
+              </div>
+            )}
+          {/* Sinal e reembolso (política de 24h): o Prontto não faz estorno,
+              só mostra o que a gestora precisa para analisar. */}
+          {refundTag(appointmentDetails) && (
+            <div className="service-description af-refund">
+              <span className="section-kicker">SINAL E REEMBOLSO</span>
+              <span className={`af-status ${refundTag(appointmentDetails).className}`}>
+                {refundTag(appointmentDetails).label}
+              </span>
+              <p>
+                Sinal registrado neste agendamento:{" "}
+                <strong>{formatPrice(appointmentDetails.valorSinal)}</strong>.{" "}
+                {appointmentDetails.canceladoPor === "SISTEMA"
+                  ? "O agendamento foi cancelado automaticamente porque a cliente não confirmou a presença até 24 horas antes"
+                  : "A cliente cancelou"}{" "}
+                {appointmentDetails.cancelamentoNoPrazo
+                  ? "com 24 horas ou mais de antecedência e pode solicitar o reembolso do sinal."
+                  : appointmentDetails.canceladoPor === "SISTEMA"
+                    ? "— pela política da clínica, o sinal fica retido, exceto em caso de força maior. Se a cliente entrar em contato alegando força maior, avalie o caso e combine o reembolso diretamente com ela."
+                    : "com menos de 24 horas de antecedência: pela política da clínica, o sinal fica retido, exceto em caso de força maior. Se a cliente entrar em contato alegando força maior, avalie o caso e combine o reembolso diretamente com ela."}
+              </p>
+              <p>
+                {appointmentDetails.cancelamentoNoPrazo
+                  ? "Confira se o pagamento do sinal foi realmente recebido e, se o reembolso for devido, faça-o diretamente com a cliente. "
+                  : ""}
+                O Prontto não realiza estornos nem transferências.
+              </p>
+            </div>
+          )}
           <div className="modal-actions">
             <Action
               variant="secondary"
@@ -510,6 +620,16 @@ function SchedulePageView({
             >
               Fechar
             </Action>
+            {appointmentDetails.reembolsoStatus === "A_VERIFICAR" && (
+              <Action
+                onClick={() => {
+                  setRefundToVerify(appointmentDetails)
+                  setAppointmentDetails(null)
+                }}
+              >
+                <Icon name="check" size={15} /> Marcar como verificado
+              </Action>
+            )}
             {/* Só agendamentos que ainda vão acontecer podem ser cancelados */}
             {CANCELLABLE.includes(appointmentDetails.status) && (
               <Action
@@ -583,6 +703,46 @@ function SchedulePageView({
             >
               {cancelling ? "Cancelando…" : "Sim, cancelar agendamento"}{" "}
               <NewTabHint compact text="abre o WhatsApp em nova guia para avisar a cliente" />
+            </Action>
+          </div>
+        </Modal>
+      )}
+      {/* Confirmação: marcar o reembolso como verificado (só registra a análise). */}
+      {refundToVerify && (
+        <Modal
+          kicker="AGENDA"
+          title="Marcar reembolso como verificado?"
+          onClose={() => setRefundToVerify(null)}
+        >
+          <div className="confirmation-content">
+            <div className="confirmation-icon warning">
+              <Icon name="check" />
+            </div>
+            <div className="af-confirm-summary">
+              <strong>
+                {refundToVerify.cliente} · {refundToVerify.servico}
+              </strong>
+              <span>
+                {refundToVerify.data} às {refundToVerify.horario} · sinal
+                registrado de {formatPrice(refundToVerify.valorSinal)}
+              </span>
+            </div>
+            <p>
+              Use esta opção depois de conferir o pagamento do sinal e de
+              resolver o reembolso com a cliente, se ele for devido. O selo
+              passa a mostrar “Reembolso verificado”. Nenhum valor é
+              movimentado pelo Prontto.
+            </p>
+          </div>
+          <div className="modal-actions">
+            <Action variant="secondary" onClick={() => setRefundToVerify(null)}>
+              Voltar
+            </Action>
+            <Action
+              className={verifyingRefund ? "disabled" : ""}
+              onClick={confirmRefundVerified}
+            >
+              {verifyingRefund ? "Salvando…" : "Sim, marcar como verificado"}
             </Action>
           </div>
         </Modal>

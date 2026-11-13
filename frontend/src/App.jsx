@@ -33,10 +33,12 @@ export default function App() {
     company,
     serviceCatalog,
     serviceCategories,
+    categoryCovers,
     updateCompany,
     saveService,
     setServiceActive,
     addCategory,
+    setCategoryCover,
     removeCategory,
     loginManager,
     registerCompany,
@@ -141,9 +143,11 @@ export default function App() {
           notify={notify}
           serviceCatalog={serviceCatalog}
           serviceCategories={serviceCategories}
+          categoryCovers={categoryCovers}
           onSaveService={saveService}
           onSetServiceActive={setServiceActive}
           onAddCategory={addCategory}
+          onSetCategoryCover={setCategoryCover}
           onRemoveCategory={removeCategory}
           company={company}
           setCompany={updateCompany}
@@ -154,6 +158,7 @@ export default function App() {
           notify={notify}
           serviceCatalog={clientView.services}
           serviceCategories={clientView.categories}
+          categoryCovers={clientView.categoryCovers}
           company={clientView.company}
           preview={mode === "preview"}
           guest={mode === "guest"}

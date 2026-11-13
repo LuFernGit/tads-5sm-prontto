@@ -1,7 +1,7 @@
 /**
  * Constantes da interface e regras de negócio do front.
  * Nada aqui é dado de demonstração: tudo continua válido depois da integração.
- * (Os dados fictícios ficam em src/mocks.)
+ * Os dados de teste ficam no banco (backend: seed-dev.sql).
  */
 
 /** Imagem lateral das telas de login e cadastro da gestora (visual neutro do Prontto). */
@@ -105,8 +105,9 @@ export const emptyAnamnesis = {
 
 /**
  * Imagens e textos padrão da vitrine por categoria (identidade visual do front).
- * Quando o backend passar a devolver imagem/descrição por categoria, basta
- * preferir esses campos em getCategoryMeta (src/lib/booking.js).
+ * Se a gestora enviou foto de capa para a categoria (CATEGORIA.capa →
+ * capasCategorias), getCategoryMeta (src/lib/booking.js) usa a foto dela no
+ * lugar da imagem daqui.
  */
 // Capa de cada categoria: public/images/categorias/<nome-da-categoria>.jpg
 // Para trocar a capa de uma categoria, substitua o arquivo com o mesmo nome.

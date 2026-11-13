@@ -66,13 +66,17 @@
 .category-showcase button > svg { position: absolute; right: 20px; bottom: 24px; color: var(--gold); }
 .back-categories { display: block; margin: 0 auto 22px; border: 0; background: transparent; color: var(--amber-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .service-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; text-align: left; max-width: 1200px; margin: 0 auto; }
-.service-card { background: #fff; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
-.service-card > img { width: 100%; height: 190px; object-fit: cover; }
-.service-card-body { padding: 17px; }
+/* Cartão em coluna: duração/preço e o botão ficam sempre no rodapé, então
+   cartões lado a lado se alinham mesmo com descrições de tamanhos diferentes. */
+.service-card { background: #fff; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
+.service-card > img { width: 100%; height: 190px; object-fit: cover; flex: none; }
+.service-card-body { padding: 17px; display: flex; flex-direction: column; flex: 1; }
 .service-card-body > span { font-size: 12px; color: var(--amber-text); letter-spacing: 0.12em; font-weight: 800; }
-.service-card-body > strong { display: block; font-family: var(--font-heading); font-size: 19px; color: var(--navy); margin: 6px 0; }
-.service-card-body > p { font-size: 12px; color: var(--muted); line-height: 1.6; }
-.service-card-body > div { display: flex; justify-content: space-between; align-items: center; margin: 13px 0; }
+.service-card-body > strong { display: block; font-family: var(--font-heading); font-size: 19px; line-height: 1.25; color: var(--navy); margin: 6px 0 8px; }
+.service-card-body > p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+/* Descrição resumida: no máximo 3 linhas com "…" */
+.service-card-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.service-card-body > div { display: flex; justify-content: space-between; align-items: center; margin: auto 0 13px; padding-top: 13px; }
 .service-card-body small { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
 .service-card-body b { font-size: 12px; color: var(--navy); }
 .preview-banner { min-height: 38px; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 20px; font-size: 12px; font-weight: 700; }
@@ -548,3 +552,42 @@
 /* Quadro "Seu agendamento" para cliente nova: aviso do sinal em âmbar
    (#78350f × #fef3c7 = 8,15:1), em vez do verde de cliente recorrente. */
 .bk-loyal.is-signal { background: var(--amber-pale); color: var(--amber-text); }
+
+/* Rodapé sempre no fim da tela (Início, Agendar e Meu perfil).
+   Em monitores altos ou com zoom reduzido (ex.: 80%) a página fica mais baixa
+   que a janela e o rodapé "subia", deixando um vão vazio embaixo dele.
+   A área da cliente vira uma coluna: a página ocupa a altura que sobra e o
+   rodapé é empurrado para o fim (margin-top: auto). */
+.client-app { display: flex; flex-direction: column; }
+.client-app > main { flex: 1 0 auto; }
+.client-app > .storefront,
+.client-app > .bk-page,
+.client-app > .pf-page { display: flex; flex-direction: column; }
+.storefront > .storefront-footer,
+.bk-page > .pf-footer,
+.pf-page > .pf-footer { margin-top: auto; }
+/* Em coluna flex, blocos centralizados com margin auto encolheriam:
+   width 100% mantém a largura de antes (o max-width continua limitando).
+   O espaço mínimo entre o conteúdo e o rodapé (antes era a margem do rodapé)
+   passa para o bloco de cima, já que o rodapé agora usa margin-top: auto. */
+.bk-layout,
+.pf-container { width: 100%; margin-bottom: 48px; }
+@media (max-width: 700px) {
+  .bk-layout { margin-bottom: 40px; }
+}
+/* Aviso do sinal no "Cancelar agendamento?" (política de 24 horas).
+   Contraste (AAA): verde #14532d × #dcfce7 = 8,30:1; âmbar #78350f × #fef3c7 = 8,15:1;
+   neutro #334155 × #f8fafc = 9,90:1. */
+.cancel-refund-notice { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 12px 14px; border-radius: 10px; text-align: left; }
+.cancel-refund-notice svg { flex: none; margin-top: 1px; }
+.cancel-refund-notice p { margin: 0; font-size: 12px; line-height: 1.65; }
+/* Título do aviso (ex.: "Sem sinal a reembolsar") acima do texto */
+.cancel-refund-notice .cancel-refund-title { display: block; margin-bottom: 3px; font-size: 13px; font-weight: 800; }
+.cancel-refund-notice strong { color: inherit; }
+.cancel-refund-notice.is-ok { background: var(--green-bg); color: var(--green); }
+.cancel-refund-notice.is-warning { background: var(--amber-pale); color: var(--amber-text); }
+.cancel-refund-notice.is-neutral { background: var(--cream); color: #334155; border: 1px solid var(--line); }
+/* Aba Agendar sem serviço escolhido: mesmo cabeçalho da aba Serviços
+   (.section-kicker + .client-section-title + .client-intro), centralizado. */
+.bk-choose-service { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 42px; }
+.bk-choose-service .client-section-title { margin-bottom: 0; font-weight: 400; line-height: normal; }

@@ -22,6 +22,10 @@ const longDate = (iso) =>
 /** "2026-05-13" → "13/05/2026" */
 export const isoToBr = (iso) => (iso ? iso.split("-").reverse().join("/") : "")
 
+/** "2026-11-19T14:00" → "19/11 às 14:00" (prazos vindos do backend). */
+const deadlineLabel = (iso) =>
+  iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)} às ${iso.slice(11, 16)}` : ""
+
 /**
  * AgendamentoCliente (backend) → item da tela "Meu perfil".
  * Backend: { id, servicoId, nomeProcedimento, data, hora, duracao, valorServico,
@@ -53,6 +57,13 @@ export function toClientAppointment(a) {
     badge: apptLabel[status] ?? status,
     cancelledBy: a.canceladoPor,
     cancellationReason: a.motivoCancelamento,
+    // Cancelado pela cliente: true = com 24h ou mais de antecedência (pode
+    // pedir reembolso do sinal); false = menos de 24h; null = não se aplica.
+    cancelledInTime: a.cancelamentoNoPrazo ?? null,
+    // Ativo com sinal: até quando cancelar e ainda pedir o sinal de volta
+    // (prazo calculado no backend, 24h antes do horário).
+    refundUntil: a.cancelarComReembolsoAte ?? null,
+    refundUntilLabel: deadlineLabel(a.cancelarComReembolsoAte),
     // PENDENTE: prazo para a cliente confirmar ("2026-11-13T14:00" → "13/11 às 14:00")
     needsConfirmation: status === "PENDENTE",
     confirmBy: a.confirmarAte ?? null,
@@ -80,5 +91,12 @@ export function toManagerAppointment(a) {
     canceladoPor: a.canceladoPor,
     motivoCancelamento: a.motivoCancelamento,
     dataCancelamento: a.dataCancelamento,
+    // Política de 24h: sinal REGISTRADO (não confirma pagamento), se a cliente
+    // cancelou com 24h+ e a análise de reembolso (null | A_VERIFICAR | VERIFICADO).
+    valorSinal: a.valorSinal ?? null,
+    cancelamentoNoPrazo: a.cancelamentoNoPrazo ?? null,
+    reembolsoStatus: a.reembolsoStatus ?? null,
+    // Ativo com sinal: prazo da cliente para cancelar com reembolso ("19/11 às 14:00").
+    reembolsoAteLabel: deadlineLabel(a.cancelarComReembolsoAte),
   }
 }

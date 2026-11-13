@@ -9,18 +9,14 @@ Contas da **CA Beauty Clinic** para testar o sistema sem precisar cadastrar nada
 | **Cliente** (Luana Ferreira) | <http://localhost:5173/?clinica=ca-beauty-clinic> | `luana@email.com` | `Prontto@123` |
 | **Cliente** (Beatriz Lima) | <http://localhost:5173/?clinica=ca-beauty-clinic> | `beatriz@email.com` | `Prontto@123` |
 
-Luana e Beatriz existem só no **backend real** (não no mock).
-
-Os mesmos acessos funcionam com o backend real (`VITE_USE_MOCKS=false`) e com o
-mock (`VITE_USE_MOCKS=true`).
+O front sempre usa o backend Spring Boot (não precisa de `.env`); basta o MySQL e
+o Spring estarem rodando.
 
 ## De onde vêm
 
-- **Backend real:** o script
-  `backend/prontto-api/src/main/resources/seed-dev.sql` cria esses dados no
-  MySQL quando o Spring sobe (precisa subir pelo menos uma vez). Ele não
-  duplica nem apaga nada que já exista.
-- **Mock:** os dados de demonstração ficam em `src/mocks/data`.
+O script `backend/prontto-api/src/main/resources/seed-dev.sql` cria esses dados
+no MySQL quando o Spring sobe (precisa subir pelo menos uma vez). Ele não
+duplica nem apaga nada que já exista.
 
 ## O que já vem cadastrado (backend real)
 

@@ -34,8 +34,8 @@ export const authApi = {
    * }
    * BACKEND: validar idade mínima de 16 anos, CPF/CNPJ, e-mails diferentes e
    * aceites; gravar USUARIO, CLINICA, CATEGORIA, SERVICO, HORARIO e
-   * ACEITE_DOCUMENTO (papel 'GESTORA') numa transação. Passo a passo na rota
-   * /auth/gestora/cadastro de src/mocks/handlers.js.
+   * ACEITE_DOCUMENTO (papel 'GESTORA') numa transação (AuthService no
+   * backend: prontto_api/service/AuthService.java).
    */
   registerCompany: (payload) =>
     http.post("/auth/gestora/cadastro", payload).then(keepToken),

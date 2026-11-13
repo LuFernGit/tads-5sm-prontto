@@ -1,11 +1,17 @@
 package prontto_api.dto;
 
 import java.util.List;
+import java.util.Map;
 
+/**
+ * capasCategorias = { nome da categoria: foto de capa (data URL) }, só das
+ * categorias que têm foto própria; as outras usam a capa padrão da vitrine.
+ */
 public record ClinicaVitrineResponse(
         EmpresaPublicaResponse empresa,
         List<ServicoResponse> servicos,
-        List<String> categorias
+        List<String> categorias,
+        Map<String, String> capasCategorias
 ) {
     public record EmpresaPublicaResponse(
             String slug,

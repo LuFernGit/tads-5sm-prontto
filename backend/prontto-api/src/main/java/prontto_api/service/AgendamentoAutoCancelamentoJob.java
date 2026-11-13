@@ -19,7 +19,8 @@ import java.util.List;
 /**
  * Cancela automaticamente os agendamentos PENDENTES cuja cliente não confirmou
  * a presença até 24 horas antes (RegrasAgendamento.PRAZO_CONFIRMACAO_HORAS).
- * O horário volta a ficar livre na agenda.
+ * Vale para todas as clientes (novas e recorrentes); se havia sinal, ele fica
+ * retido. O horário volta a ficar livre na agenda.
  *
  * Roda a cada 5 minutos (e 30 segundos depois que o Spring sobe).
  */
@@ -76,6 +77,11 @@ public class AgendamentoAutoCancelamentoJob {
             a.setCanceladoPor("SISTEMA");
             a.setMotivoCancelamento(RegrasAgendamento.MOTIVO_SEM_CONFIRMACAO);
             a.setDataCancelamento(agora);
+            // Cancelado já dentro das 24h: se havia sinal, ele fica retido
+            // (a Agenda mostra "Sinal retido"; força maior: a cliente fala com a clínica).
+            if (RegrasAgendamento.temSinalRegistrado(a)) {
+                a.setCancelamentoNoPrazo(false);
+            }
             agendamentoRepository.save(a);
 
             LogAuditoria registro = new LogAuditoria();

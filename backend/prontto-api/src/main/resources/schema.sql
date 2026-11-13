@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS CATEGORIA (
     id_categoria INT PRIMARY KEY AUTO_INCREMENT,
     id_clinica INT NOT NULL,
     nome VARCHAR(100) NOT NULL,
+    capa LONGTEXT NULL,               -- foto de capa na vitrine (data URL); NULL = capa padrão
 
     CONSTRAINT uq_categoria_clinica_nome
         UNIQUE (id_clinica, nome),
@@ -257,6 +258,9 @@ CREATE TABLE IF NOT EXISTS AGENDAMENTO (
     cancelado_por ENUM('GESTORA', 'CLIENTE', 'SISTEMA') NULL,  -- SISTEMA = sem confirmação até 24h antes
     motivo_cancelamento VARCHAR(255) NULL,
     data_cancelamento DATETIME NULL,
+    cancelamento_no_prazo BOOLEAN NULL,      -- cliente cancelou com 24h+ de antecedência?
+    reembolso_status VARCHAR(20) NULL,       -- A_VERIFICAR | VERIFICADO (análise do sinal pela gestora)
+    reembolso_verificado_em DATETIME NULL,
     status ENUM(
         'PENDENTE',
         'CONFIRMADO',
@@ -658,6 +662,46 @@ SELECT f.id_anamnese, 1, f.alergias, f.observacoes_medicas,
        IF(JSON_VALID(f.respostas), f.respostas, NULL), f.data_atualizacao
 FROM FICHA_ANAMNESE f
 WHERE NOT EXISTS (SELECT 1 FROM FICHA_ANAMNESE_VERSAO v WHERE v.id_anamnese = f.id_anamnese);
+
+
+-- ============================================
+-- V7 (idempotente)
+--  - CATEGORIA.capa: foto de capa de cada categoria na vitrine, enviada pela
+--    gestora no cadastro da empresa ou em Serviços > Gerenciar categorias.
+-- ============================================
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CATEGORIA' AND COLUMN_NAME = 'capa');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE CATEGORIA ADD COLUMN capa LONGTEXT NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+
+
+-- ============================================
+-- V8 (idempotente)
+--  - AGENDAMENTO: política de cancelamento/reembolso de 24 horas.
+--    cancelamento_no_prazo = a cliente cancelou com 24h ou mais de antecedência;
+--    reembolso_status = A_VERIFICAR (sinal registrado, gestora precisa analisar)
+--    ou VERIFICADO. O Prontto não faz estorno: só sinaliza o caso.
+-- ============================================
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'AGENDAMENTO' AND COLUMN_NAME = 'cancelamento_no_prazo');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE AGENDAMENTO ADD COLUMN cancelamento_no_prazo BOOLEAN NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'AGENDAMENTO' AND COLUMN_NAME = 'reembolso_status');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE AGENDAMENTO ADD COLUMN reembolso_status VARCHAR(20) NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
+SET @col_existe = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'AGENDAMENTO' AND COLUMN_NAME = 'reembolso_verificado_em');
+SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE AGENDAMENTO ADD COLUMN reembolso_verificado_em DATETIME NULL', 'SELECT 1');
+PREPARE stmt_col FROM @sql_col;
+EXECUTE stmt_col;
+DEALLOCATE PREPARE stmt_col;
 
 
 -- ============================================

@@ -2,11 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "@/api"
 import { useLiveRefresh, useVersionRefresh } from "@/hooks/useLiveRefresh"
 import {
+  SESSION_IDLE_MINUTES,
   clearToken,
   getToken,
+  isIdleExpired,
   onSessionExpired,
   setSessionScope,
+  touchActivity,
 } from "@/api/session"
+
+/** Aviso mostrado quando a sessão é encerrada por inatividade. */
+const IDLE_MESSAGE = `Sua sessão foi encerrada após ${SESSION_IDLE_MINUTES} minutos sem atividade. Entre novamente para continuar.`
+// Eventos que contam como "a pessoa está usando o sistema".
+const ACTIVITY_EVENTS = ["pointerdown", "keydown", "wheel", "touchstart", "scroll"]
 
 /**
  * Estado global da aplicação: fluxo ativo (definido pela URL), sessão e
@@ -41,27 +49,31 @@ export function useAppSession() {
   }, [])
 
   // Fluxo da cliente: dados públicos da clínica do link.
-  const [clinic, setClinic] = useState(null) // { empresa, servicos, categorias }
+  const [clinic, setClinic] = useState(null) // { empresa, servicos, categorias, capasCategorias }
   const [clinicNotFound, setClinicNotFound] = useState(false)
 
   // Fluxo da gestora: empresa e catálogo.
   const [company, setCompany] = useState(null)
   const [serviceCatalog, setServiceCatalog] = useState([])
   const [serviceCategories, setServiceCategories] = useState([])
+  // Fotos de capa das categorias: { [nome]: capa } (só as que têm foto própria).
+  const [categoryCovers, setCategoryCovers] = useState({})
   // Ref com o valor mais recente da empresa, usada para desfazer se o salvamento falhar.
   const companyRef = useRef(company)
   companyRef.current = company
 
   /** Depois do login da gestora: busca empresa, serviços e categorias ao mesmo tempo. */
   const loadManagerWorkspace = useCallback(async () => {
-    const [empresa, servicos, categorias] = await Promise.all([
+    const [empresa, servicos, categorias, capas] = await Promise.all([
       api.company.get(),
       api.catalog.listServices(),
       api.catalog.listCategories(),
+      api.catalog.listCategoryCovers(),
     ])
     setCompany(empresa)
     setServiceCatalog(servicos)
     setServiceCategories(categorias)
+    setCategoryCovers(capas || {})
   }, [])
 
   /** Fluxo da cliente: busca os dados públicos da clínica do link. 404 = clínica não existe. */
@@ -89,6 +101,13 @@ export function useAppSession() {
         if (!cancelled) setModeState(visitorMode)
         return
       }
+      // Recarregou depois de muito tempo parada: a sessão já venceu por inatividade.
+      if (isIdleExpired()) {
+        clearToken()
+        notify(IDLE_MESSAGE)
+        if (!cancelled) setModeState(visitorMode)
+        return
+      }
       try {
         // Já existe token salvo: pergunta ao backend quem é o usuário e qual o perfil dele.
         // O perfil precisa combinar com o link (cliente no link da clínica, gestora no link do Prontto).
@@ -102,15 +121,48 @@ export function useAppSession() {
           clearToken()
           if (!cancelled) setModeState(visitorMode)
         }
-      } catch {
-        clearToken()
+      } catch (error) {
+        // Só descarta o login se o backend disser que o token não vale (401/403).
+        // Falha passageira (backend reiniciando, timeout, erro 500) não desloga:
+        // ao recarregar de novo, a sessão volta.
+        if (error?.status === 401 || error?.status === 403) clearToken()
+        else notify("Não foi possível restaurar sua sessão agora. Recarregue a página em instantes.", "error")
         if (!cancelled) setModeState(visitorMode)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [clinicSlug, loadClinic, loadManagerWorkspace, visitorMode])
+  }, [clinicSlug, loadClinic, loadManagerWorkspace, notify, visitorMode])
+
+  // INATIVIDADE: logada (gestora, cliente ou visualização da vitrine), cada
+  // clique, tecla, toque ou rolagem renova o prazo; sem atividade por
+  // SESSION_IDLE_MINUTES, a sessão é encerrada e volta para o login/vitrine.
+  const loggedIn = mode === "admin" || mode === "client" || mode === "preview"
+  useEffect(() => {
+    if (!loggedIn) return undefined
+    touchActivity()
+    let lastTouch = Date.now()
+    // No máximo 1 gravação a cada 15s (o mouse dispara muitos eventos).
+    const onActivity = () => {
+      if (Date.now() - lastTouch < 15000) return
+      lastTouch = Date.now()
+      touchActivity()
+    }
+    ACTIVITY_EVENTS.forEach((name) =>
+      window.addEventListener(name, onActivity, { passive: true }),
+    )
+    const timer = window.setInterval(() => {
+      if (!getToken() || !isIdleExpired()) return
+      api.auth.logout()
+      setModeState(visitorMode)
+      notify(IDLE_MESSAGE)
+    }, 30000)
+    return () => {
+      ACTIVITY_EVENTS.forEach((name) => window.removeEventListener(name, onActivity))
+      window.clearInterval(timer)
+    }
+  }, [loggedIn, notify, visitorMode])
 
   useEffect(
     () =>
@@ -136,15 +188,17 @@ export function useAppSession() {
   // ex.: alteração feita em outra aba ou outro aparelho. Só troca o que mudou.
   useLiveRefresh(
     async () => {
-      const [empresa, servicos, categorias] = await Promise.all([
+      const [empresa, servicos, categorias, capas] = await Promise.all([
         api.company.get(),
         api.catalog.listServices(),
         api.catalog.listCategories(),
+        api.catalog.listCategoryCovers(),
       ])
       const changed = (a, b) => JSON.stringify(a) !== JSON.stringify(b)
       setCompany((current) => (changed(current, empresa) ? empresa : current))
       setServiceCatalog((current) => (changed(current, servicos) ? servicos : current))
       setServiceCategories((current) => (changed(current, categorias) ? categorias : current))
+      setCategoryCovers((current) => (changed(current, capas || {}) ? capas || {} : current))
     },
     { enabled: mode === "admin", interval: 20000 },
   )
@@ -223,12 +277,24 @@ export function useAppSession() {
   }
 
   // Categorias: o backend devolve a lista completa já atualizada.
-  const addCategory = async (nome) =>
-    setServiceCategories(await api.catalog.createCategory(nome))
+  // capa = foto de capa obrigatória (data URL), já reduzida no navegador.
+  const addCategory = async (nome, capa) => {
+    setServiceCategories(await api.catalog.createCategory(nome, capa))
+    setCategoryCovers((current) => ({ ...current, [nome]: capa }))
+  }
+
+  /** Troca a foto de capa da categoria. */
+  const setCategoryCover = async (nome, capa) =>
+    setCategoryCovers((await api.catalog.setCategoryCover(nome, capa)) || {})
 
   /** Exclui a categoria; com "moverPara", os serviços dela vão para a outra categoria. */
   const removeCategory = async (nome, moverPara) => {
     setServiceCategories(await api.catalog.deleteCategory(nome, moverPara))
+    setCategoryCovers((current) => {
+      const next = { ...current }
+      delete next[nome]
+      return next
+    })
     if (moverPara) setServiceCatalog(await api.catalog.listServices())
   }
 
@@ -243,11 +309,13 @@ export function useAppSession() {
           company: clinic.empresa,
           services: clinic.servicos,
           categories: clinic.categorias,
+          categoryCovers: clinic.capasCategorias || {},
         }
       : {
           company,
           services: serviceCatalog,
           categories: serviceCategories,
+          categoryCovers,
         }
 
   return {
@@ -263,10 +331,12 @@ export function useAppSession() {
     company,
     serviceCatalog,
     serviceCategories,
+    categoryCovers,
     updateCompany,
     saveService,
     setServiceActive,
     addCategory,
+    setCategoryCover,
     removeCategory,
     loginManager,
     registerCompany,

@@ -72,10 +72,11 @@ public class ClinicaService {
                 ))
                 .toList();
 
-        var categorias = categoriaRepository.findByClinicaId(clinica.getId())
-                .stream()
+        var categoriasDaClinica = categoriaRepository.findByClinicaId(clinica.getId());
+        var categorias = categoriasDaClinica.stream()
                 .map(cat -> cat.getNome())
                 .toList();
+        var capasCategorias = CatalogoService.capasDaClinica(categoriasDaClinica);
 
         var empresaPublica = new ClinicaVitrineResponse.EmpresaPublicaResponse(
                 clinica.getSlug(),
@@ -99,7 +100,7 @@ public class ClinicaService {
                 clinica.getPoliticaCancelamento()
         );
 
-        return new ClinicaVitrineResponse(empresaPublica, servicosAtivos, categorias);
+        return new ClinicaVitrineResponse(empresaPublica, servicosAtivos, categorias, capasCategorias);
     }
 
     /** Hash dos dados públicos da vitrine (sem transferir as imagens). */
@@ -122,7 +123,10 @@ public class ClinicaService {
                         add.accept(v);
                     }
                 });
-        categoriaRepository.findByClinicaId(c.getId()).forEach(cat -> add.accept(cat.getNome()));
+        categoriaRepository.findByClinicaId(c.getId()).forEach(cat -> {
+            add.accept(cat.getNome());
+            add.accept(cat.getCapa());
+        });
         documentoTermoRepository.findByClinicaIdOuPlataforma(c.getId()).stream()
                 .filter(d -> "PUBLICADO".equals(d.getStatus()))
                 .forEach(d -> add.accept(d.getId()));

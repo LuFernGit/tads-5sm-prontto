@@ -22,7 +22,7 @@ export const scheduleApi = {
    *          agendamentoId?, client?, whatsapp?, service?,  (quando busy)
    *          bloqueio?: { id, inicio, fim } }                (quando blocked)
    * BACKEND: calcula os slots a partir de HORARIO, BLOQUEIO_HORARIO e AGENDAMENTO
-   * (implementação de referência na rota /gestora/painel de src/mocks/handlers.js).
+   * (GestoraAdminService.obterPainelSemanal no backend).
    */
   /**
    * GET /gestora/agenda/versao → { versao } (leve). Muda quando uma cliente

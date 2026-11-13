@@ -61,6 +61,16 @@ public class ClienteAreaController {
         return ResponseEntity.ok(clienteAreaService.confirmarAgendamento(cliente, id));
     }
 
+    /**
+     * GET /cliente/agendamentos/{id}/cancelamento → prévia: se cancelar agora,
+     * está no prazo de 24h para pedir reembolso do sinal? (não cancela nada)
+     */
+    @GetMapping("/agendamentos/{id}/cancelamento")
+    public ResponseEntity<CancelamentoPreviaResponse> previaCancelamento(Authentication authentication, @PathVariable Long id) {
+        Usuario cliente = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(clienteAreaService.previaCancelamento(cliente, id));
+    }
+
     @PostMapping("/agendamentos/{id}/cancelamento")
     public ResponseEntity<AgendamentoClienteResponse> cancelarAgendamento(Authentication authentication, @PathVariable Long id, @RequestBody @Valid MotivoCancelamentoRequest request) {
         Usuario cliente = (Usuario) authentication.getPrincipal();

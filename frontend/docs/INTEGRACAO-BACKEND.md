@@ -1,27 +1,33 @@
 # Integração do front com o backend Spring Boot
 
 Este documento é o contrato entre o front (React + Vite) e o backend (Spring Boot).
-A implementação de referência de cada rota está em `src/mocks/handlers.js`: ela
-mostra exatamente o que o front envia e espera receber.
+O front fala **só** com o Spring: o backend falso (`src/mocks`) foi removido em
+13/11/2026, quando a integração terminou. A implementação de cada rota está nos
+services do backend (`backend/prontto-api/src/main/java/prontto_api/service`).
 
 ## 1. Como o front chama a API
 
 ```
 Tela  →  api.<domínio>.<ação>()  →  src/api/http.js  →  Spring Boot
-                                            ↘ (VITE_USE_MOCKS=true) src/mocks
 ```
 
 - `src/api/services/*.js`: uma função por endpoint, com o contrato no JSDoc.
 - `src/api/http.js`: `fetch` com JSON, token JWT, timeout e tratamento de erro.
-- `src/api/session.js`: guarda o token no `localStorage`, um por fluxo
-  (`gestora` ou `cliente:<slug>`).
+- `src/api/session.js`: guarda o token no `sessionStorage`, um por fluxo
+  (`gestora` ou `cliente:<slug>`). Recarregar a página mantém o login; **fechar a
+  aba/navegador encerra a sessão**. Sem atividade (clique, tecla, toque,
+  rolagem) por `SESSION_IDLE_MINUTES` (30 min), a sessão também é encerrada
+  com aviso (`useAppSession`). Ao restaurar a sessão, o token só é descartado
+  se o backend responder 401/403.
 - Telas carregam dados com `useApiQuery` e mostram carregando/erro com `<AsyncState>`.
 
-### Variáveis de ambiente (`.env.local`, a partir do `.env.example`)
+### Variáveis de ambiente (opcionais: `.env.local`, a partir do `.env.example`)
+
+**Não é preciso criar `.env`** para rodar: sem ele, o `npm run dev` já chama o
+Spring em `http://localhost:8080`. Use `.env.local` só para mudar os padrões.
 
 | Variável              | Padrão                  | Uso                                      |
 | --------------------- | ----------------------- | ---------------------------------------- |
-| `VITE_USE_MOCKS`      | `true`                  | `false` para chamar o Spring             |
 | `VITE_API_URL`        | `/api`                  | Prefixo de todas as rotas                |
 | `VITE_BACKEND_URL`    | `http://localhost:8080` | Destino do proxy do `npm run dev`        |
 | `VITE_API_TIMEOUT_MS` | `15000`                 | Timeout por requisição                   |
@@ -106,7 +112,7 @@ front (`src/lib/format.js` e `src/api/adapters.js`).
 | Método | Rota                          | Corpo                                          | Resposta          |
 | ------ | ----------------------------- | ---------------------------------------------- | ----------------- |
 | POST   | `/auth/gestora/login`         | `{ email, senha }`                             | `{ token, usuario }` |
-| POST   | `/auth/gestora/cadastro`      | `{ empresa, gestora, servicos[], categorias[], aceites }` (abaixo) | `{ token, usuario }` |
+| POST   | `/auth/gestora/cadastro`      | `{ empresa, gestora, servicos[], categorias[], capasCategorias, aceites }` (abaixo) | `{ token, usuario }` |
 | POST   | `/clinicas/{slug}/auth/login` | `{ email, senha }` (403 se for e-mail de gestora) | `{ token, usuario }` |
 | POST   | `/clinicas/{slug}/clientes`   | `{ usuario, ficha, aceite }` (abaixo)           | `{ token, usuario }` |
 | GET    | `/auth/me`                    | —                                              | `usuario`         |
@@ -128,6 +134,7 @@ Cadastro da empresa (montado em `src/screens/auth/CompanyRegistrationPage.jsx`):
                "senha": "...", "dataNascimento": "1994-03-18", "whatsapp": "11999887766" },
   "servicos": [{ "name": "...", "category": "...", "duration": 60, "price": 150, "description": "...", "image": "..." }],
   "categorias": ["..."],
+  "capasCategorias": { "Pilates": "data:image/jpeg;base64,..." }, // obrigatória p/ cada categoria → CATEGORIA.capa
   "aceites": { "termosUso": true, "politicaPrivacidade": true, "termosClinica": true, "dataHora": "ISO" }
 }
 ```
@@ -149,7 +156,7 @@ Cadastro da cliente (montado em `src/screens/client/ClientRegisterPage.jsx`):
 
 | Método | Rota                                              | Resposta |
 | ------ | ------------------------------------------------- | -------- |
-| GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias }`; 404 se o slug não existir ou a clínica estiver ENCERRADA. `empresa` traz também `termsOfUse`/`privacyPolicy` (texto da versão PUBLICADA), `clinicTermsDocument`/`clinicTermsFileName` (PDF publicado), `hoursText` e `cancellationPolicy` |
+| GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias, capasCategorias }` (`capasCategorias` = `{ [nome]: capa }` só das categorias com foto própria); 404 se o slug não existir ou a clínica estiver ENCERRADA. `empresa` traz também `termsOfUse`/`privacyPolicy` (texto da versão PUBLICADA), `clinicTermsDocument`/`clinicTermsFileName` (PDF publicado), `hoursText` e `cancellationPolicy` |
 | GET    | `/clinicas/{slug}/versao`                         | `{ versao }` — hash leve (sem imagens) dos dados públicos. A vitrine consulta a cada 15s/ao voltar à aba e só recarrega `/clinicas/{slug}` quando muda (ex.: serviço desativado some na hora) |
 | GET    | `/clinicas/{slug}/calendario?mes=YYYY-MM`         | `{ diasLotados: number[], diasSemanaFechados: number[], diasBloqueados: number[] }` (0 = domingo; `diasBloqueados` = bloqueio do dia inteiro → "Fechado"). Usada pela agenda da cliente **e** pelo calendário do mês da gestora |
 | GET    | `/clinicas/{slug}/horarios?data=&servicoId=`      | `[{ label: "MANHÃ", slots: [{ time: "09:00", occupied: false }] }]` |
@@ -160,7 +167,7 @@ Cadastro da cliente (montado em `src/screens/client/ClientRegisterPage.jsx`):
 `termsOfUse`, `privacyPolicy`, `clinicTermsDocument`, `clinicTermsFileName`.
 **Não devolver** `cpfCnpj` (pode ser o CPF pessoal da profissional autônoma),
 `ownerName` nem `status`: a vitrine não usa esses dados (LGPD, art. 6º, III —
-princípio da necessidade). Referência: `publicCompanyOut` em `src/mocks/handlers.js`.
+princípio da necessidade). Referência: `obterVitrinePorSlug` em `ClinicaService.java`.
 
 As rotas de calendário e horários devolvem **só disponibilidade**: nenhum nome
 de cliente, serviço agendado ou contato. Como são abertas, recomenda-se limitar
@@ -182,7 +189,9 @@ O link da cliente é `https://<front>/?clinica=<slug>`.
 | PUT    | `/gestora/servicos/{id}`            | `Servico`    | `Servico`    |
 | PATCH  | `/gestora/servicos/{id}/status`     | `{ active }` | `Servico`    |
 | GET    | `/gestora/categorias`               | —            | `string[]`   |
-| POST   | `/gestora/categorias`               | `{ nome }`   | `string[]` (409 se já existir) |
+| POST   | `/gestora/categorias`               | `{ nome, capa }` | `string[]` (409 se já existir). `capa` = foto de capa (data URL), **obrigatória** (400 se faltar) |
+| GET    | `/gestora/categorias/capas`         | —            | `{ [nome]: capa }` (só categorias com foto) |
+| PUT    | `/gestora/categorias/{nome}/capa`   | `{ capa }`   | `{ [nome]: capa }` atualizado. `capa` obrigatória (400 se vier vazia) |
 | DELETE | `/gestora/categorias/{nome}?moverPara=Outra` | —   | `string[]`. Com serviços na categoria, eles são **movidos** para `moverPara` e a categoria é excluída (409 se tiver serviços e faltar `moverPara`) |
 
 ### Gestora: clientes, agenda e agendamentos
@@ -198,6 +207,17 @@ O link da cliente é `https://<front>/?clinica=<slug>`.
 | GET    | `/gestora/agenda/versao`                     | `{ versao }` — hash leve de agendamentos, bloqueios e nº de clientes (para o painel recarregar só quando algo mudar) |
 | GET    | `/gestora/agendamentos`                      | → `AgendamentoGestora[]` |
 | POST   | `/gestora/agendamentos/{id}/cancelamento`    | `{ motivo }` (obrigatório) → `AgendamentoGestora` |
+| POST   | `/gestora/agendamentos/{id}/reembolso/verificado` | — → `AgendamentoGestora` (`reembolsoStatus` A_VERIFICAR → VERIFICADO; só registra a análise, não movimenta dinheiro) |
+
+`AgendamentoGestora` também traz `valorSinal` (registrado), `cancelamentoNoPrazo` e
+`reembolsoStatus` (`null` | `A_VERIFICAR` | `VERIFICADO`): a Agenda mostra o selo
+"Cliente aguardando reembolso" / "Reembolso verificado", ou "Sinal retido" quando a
+cliente cancelou com menos de 24h (`cancelamentoNoPrazo = false` com sinal).
+
+`AgendamentoGestora` e `AgendamentoCliente` trazem `cancelarComReembolsoAte`
+("YYYY-MM-DDTHH:mm", 24h antes do horário) quando o agendamento está ativo
+(PENDENTE/CONFIRMADO) e tem sinal registrado; `null` nos outros casos. É usado
+nos avisos "cancele até 19/11 às 14:00 para pedir o reembolso do sinal".
 | GET    | `/gestora/painel?semana=YYYY-MM-DD`          | → `{ dias, datas, horarios: Slot[][], proximos }` (calculado; `semana` = qualquer dia da semana desejada, opcional — sem ele, semana atual) |
 | GET    | `/gestora/horarios-funcionamento`            | → linhas da tabela HORARIO |
 | PUT    | `/gestora/horarios-funcionamento`            | `[{ dia_semana: "SEGUNDA", hora_inicio: "09:00:00", hora_fim: "12:00:00", ativo }]` |
@@ -266,13 +286,15 @@ Não existe mais rota de "pedidos LGPD": a exclusão de conta é imediata (seç�
 | GET    | `/cliente/agendamentos`                    | → `AgendamentoCliente[]` |
 | POST   | `/cliente/agendamentos`                    | `{ servicoId, data, hora, valorSinal }` → `AgendamentoCliente` (400 se a data/hora já passou; **400 se cliente nova sem sinal pago**) |
 | POST   | `/cliente/agendamentos/{id}/confirmacao`   | — → `AgendamentoCliente` (cliente confirma a presença; só PENDENTE e até 24h antes) |
-| POST   | `/cliente/agendamentos/{id}/cancelamento`  | `{ motivo }` → `AgendamentoCliente` |
+| GET    | `/cliente/agendamentos/{id}/cancelamento`  | — → prévia `{ agendamentoId, noPrazo, temSinal, valorSinal, prazoReembolso: "YYYY-MM-DDTHH:mm", prazoHoras }` (não cancela; usada para o aviso do sinal antes de confirmar) |
+| POST   | `/cliente/agendamentos/{id}/cancelamento`  | `{ motivo }` → `AgendamentoCliente` (com `cancelamentoNoPrazo`). 409 se já cancelado/concluído; 400 se o horário já passou |
 
 **Regras de sinal e confirmação** (`RegrasAgendamento.java`):
 
-- **Cliente nova:** só agenda com o sinal pago → nasce `CONFIRMADO`. Não existe agendamento com sinal pendente.
-- **Cliente recorrente** (isenta de sinal): nasce `PENDENTE` e confirma a presença na área dela até **24h antes** (`confirmarAte` na resposta). Se agendar já dentro das 24h, nasce `CONFIRMADO`.
-- Sem confirmação até o prazo, um job do backend (a cada 5 min) cancela: `status CANCELADO`, `canceladoPor "SISTEMA"`, motivo "Presença não confirmada até 24 horas antes do horário.".
+- **Cliente nova:** só agenda com o sinal pago. Não existe agendamento com sinal pendente.
+- **Todo agendamento (cliente nova ou recorrente) nasce `PENDENTE`** e só vira `CONFIRMADO` quando a cliente confirma a presença na área dela ("Confirmar presença" + modal de confirmação), até **24h antes** (`confirmarAte` na resposta). Se agendar já dentro das 24h, nasce `CONFIRMADO`.
+- Sem confirmação até o prazo, um job do backend (a cada 5 min) cancela: `status CANCELADO`, `canceladoPor "SISTEMA"`, motivo "Presença não confirmada até 24 horas antes do horário.". Vale também para quem pagou sinal: o sinal fica retido (`cancelamentoNoPrazo = false`; a Agenda mostra "Sinal retido").
+- Só agendamento `CONFIRMADO` vira `CONCLUIDO` depois do horário (e torna a cliente recorrente).
 - `AgendamentoCliente` traz também `canceladoPor`, `motivoCancelamento` e `confirmarAte`.
 - **Lembrete:** aviso "Confirme sua presença" no perfil da cliente; no painel, a gestora tem o botão "Lembrar de confirmar" (WhatsApp com mensagem pronta).
 - **Visitante:** ao clicar em "Entrar para confirmar", a escolha (serviço, dia, horário) fica em `sessionStorage` (`src/lib/pendingBooking.js`) e é recuperada depois do login/cadastro.
@@ -282,7 +304,7 @@ Não existe mais rota de "pedidos LGPD": a exclusão de conta é imediata (seç�
 
 Os nomes de campo seguem o que as telas já usam (entre parênteses, a coluna do
 banco). No Spring, basta o DTO ter esses nomes ou usar `@JsonProperty`.
-Exemplos completos estão em `src/mocks/data/`.
+Exemplos completos de dados estão no `seed-dev.sql` do backend.
 
 ```jsonc
 // Empresa → CLINICA (cores NÃO existem: a vitrine usa sempre a paleta padrão)
@@ -328,7 +350,7 @@ Exemplos completos estão em `src/mocks/data/`.
 ## 6. O que o backend faz (regras de negócio)
 
 Resumo das decisões do projeto. Cada rota também tem um comentário **BACKEND:**
-explicando o passo a passo em `src/mocks/handlers.js` e em `src/api/services/*.js`.
+explicando o passo a passo em `src/api/services/*.js`.
 
 **Cadastros e idade mínima**
 - Gestora precisa ter **16 anos** e cliente **15 anos**. O front avisa e valida,
@@ -352,6 +374,12 @@ explicando o passo a passo em `src/mocks/handlers.js` e em `src/api/services/*.j
 - Categorias ficam na tabela CATEGORIA (`UNIQUE (id_clinica, nome)`); o serviço
   envia o nome e o backend grava `SERVICO.id_categoria`. Não apagar categoria com
   serviços (409).
+- Foto de capa da categoria: `CATEGORIA.capa` (LONGTEXT, data URL), **obrigatória**
+  ao criar categoria (cadastro da empresa, etapa 4, e Serviços > Gerenciar
+  categorias) e ao trocar ("Trocar capa"). A coluna aceita `NULL` só por causa de
+  categorias antigas, criadas antes da regra: elas usam a capa padrão até a
+  gestora escolher uma foto. O front reduz a foto para até 1600 px
+  (JPEG) antes de enviar. Coluna criada pela migração V7 do `schema.sql`.
 - Desativar serviço é exclusão lógica (`ativo = 0`), nunca DELETE.
 
 **Agenda (opção A: sem horários avulsos)**
@@ -373,6 +401,24 @@ explicando o passo a passo em `src/mocks/handlers.js` e em `src/api/services/*.j
   (ex.: serviço de 2h → último horário 17:00).
 - Cancelamento (gestora ou cliente): `status = 'CANCELADO'`, `cancelado_por`,
   `motivo_cancelamento`, `data_cancelamento`, e LOG_AUDITORIA.
+- **Política de cancelamento e reembolso de 24 horas** (proposta da equipe; regra
+  só no backend, em `RegrasAgendamento`):
+  - conta a **data e a hora exatas** do agendamento, no fuso de São Paulo;
+    exatamente 24h antes ainda está no prazo;
+  - a cliente só cancela agendamento PENDENTE/CONFIRMADO cujo horário ainda não
+    passou (409/400 nos outros casos);
+  - cancelamento pela cliente grava `cancelamento_no_prazo` (24h ou mais?) e, se
+    estiver no prazo **e** houver `valor_sinal` registrado,
+    `reembolso_status = 'A_VERIFICAR'`. Cliente recorrente (isenta) não tem
+    sinal → nada a reembolsar;
+  - com menos de 24h o sinal é **perdido, exceto em caso de força maior**: nesse
+    caso a cliente entra em contato com a clínica, que avalia por fora. Não gera
+    pendência (`reembolso_status` fica `NULL`); a Agenda mostra só o selo
+    informativo "Sinal retido";
+  - o Prontto **não** faz estorno, transferência nem confirma pagamento: só avisa
+    a cliente e mostra o caso para a gestora, que marca `VERIFICADO` depois de
+    resolver por fora (LOG_AUDITORIA `REEMBOLSO_VERIFICADO`). Colunas criadas pela
+    migração V8 do `schema.sql`.
 
 **Estados da agenda (o que a cliente vê no calendário)**
 
@@ -386,9 +432,6 @@ explicando o passo a passo em `src/mocks/handlers.js` e em `src/api/services/*.j
 
 No painel da gestora os mesmos dados aparecem com mais detalhe (`free`, `busy` com
 o nome da cliente, `blocked` com o bloqueio), porque ela está logada.
-
-> No backend falso (`src/mocks`), `diasLotados` ainda é uma lista fixa de
-> demonstração; no Spring ele deve ser calculado pela regra acima.
 
 **Ficha de anamnese**
 - `respostas` (JSON) guarda todas as perguntas; `alergias` (≤ 255) e
@@ -425,7 +468,7 @@ LOG_AUDITORIA. Dados com obrigação legal de guarda não são apagados.
 (Pix/cartão em `DepositStep.jsx`); só o valor vai para `AGENDAMENTO.valor_sinal`.
 As cores da vitrine também não são personalizáveis.
 
-**Imagens** que a gestora envia (logo, capa, favicon, foto do serviço) vão como
+**Imagens** que a gestora envia (logo, capa, favicon, foto do serviço, capa da categoria) vão como
 data URL dentro do JSON. Se preferirem upload separado, criem uma rota multipart
 e usem `http.upload` no front.
 
@@ -434,22 +477,23 @@ As imagens da **clínica de demonstração** ficam no próprio projeto, como arq
 - capa de cada categoria: `public/images/categorias/<nome-da-categoria>.jpg`
   (ex.: `nail-design.jpg`), definidas em `storefrontCategories` (`src/constants/index.js`);
 - foto de cada serviço: `public/images/servicos/<id-do-serviço>.jpg`
-  (ex.: `lash-fox.jpg`), referenciada no campo `image` de `src/mocks/data/services.js`.
+  (ex.: `lash-fox.jpg`), referenciada na coluna `foto_servico` pelo `seed-dev.sql`.
 
 Para trocar uma foto, basta substituir o arquivo mantendo o mesmo nome. Os caminhos
 usam `import.meta.env.BASE_URL`, então funcionam no `npm run dev` e com o site
-publicado em subpasta. Categoria criada pela gestora sem imagem própria usa a capa
-padrão (`DEFAULT_CATEGORY_COVER`). O campo `image` aceita tanto um caminho/URL
+publicado em subpasta. Quando a gestora envia uma foto de capa para a categoria
+(`capasCategorias`), ela substitui a capa padrão (`getCategoryMeta` em
+`src/lib/booking.js`). Categoria sem foto própria usa a capa da demonstração ou
+`DEFAULT_CATEGORY_COVER`. O campo `image` aceita tanto um caminho/URL
 quanto uma data URL.
 
 ## 7. Checklist da integração
 
-1. Subir o Spring em `http://localhost:8080` com as rotas acima sob `/api`.
-2. Criar `.env.local` com `VITE_USE_MOCKS=false`.
-3. `npm run dev` e testar os dois fluxos:
+1. Subir o MySQL e o Spring em `http://localhost:8080` (rotas sob `/api`).
+2. `npm install` e `npm run dev` no front (não precisa de `.env`).
+3. Testar os dois fluxos (acessos em `docs/ACESSOS-DE-TESTE.md`):
    - Gestora: `http://localhost:5173/`
    - Cliente: `http://localhost:5173/?clinica=<slug>`
-4. Quando tudo funcionar, apagar a pasta `src/mocks` (veja `src/mocks/README.md`).
 
 
 ## Regras de cadastro e recorrência (12/11/2026)

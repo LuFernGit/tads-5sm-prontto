@@ -156,7 +156,12 @@
 .input-prefix input,
 .input-suffix input { border: 0; border-radius: 0; box-shadow: none !important; min-width: 0; width: 100%; }
 .character-count { font-size: 12px; color: #475569; text-align: right; margin-top: -2px; }
-.category-create { display: flex; align-items: center; gap: 9px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
+.category-create { display: flex; align-items: center; justify-content: flex-end; gap: 9px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
+/* Nova categoria: nome, foto de capa (opcional) e o botão "Adicionar categoria" */
+.category-create-form { display: grid; gap: 12px; }
+.category-create-name { display: grid; gap: 6px; }
+.category-create-name > span { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; color: #475569; }
+.category-create-name input,
 .category-create input {
   flex: 1;
   min-height: 42px;
@@ -167,6 +172,7 @@
   font-size: 12px;
   outline: 0;
 }
+.category-create-name input:focus,
 .category-create input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-pale); }
 .category-manager-list { display: grid; gap: 7px; margin-top: 15px; }
 .category-manager-list > div { display: flex; align-items: center; padding: 11px; border: 1px solid var(--line); border-radius: 10px; }
@@ -176,6 +182,28 @@
 /* Excluir categoria: vermelho do sistema (#7f1d1d × #fee2e2 = 8,20:1), como na Agenda */
 .category-manager-list button { width: 32px; height: 32px; border: 1px solid #fca5a5; border-radius: 8px; background: var(--red-bg); color: var(--red); cursor: pointer; font-size: 16px; }
 .category-manager-list button:disabled { background: var(--cream); border-color: var(--line); color: #475569; cursor: not-allowed; }
+/* Miniatura da capa e botão "Trocar capa" em cada categoria */
+.category-manager-list > div { gap: 12px; }
+.category-manager-list .category-thumb { width: 64px; height: 44px; flex: none; border-radius: 8px; object-fit: cover; background: var(--cream); border: 1px solid var(--line); }
+.category-manager-list .category-cover-btn {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid #94a3b8;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.category-manager-list .category-cover-btn:hover { border-color: var(--amber); background: var(--amber-pale); }
+@media (max-width: 520px) {
+  .category-manager-list > div { flex-wrap: wrap; }
+  .category-manager-list span { min-width: 140px; }
+}
 @media (max-width: 700px) {
   .page-head-actions { flex-direction: column; }
   .service-form,

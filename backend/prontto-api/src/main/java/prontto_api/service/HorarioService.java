@@ -31,6 +31,9 @@ public class HorarioService {
         Clinica clinica = validarClinicaGestora(gestoraAutenticada);
         return horarioRepository.findByClinicaId(clinica.getId())
                 .stream()
+                // Segunda → domingo e, no dia, da faixa mais cedo para a mais tarde.
+                .sorted(java.util.Comparator.comparing(Horario::getDiaSemana)
+                        .thenComparing(Horario::getHoraInicio))
                 .map(h -> new HorarioFuncionamentoDto(
                         h.getDiaSemana().name(),
                         h.getHoraInicio().toString(),
@@ -69,6 +72,10 @@ public class HorarioService {
 
         return bloqueioHorarioRepository.findByClinicaIdAndDataBetween(clinica.getId(), inicio, fim)
                 .stream()
+                // Por data e, no mesmo dia, o dia inteiro primeiro e depois por horário.
+                .sorted(java.util.Comparator.comparing(BloqueioHorario::getData)
+                        .thenComparing(BloqueioHorario::getHoraInicio,
+                                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
                 .map(b -> new BloqueioHorarioDto(
                         b.getId(),
                         b.getData().toString(),

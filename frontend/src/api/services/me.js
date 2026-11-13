@@ -47,10 +47,6 @@ export const meApi = {
     http.post("/cliente/agendamentos", agendamento).then(toClientAppointment),
 
   /**
-   * POST /cliente/agendamentos/{id}/cancelamento  { motivo }
-   * BACKEND: status CANCELADO, cancelado_por 'CLIENTE', motivo e data_cancelamento.
-   */
-  /**
    * POST /cliente/agendamentos/{id}/confirmacao
    * Cliente recorrente (isenta de sinal) confirma a presença num agendamento
    * PENDENTE. Só até 24h antes; depois o backend cancela automaticamente.
@@ -60,6 +56,21 @@ export const meApi = {
       .post(`/cliente/agendamentos/${id}/confirmacao`)
       .then(toClientAppointment),
 
+  /**
+   * GET /cliente/agendamentos/{id}/cancelamento → prévia (não cancela nada):
+   * { agendamentoId, noPrazo, temSinal, valorSinal, prazoReembolso: "YYYY-MM-DDTHH:mm", prazoHoras }
+   * O BACKEND calcula a regra das 24h (data + hora exatas, fuso de São Paulo);
+   * o front só escolhe o aviso a mostrar antes da confirmação.
+   */
+  getCancellationPreview: (id) =>
+    http.get(`/cliente/agendamentos/${id}/cancelamento`),
+
+  /**
+   * POST /cliente/agendamentos/{id}/cancelamento  { motivo }
+   * BACKEND: status CANCELADO, cancelado_por 'CLIENTE', motivo, data_cancelamento,
+   * cancelamento_no_prazo (24h+?) e, se houver sinal registrado,
+   * reembolso_status = 'A_VERIFICAR' (aviso para a gestora).
+   */
   cancelAppointment: (id, motivo) =>
     http
       .post(`/cliente/agendamentos/${id}/cancelamento`, { motivo })
@@ -69,7 +80,7 @@ export const meApi = {
    * POST /cliente/conta/exclusao — exclusão IMEDIATA da conta (LGPD).
    * Não existe fila de pedidos: o backend anonimiza o USUARIO na hora, mantém
    * agendamentos e ficha (acesso só da gestora), registra LOG_AUDITORIA e
-   * invalida o token. Detalhes em src/mocks/handlers.js (rota de exclusão).
+   * invalida o token (ClienteAreaService.excluirContaLGPD no backend).
    */
   deleteAccount: () => http.post("/cliente/conta/exclusao"),
 }

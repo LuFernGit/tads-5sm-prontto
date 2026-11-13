@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class AuthService {
@@ -177,10 +178,13 @@ public class AuthService {
         modeloMensagemRepository.saveAll(GestoraAdminService.modelosPadraoFaltantes(clinica, List.of()));
 
         if (request.categorias() != null) {
+            var capas = request.capasCategorias() != null ? request.capasCategorias() : Map.<String, String>of();
             for (String nomeCat : request.categorias()) {
                 Categoria cat = new Categoria();
                 cat.setClinica(clinica);
                 cat.setNome(nomeCat.trim());
+                // Foto de capa escolhida no cadastro (obrigatória para cada categoria).
+                cat.setCapa(CatalogoService.capaObrigatoria(capas.get(nomeCat), nomeCat.trim()));
                 categoriaRepository.save(cat);
             }
         }
@@ -330,16 +334,27 @@ public class AuthService {
         return new TokenResponse(token, montarUsuarioSessao(cliente, clinica.getSlug()));
     }
 
+    /**
+     * GET /auth/me (restaurar a sessão ao recarregar a página).
+     * O usuário que chega aqui vem do filtro do JWT, FORA de uma transação: ler
+     * usuario.getClinica().getSlug() nele (clinica é LAZY) lançava
+     * LazyInitializationException → 400 → o front apagava o token e a CLIENTE
+     * "saía" a cada recarregamento. Por isso o usuário é recarregado aqui,
+     * dentro de uma transação de leitura.
+     */
+    @Transactional(readOnly = true)
     public UsuarioSessaoResponse obterSessaoAtual(Usuario usuarioAutenticado) {
+        Usuario usuario = usuarioRepository.findById(usuarioAutenticado.getId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado."));
         String slug = null;
-        if (usuarioAutenticado.getTipo() == TipoUsuario.CLIENTE && usuarioAutenticado.getClinica() != null) {
-            slug = usuarioAutenticado.getClinica().getSlug();
-        } else if (usuarioAutenticado.getTipo() == TipoUsuario.GESTORA) {
-            slug = clinicaRepository.findByGestoraId(usuarioAutenticado.getId())
+        if (usuario.getTipo() == TipoUsuario.CLIENTE && usuario.getClinica() != null) {
+            slug = usuario.getClinica().getSlug();
+        } else if (usuario.getTipo() == TipoUsuario.GESTORA) {
+            slug = clinicaRepository.findByGestoraId(usuario.getId())
                     .map(Clinica::getSlug)
                     .orElse(null);
         }
-        return montarUsuarioSessao(usuarioAutenticado, slug);
+        return montarUsuarioSessao(usuario, slug);
     }
 
     public void recuperarSenha(String email) {

@@ -26,8 +26,22 @@ export const catalogApi = {
   /** GET /gestora/categorias → string[] (tabela CATEGORIA da clínica) */
   listCategories: () => http.get("/gestora/categorias"),
 
-  /** POST /gestora/categorias  { nome } → string[] (lista atualizada; 409 se já existir) */
-  createCategory: (nome) => http.post("/gestora/categorias", { nome }),
+  /**
+   * POST /gestora/categorias  { nome, capa } → string[] (lista atualizada; 409 se já existir)
+   * capa = foto de capa na vitrine (data URL), OBRIGATÓRIA → CATEGORIA.capa
+   */
+  createCategory: (nome, capa) =>
+    http.post("/gestora/categorias", { nome, capa }),
+
+  /** GET /gestora/categorias/capas → { [nome]: capa } (só categorias com foto própria) */
+  listCategoryCovers: () => http.get("/gestora/categorias/capas"),
+
+  /**
+   * PUT /gestora/categorias/{nome}/capa  { capa } → { [nome]: capa } atualizado
+   * capa obrigatória (400 se vier vazia).
+   */
+  setCategoryCover: (nome, capa) =>
+    http.put(`/gestora/categorias/${encodeURIComponent(nome)}/capa`, { capa }),
 
   /**
    * DELETE /gestora/categorias/{nome}?moverPara=Outra → string[]

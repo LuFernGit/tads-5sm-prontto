@@ -72,7 +72,19 @@
 .af-appt-info strong { font-size: 14px; color: var(--navy); }
 .af-appt-info > span { font-size: 13px; color: var(--muted); }
 .af-appt .ff-btn { min-height: 40px; padding: 0 14px; font-size: 13px; }
+/* Situação + selo do sinal (política de 24h), um embaixo do outro */
+.af-appt-tags { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+/* Selos do sinal — contraste AAA: âmbar #78350f × #fef3c7 = 8,15:1;
+   navy #0f172a × #f1f5f9 = 16,3:1 */
+.af-status.refund { background: var(--amber-pale); color: var(--amber-text); box-shadow: inset 0 0 0 1px #f59e0b; }
+.af-status.refund-late { background: var(--amber-pale); color: var(--amber-text); box-shadow: inset 0 0 0 1px #d6d3d1; }
+.af-status.refund-done { background: #f1f5f9; color: var(--navy); box-shadow: inset 0 0 0 1px #cbd5e1; }
+/* Modal "Detalhes": bloco "Sinal e reembolso" */
+.af-refund { display: grid; gap: 8px; margin-top: 12px; }
+.af-refund p { margin: 0; }
+.af-refund strong { color: var(--navy); }
 @media (max-width: 760px) {
+  .af-appt-tags { align-items: flex-start; }
   .af-appt-list .af-appt { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; align-items: start; }
   .af-appt-when { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 0 0 8px; border-right: 0; border-bottom: 1px solid var(--line); }
   .af-appt .ff-btn { grid-column: 1 / -1; width: 100%; }

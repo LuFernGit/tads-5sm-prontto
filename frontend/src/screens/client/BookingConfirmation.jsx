@@ -9,6 +9,28 @@ import "./BookingConfirmation.css"
    Mostra o resumo, a situação do sinal e leva os dados ao WhatsApp.
    ============================================================ */
 /**
+ * Textos que mudam quando o agendamento nasceu PENDENTE (a cliente ainda
+ * precisa confirmar a presença em "Meu perfil") ou já CONFIRMADO.
+ */
+function confirmationTexts({ needsConfirmation, confirmByLabel, recurring, companyName }) {
+  if (!needsConfirmation)
+    return {
+      kicker: "AGENDAMENTO CONFIRMADO",
+      subtitle: "Seu horário está reservado. Agora é só se preparar para o seu momento.",
+      reminder: "",
+      greeting: `Meu agendamento na ${companyName} está confirmado.`,
+    }
+  const until = confirmByLabel ? `até ${confirmByLabel}` : "até 24 horas antes do horário"
+  const lostSignal = recurring ? "" : " e o sinal fica retido"
+  return {
+    kicker: "AGENDAMENTO REALIZADO",
+    subtitle: `Seu horário está reservado. Para garantir o atendimento, confirme sua presença em “Meu perfil” ${until}.`,
+    reminder: ` Confirme sua presença em “Meu perfil” ${until}; sem a confirmação, o agendamento é cancelado automaticamente${lostSignal}.`,
+    greeting: `Fiz um agendamento na ${companyName}.`,
+  }
+}
+
+/**
  * Tela final do agendamento: "Tudo certo, <nome>!".
  */
 function BookingConfirmation({
@@ -22,7 +44,19 @@ function BookingConfirmation({
   clientName,
   clientWhatsapp,
   onBack,
+  // Agendamento nasceu PENDENTE: a cliente ainda precisa confirmar a presença
+  // em "Meu perfil" até confirmByLabel ("19/11 às 14:00").
+  needsConfirmation = false,
+  confirmByLabel = "",
 }) {
+  const texts = confirmationTexts({
+    needsConfirmation,
+    confirmByLabel,
+    recurring,
+    companyName: company.name,
+  })
+  // Lembrete de confirmação mostrado na situação do sinal (isento ou pago).
+  const confirmReminder = texts.reminder
   const firstName = String(clientName ?? "").split(" ")[0]
   // Preço em reais (número), vindo de SERVICO.preco
   const total = Number(service.price) || 0
@@ -41,7 +75,7 @@ function BookingConfirmation({
         : `${brl(signal)} (pendente)`
   // Mensagem do comprovante enviada pelo WhatsApp
   const text = [
-    `Olá! Sou ${clientName}${clientWhatsapp ? ` (WhatsApp ${clientWhatsapp})` : ""}. Meu agendamento na ${company.name} está confirmado.`,
+    `Olá! Sou ${clientName}${clientWhatsapp ? ` (WhatsApp ${clientWhatsapp})` : ""}. ${texts.greeting}`,
     `Procedimento: ${service.name}`,
     `Data e horário: ${date} às ${time}`,
     `Valor: ${brl(total)}`,
@@ -56,10 +90,10 @@ function BookingConfirmation({
   return (
     <BookingFlowLayout
       icon={<Icon name="check" size={22} />}
-      kicker="AGENDAMENTO CONFIRMADO"
+      kicker={texts.kicker}
       title={`Tudo certo, ${firstName}!`}
       titleId="ff-ok-title"
-      subtitle="Seu horário está reservado. Agora é só se preparar para o seu momento."
+      subtitle={texts.subtitle}
       company={company}
       cardLabel="Confirmação de agendamento"
       actions={
@@ -89,12 +123,12 @@ function BookingConfirmation({
       {recurring ? (
         <BookingStatus
           title="Pagamento de sinal – isento"
-          text="Realizar pagamento do valor total ao final do procedimento. Lembre-se de confirmar sua presença em “Meu perfil” até 24 horas antes do horário; sem a confirmação, o agendamento é cancelado automaticamente."
+          text={`Realizar pagamento do valor total ao final do procedimento.${confirmReminder}`}
         />
       ) : payment ? (
         <BookingStatus
           title="Pagamento de sinal – aprovado"
-          text="Realizar pagamento do saldo restante ao final do procedimento."
+          text={`Realizar pagamento do saldo restante ao final do procedimento.${confirmReminder}`}
         />
       ) : (
         <div className="bf-box">

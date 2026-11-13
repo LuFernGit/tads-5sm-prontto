@@ -303,8 +303,11 @@ function DepositStep({
           <h2>Condições de cancelamento</h2>
           <p>
             Cancelamentos e reagendamentos devem ser pedidos com no mínimo 24
-            horas de antecedência. Quando aplicável, vale o direito de
-            arrependimento do Código de Defesa do Consumidor (art. 49).
+            horas de antecedência.
+            {signal !== null &&
+              " Cancelando com 24 horas ou mais, você pode pedir o reembolso do sinal à clínica. Com menos de 24 horas, o sinal é perdido, exceto em caso de força maior; nesse caso, fale com a clínica."}{" "}
+            Quando aplicável, vale o direito de arrependimento do Código de
+            Defesa do Consumidor (art. 49).
           </p>
         </div>
         <label className="bf-check" htmlFor="ff-cancel">

@@ -56,7 +56,12 @@ public class GestoraAdminService {
             dias.add(weekShort[i] + " " + String.format("%02d", diaData.getDayOfMonth()));
 
             DiaSemana diaEnum = diasSemana[i];
-            List<Horario> ranges = horarioRepository.findByClinicaIdAndDiaSemana(clinica.getId(), diaEnum);
+            // Faixas do dia em ordem (manhã antes da tarde): sem isso o painel
+            // podia mostrar 13:00, 14:00... antes de 09:00, 10:00.
+            List<Horario> ranges = horarioRepository.findByClinicaIdAndDiaSemana(clinica.getId(), diaEnum)
+                    .stream()
+                    .sorted(java.util.Comparator.comparing(Horario::getHoraInicio))
+                    .toList();
             List<BloqueioHorario> bloqueios = bloqueioHorarioRepository.findByClinicaIdAndDataBetween(clinica.getId(), diaData, diaData);
             List<Agendamento> agendamentos = agendamentoRepository.findByServicoClinicaIdAndData(clinica.getId(), diaData);
 
@@ -747,7 +752,7 @@ public class GestoraAdminService {
     public List<DestinatarioMensagemDto> listarDestinatarios(Usuario gestora) {
         Clinica clinica = buscarClinicaGestora(gestora);
         List<Agendamento> ags = agendamentoRepository.findByServicoClinicaIdAndStatusNot(clinica.getId(), StatusAgendamento.CANCELADO);
-        return ags.stream().map(a -> new DestinatarioMensagemDto(
+        return ags.stream().sorted(prontto_api.domain.RegrasAgendamento.ORDEM_DATA_HORA).map(a -> new DestinatarioMensagemDto(
                 a.getCliente().getNome(),
                 a.getCliente().getWhatsapp(),
                 a.getNomeProcedimento(),

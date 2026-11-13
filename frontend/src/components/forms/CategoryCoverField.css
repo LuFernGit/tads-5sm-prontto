@@ -1,0 +1,60 @@
+/* Estilos de CategoryCoverField.jsx (importado só por ele).
+   Contraste (AAA): textos #475569 sobre branco = 7,58:1; selo branco sobre
+   rgba(15,23,42,.78) ≈ 13:1. */
+
+.cover-field { display: grid; gap: 6px; min-width: 0; }
+.cover-field-label { display: grid; gap: 6px; cursor: pointer; }
+.cover-field-label > span { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; color: #475569; }
+/* Input de arquivo escondido (o quadro é o alvo do clique). Seletor mais
+   específico para vencer regras genéricas como ".registration-form input". */
+.cover-field .cover-field-label input { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+
+/* Quadro largo, parecido com o cartão da categoria na vitrine */
+.cover-field-box {
+  position: relative;
+  height: 120px;
+  border: 1px dashed #94a3b8;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  transition: border-color 0.18s ease;
+}
+.cover-field-box.has-photo { border-style: solid; border-color: var(--line); }
+.cover-field-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cover-field-label:hover .cover-field-box { border-color: var(--amber); }
+.cover-field-label:focus-within .cover-field-box { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.cover-field-label:has([aria-invalid="true"]) .cover-field-box { border: 1px solid var(--red); }
+
+/* Botão visual "Escolher foto / Trocar foto" sobre a imagem */
+.cover-field-cta {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+}
+.cover-field-badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cover-field-hint { font-size: 12px; color: #475569; }

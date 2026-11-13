@@ -102,6 +102,16 @@ public class GestoraController {
         return ResponseEntity.ok(agendamentoService.cancelarAgendamentoGestora(gestora, id, request.motivo()));
     }
 
+    /**
+     * POST /gestora/agendamentos/{id}/reembolso/verificado → a gestora já analisou
+     * o sinal de um cancelamento feito pela cliente (reembolso_status VERIFICADO).
+     */
+    @PostMapping("/agendamentos/{id}/reembolso/verificado")
+    public ResponseEntity<AgendamentoGestoraResponse> marcarReembolsoVerificado(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(agendamentoService.marcarReembolsoVerificado(gestora, id));
+    }
+
     @GetMapping("/clientes")
     public ResponseEntity<List<ClienteGestoraResponse>> listarClientes(Authentication authentication) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
@@ -156,6 +166,21 @@ public class GestoraController {
     public ResponseEntity<List<String>> criarCategoria(Authentication authentication, @RequestBody @Valid CategoriaRequest request) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
         return ResponseEntity.status(201).body(catalogoService.criarCategoria(gestora, request));
+    }
+
+    /** GET /gestora/categorias/capas → { nome: capa } das categorias com foto própria. */
+    @GetMapping("/categorias/capas")
+    public ResponseEntity<Map<String, String>> listarCapasCategorias(Authentication authentication) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(catalogoService.listarCapasCategorias(gestora));
+    }
+
+    /** PUT /gestora/categorias/{nome}/capa { capa } → troca a foto (obrigatória; 400 se vazia). */
+    @PutMapping("/categorias/{nome}/capa")
+    public ResponseEntity<Map<String, String>> atualizarCapaCategoria(Authentication authentication, @PathVariable String nome,
+                                                                      @RequestBody CategoriaCapaRequest request) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(catalogoService.atualizarCapaCategoria(gestora, nome, request != null ? request.capa() : null));
     }
 
     /** DELETE /gestora/categorias/{nome}?moverPara=Outra → move os serviços e exclui. */

@@ -23,4 +23,9 @@ public class Categoria {
 
     @Column(nullable = false, length = 100)
     private String nome;
+
+    /** Foto de capa da categoria na vitrine (data URL base64). Null = capa padrão. */
+    @Lob
+    @Column(name = "capa", columnDefinition = "LONGTEXT")
+    private String capa;
 }

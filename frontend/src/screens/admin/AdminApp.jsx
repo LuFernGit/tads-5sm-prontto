@@ -28,9 +28,11 @@ function AdminApp({
   notify,
   serviceCatalog,
   serviceCategories,
+  categoryCovers,
   onSaveService,
   onSetServiceActive,
   onAddCategory,
+  onSetCategoryCover,
   onRemoveCategory,
   company,
   setCompany,
@@ -139,9 +141,11 @@ function AdminApp({
               notify={notify}
               serviceRows={serviceCatalog}
               serviceCategories={serviceCategories}
+              categoryCovers={categoryCovers}
               onSaveService={onSaveService}
               onSetServiceActive={onSetServiceActive}
               onAddCategory={onAddCategory}
+              onSetCategoryCover={onSetCategoryCover}
               onRemoveCategory={onRemoveCategory}
             />
           )}

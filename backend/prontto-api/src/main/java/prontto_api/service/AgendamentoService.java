@@ -128,20 +128,30 @@ public class AgendamentoService {
         return agendamentoRepository.findAll()
                 .stream()
                 .filter(a -> a.getServico() != null && a.getServico().getClinica().getId().equals(clinica.getId()))
-                .map(a -> new AgendamentoGestoraResponse(
-                        a.getId().toString(),
-                        a.getCliente() != null ? a.getCliente().getNome() : null,
-                        a.getCliente() != null ? a.getCliente().getWhatsapp() : null,
-                        a.getNomeProcedimento(),
-                        a.getData().toString(),
-                        a.getHora().toString(),
-                        a.getServico() != null ? a.getServico().getDuracao() : null,
-                        a.getStatus().name(),
-                        a.getCanceladoPor(),
-                        a.getMotivoCancelamento(),
-                        a.getDataCancelamento() != null ? a.getDataCancelamento().toString() : null
-                ))
+                .sorted(RegrasAgendamento.ORDEM_DATA_HORA)
+                .map(this::paraResponseGestora)
                 .toList();
+    }
+
+    /** Agendamento → resposta da gestora (inclui sinal registrado e análise de reembolso). */
+    private AgendamentoGestoraResponse paraResponseGestora(Agendamento a) {
+        return new AgendamentoGestoraResponse(
+                a.getId().toString(),
+                a.getCliente() != null ? a.getCliente().getNome() : null,
+                a.getCliente() != null ? a.getCliente().getWhatsapp() : null,
+                a.getNomeProcedimento(),
+                a.getData().toString(),
+                a.getHora().toString(),
+                a.getServico() != null ? a.getServico().getDuracao() : null,
+                a.getStatus().name(),
+                a.getCanceladoPor(),
+                a.getMotivoCancelamento(),
+                a.getDataCancelamento() != null ? a.getDataCancelamento().toString() : null,
+                a.getValorSinal(),
+                a.getCancelamentoNoPrazo(),
+                a.getReembolsoStatus(),
+                RegrasAgendamento.cancelarComReembolsoAte(a)
+        );
     }
 
     @Transactional
@@ -170,19 +180,36 @@ public class AgendamentoService {
         log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
 
-        return new AgendamentoGestoraResponse(
-                a.getId().toString(),
-                a.getCliente().getNome(),
-                a.getCliente().getWhatsapp(),
-                a.getNomeProcedimento(),
-                a.getData().toString(),
-                a.getHora().toString(),
-                a.getServico().getDuracao(),
-                a.getStatus().name(),
-                a.getCanceladoPor(),
-                a.getMotivoCancelamento(),
-                a.getDataCancelamento() != null ? a.getDataCancelamento().toString() : null
-        );
+        return paraResponseGestora(a);
+    }
+
+    /**
+     * A gestora registra que já analisou o sinal de um cancelamento feito pela
+     * cliente (o Prontto não faz estorno: o reembolso, se devido, é feito fora).
+     */
+    @Transactional
+    public AgendamentoGestoraResponse marcarReembolsoVerificado(Usuario gestora, Long idAgendamento) {
+        Clinica clinica = validarClinicaGestora(gestora);
+        Agendamento a = agendamentoRepository.findById(idAgendamento)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Agendamento não encontrado."));
+        if (!a.getServico().getClinica().getId().equals(clinica.getId())) {
+            throw new RegraNegocioException("O agendamento não pertence à clínica da gestora.");
+        }
+        if (a.getReembolsoStatus() == null) {
+            throw new RegraNegocioException("Este agendamento não tem sinal para analisar.");
+        }
+        if (RegrasAgendamento.REEMBOLSO_A_VERIFICAR.equals(a.getReembolsoStatus())) {
+            a.setReembolsoStatus(RegrasAgendamento.REEMBOLSO_VERIFICADO);
+            a.setReembolsoVerificadoEm(RegrasAgendamento.agora());
+            agendamentoRepository.save(a);
+
+            LogAuditoria log = new LogAuditoria();
+            log.setUsuario(gestora);
+            log.setAcao("REEMBOLSO_VERIFICADO");
+            log.setIpOrigem(IpOrigem.atual());
+            logAuditoriaRepository.save(log);
+        }
+        return paraResponseGestora(a);
     }
 
     private Clinica validarClinicaGestora(Usuario gestora) {

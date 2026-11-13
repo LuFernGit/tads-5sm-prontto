@@ -55,6 +55,24 @@ public class Agendamento {
     @Column(name = "data_cancelamento")
     private LocalDateTime dataCancelamento;
 
+    /**
+     * Cancelamento pela cliente: true = feito com 24h ou mais de antecedência
+     * (pode pedir reembolso do sinal); false = menos de 24h. Null nos outros casos.
+     */
+    @Column(name = "cancelamento_no_prazo")
+    private Boolean cancelamentoNoPrazo;
+
+    /**
+     * Análise do sinal pela gestora (RegrasAgendamento): A_VERIFICAR quando a
+     * cliente cancela um agendamento com sinal registrado; VERIFICADO depois que
+     * a gestora analisa. O reembolso em si é feito fora do Prontto.
+     */
+    @Column(name = "reembolso_status", length = 20)
+    private String reembolsoStatus;
+
+    @Column(name = "reembolso_verificado_em")
+    private LocalDateTime reembolsoVerificadoEm;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private StatusAgendamento status = StatusAgendamento.PENDENTE;

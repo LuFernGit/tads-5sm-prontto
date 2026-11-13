@@ -50,7 +50,9 @@
 .alert-pill.green { background: var(--green-bg); color: var(--green); }
 .alert-pill.neutral { background: #f1f5f9; color: #334155; } /* 9,45:1 */
 /* Clientes */
-.clients-table .table-row { grid-template-columns: 1.4fr 1.2fr 0.9fr 1.15fr 1.05fr; }
+/* padding: respiro nas laterais da linha — o avatar não encosta na borda (nem
+   no fundo cinza da cliente anonimizada). O cabeçalho também recebe, e segue alinhado. */
+.clients-table .table-row { grid-template-columns: 1.4fr 1.2fr 0.9fr 1.15fr 1.05fr; padding: 0 16px; }
 .client-initials {
   width: 32px;
   height: 32px;

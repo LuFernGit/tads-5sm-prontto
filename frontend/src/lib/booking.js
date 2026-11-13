@@ -2,15 +2,17 @@ import { DEFAULT_CATEGORY_COVER, storefrontCategories } from "@/constants"
 
 /**
  * Localiza os metadados visuais de uma categoria ou fornece valores padrão.
+ * covers = { [nome]: capa } enviadas pela gestora (CATEGORIA.capa): quando a
+ * categoria tem foto própria, ela substitui a capa padrão.
  */
-function getCategoryMeta(name) {
-  return (
-    storefrontCategories.find((category) => category.name === name) || {
-      name,
-      copy: "Serviços personalizados para realçar sua beleza e bem-estar.",
-      image: DEFAULT_CATEGORY_COVER,
-    }
-  )
+function getCategoryMeta(name, covers) {
+  const meta = storefrontCategories.find((category) => category.name === name) || {
+    name,
+    copy: "Serviços personalizados para realçar sua beleza e bem-estar.",
+    image: DEFAULT_CATEGORY_COVER,
+  }
+  const cover = covers?.[name]
+  return cover ? { ...meta, image: cover } : meta
 }
 
 /**
