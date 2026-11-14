@@ -17,8 +17,10 @@ Tela  →  api.<domínio>.<ação>()  →  src/api/http.js  →  Spring Boot
   (`gestora` ou `cliente:<slug>`). Recarregar a página mantém o login; **fechar a
   aba/navegador encerra a sessão**. Sem atividade (clique, tecla, toque,
   rolagem) por `SESSION_IDLE_MINUTES` (30 min), a sessão também é encerrada
-  com aviso (`useAppSession`). Ao restaurar a sessão, o token só é descartado
-  se o backend responder 401/403.
+  (`useAppSession`). No último minuto (`SESSION_WARNING_SECONDS`) aparece o
+  aviso "Você ainda está aí?" com contagem regressiva, "Continuar conectada" e
+  "Sair agora" (`components/ui/SessionTimeoutWarning`, WCAG 2.2.1). Ao restaurar
+  a sessão, o token só é descartado se o backend responder 401/403.
 - Telas carregam dados com `useApiQuery` e mostram carregando/erro com `<AsyncState>`.
 
 ### Variáveis de ambiente (opcionais: `.env.local`, a partir do `.env.example`)

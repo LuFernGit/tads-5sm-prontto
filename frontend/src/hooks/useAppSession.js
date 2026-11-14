@@ -3,8 +3,10 @@ import { api } from "@/api"
 import { useLiveRefresh, useVersionRefresh } from "@/hooks/useLiveRefresh"
 import {
   SESSION_IDLE_MINUTES,
+  SESSION_WARNING_SECONDS,
   clearToken,
   getToken,
+  idleRemainingMs,
   isIdleExpired,
   onSessionExpired,
   setSessionScope,
@@ -138,13 +140,44 @@ export function useAppSession() {
   // INATIVIDADE: logada (gestora, cliente ou visualização da vitrine), cada
   // clique, tecla, toque ou rolagem renova o prazo; sem atividade por
   // SESSION_IDLE_MINUTES, a sessão é encerrada e volta para o login/vitrine.
+  // SESSION_WARNING_SECONDS antes do fim aparece um aviso com contagem
+  // regressiva e "Continuar conectada" (WCAG 2.2.1).
   const loggedIn = mode === "admin" || mode === "client" || mode === "preview"
+  // Segundos até encerrar enquanto o aviso está aberto; null = sem aviso.
+  const [idleSecondsLeft, setIdleSecondsLeft] = useState(null)
+  // Com o aviso aberto, atividade solta (ex.: Tab até o botão) não o fecha:
+  // só "Continuar conectada" ou fechar o aviso renovam a sessão.
+  const warningOpenRef = useRef(false)
+
+  const closeIdleWarning = useCallback(() => {
+    warningOpenRef.current = false
+    setIdleSecondsLeft(null)
+  }, [])
+
+  /** "Continuar conectada": renova o prazo de inatividade e fecha o aviso. */
+  const stayConnected = useCallback(() => {
+    touchActivity()
+    closeIdleWarning()
+  }, [closeIdleWarning])
+
+  /** Encerra a sessão agora (botão "Sair agora" ou prazo vencido). */
+  const endSession = useCallback(
+    (message) => {
+      closeIdleWarning()
+      api.auth.logout()
+      setModeState(visitorMode)
+      notify(message)
+    },
+    [closeIdleWarning, notify, visitorMode],
+  )
+
   useEffect(() => {
     if (!loggedIn) return undefined
     touchActivity()
     let lastTouch = Date.now()
     // No máximo 1 gravação a cada 15s (o mouse dispara muitos eventos).
     const onActivity = () => {
+      if (warningOpenRef.current) return
       if (Date.now() - lastTouch < 15000) return
       lastTouch = Date.now()
       touchActivity()
@@ -152,17 +185,28 @@ export function useAppSession() {
     ACTIVITY_EVENTS.forEach((name) =>
       window.addEventListener(name, onActivity, { passive: true }),
     )
+    // A cada segundo: abre/atualiza o aviso no último minuto e encerra no fim.
     const timer = window.setInterval(() => {
-      if (!getToken() || !isIdleExpired()) return
-      api.auth.logout()
-      setModeState(visitorMode)
-      notify(IDLE_MESSAGE)
-    }, 30000)
+      if (!getToken()) return
+      const left = idleRemainingMs()
+      if (left <= 0) {
+        endSession(IDLE_MESSAGE)
+        return
+      }
+      if (left <= SESSION_WARNING_SECONDS * 1000) {
+        warningOpenRef.current = true
+        setIdleSecondsLeft(Math.ceil(left / 1000))
+      } else if (warningOpenRef.current) {
+        // Renovada em outra aba do mesmo fluxo: fecha o aviso aqui também.
+        closeIdleWarning()
+      }
+    }, 1000)
     return () => {
       ACTIVITY_EVENTS.forEach((name) => window.removeEventListener(name, onActivity))
       window.clearInterval(timer)
+      closeIdleWarning()
     }
-  }, [loggedIn, notify, visitorMode])
+  }, [loggedIn, endSession, closeIdleWarning])
 
   useEffect(
     () =>
@@ -343,5 +387,9 @@ export function useAppSession() {
     loginClient,
     registerClient,
     clientView,
+    // Aviso de inatividade: segundos restantes (null = fechado) e ações.
+    idleSecondsLeft,
+    stayConnected,
+    endSessionNow: () => endSession("Você saiu da sua conta."),
   }
 }

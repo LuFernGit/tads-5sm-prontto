@@ -15,6 +15,11 @@ const ACTIVITY_PREFIX = "prontto.atividade."
 /** Minutos sem nenhuma atividade até a sessão ser encerrada automaticamente. */
 export const SESSION_IDLE_MINUTES = 30
 const IDLE_MS = SESSION_IDLE_MINUTES * 60 * 1000
+/**
+ * Segundos de aviso antes de encerrar (WCAG 2.2.1, nível A: avisar e deixar a
+ * pessoa continuar com uma ação simples, com pelo menos 20 segundos para isso).
+ */
+export const SESSION_WARNING_SECONDS = 60
 
 let scope = "gestora"
 // Funções que querem ser avisadas quando a sessão expirar (padrão 'observer').
@@ -82,14 +87,23 @@ export function touchActivity() {
   }
 }
 
-/** true se passou mais de SESSION_IDLE_MINUTES desde a última atividade registrada. */
-export function isIdleExpired() {
+/**
+ * Milissegundos que faltam para a sessão encerrar por inatividade
+ * (Infinity se não houver atividade registrada; ≤ 0 se já venceu).
+ */
+export function idleRemainingMs() {
   try {
     const last = Number(storage()?.getItem(ACTIVITY_PREFIX + scope))
-    return Number.isFinite(last) && last > 0 && Date.now() - last > IDLE_MS
+    if (!Number.isFinite(last) || last <= 0) return Infinity
+    return IDLE_MS - (Date.now() - last)
   } catch {
-    return false
+    return Infinity
   }
+}
+
+/** true se passou mais de SESSION_IDLE_MINUTES desde a última atividade registrada. */
+export function isIdleExpired() {
+  return idleRemainingMs() < 0
 }
 
 /** Apaga o token: usado no logout e quando a sessão expira. */

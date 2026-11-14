@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import SessionTimeoutWarning from "@/components/ui/SessionTimeoutWarning"
 import Toast from "@/components/ui/Toast"
 import { useAppSession } from "@/hooks/useAppSession"
 import { useHash } from "@/hooks/useHash"
@@ -45,6 +46,9 @@ export default function App() {
     loginClient,
     registerClient,
     clientView,
+    idleSecondsLeft,
+    stayConnected,
+    endSessionNow,
   } = state
   // Favicon e título da aba: Prontto no fluxo da gestora; logo da clínica no link da cliente.
   const tabCompany = clinicSlug ? clinicCompany : null
@@ -165,6 +169,12 @@ export default function App() {
         />
       )}
       {toast}
+      {/* Último minuto antes de encerrar a sessão por inatividade (WCAG 2.2.1). */}
+      <SessionTimeoutWarning
+        secondsLeft={idleSecondsLeft}
+        onStay={stayConnected}
+        onLeave={endSessionNow}
+      />
     </div>
   )
 }
