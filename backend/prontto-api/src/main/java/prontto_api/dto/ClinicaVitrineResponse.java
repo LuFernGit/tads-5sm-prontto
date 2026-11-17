@@ -29,9 +29,22 @@ public record ClinicaVitrineResponse(
             String address,
             String termsOfUse,
             String privacyPolicy,
-            String clinicTermsDocument,
-            String clinicTermsFileName,
             String hoursText,
-            String cancellationPolicy
+            String cancellationPolicy,
+            // Documentos PUBLICADOS da clínica e do Prontto (texto e/ou PDF).
+            // O PDF não vem aqui (pesava a vitrine): é baixado à parte em
+            // GET /clinicas/{slug}/documentos/{id}/pdf quando temPdf = true.
+            List<DocumentoPublicoResponse> documents
+    ) {}
+
+    public record DocumentoPublicoResponse(
+            Long id,
+            String tipo,           // TERMOS_USO, POLITICA_PRIVACIDADE, TERMO_CLINICA, TERMO_EXCLUSAO
+            boolean plataforma,   // true = documento do Prontto (id_clinica NULL)
+            String titulo,
+            String versao,
+            String conteudo,      // texto (pode ser vazio quando só há PDF)
+            boolean temPdf,
+            String nomeArquivo
     ) {}
 }

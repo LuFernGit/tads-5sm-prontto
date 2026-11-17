@@ -1,6 +1,8 @@
 import Icon from "@/components/ui/Icon"
 import StorefrontFooter from "@/components/layout/StorefrontFooter"
 import { instagramLink } from "@/lib/instagram"
+import { findDocument } from "@/lib/documents"
+import DocumentView from "@/components/ui/DocumentView"
 import { maskPhone } from "@/lib/masks"
 import "./LegalPage.css"
 
@@ -73,45 +75,42 @@ function ContactCard({ icon, label, value, href, hint, external = false }) {
 }
 
 /**
- * Exibe termos de uso, política de privacidade ou canais de contato da empresa.
- * Visual da área da cliente: logo e nome da clínica no topo e rodapé da vitrine.
+ * Texto dos termos de uso ou da política de privacidade. Usado na página
+ * (#termos, #privacidade) e no modal do cadastro do cliente, que não pode
+ * sair da tela sem perder o que já foi preenchido. No modal, o título fica no
+ * cabeçalho do próprio modal (inModal esconde o h1).
  */
-// kind = 'termos' | 'privacidade' | 'contato' (vem do # da URL, veja App.jsx).
-function LegalPage({ kind, company, onBack }) {
-  const wa = `https://wa.me/55${company.phone.replace(/\D/g, "")}`
-  const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`
-  const instagram = instagramLink(company.instagram)
+export function LegalText({ kind, company, inModal = false, platform = false }) {
+  const title = (text) => (inModal ? null : <h1 id="lg-title">{text}</h1>)
+  // Documento publicado DA CLÍNICA (texto e/ou PDF), vindo da vitrine. Com
+  // platform = true (aceite "Termos do Prontto" no cadastro) só vale o texto
+  // do Prontto. Sem documento da clínica, também vale o do Prontto.
+  const clinicDoc = platform
+    ? null
+    : findDocument(company, kind === "termos" ? "TERMOS_USO" : "POLITICA_PRIVACIDADE", false)
+  if (clinicDoc && (kind === "termos" || kind === "privacidade"))
+    return (
+      <>
+        {title(clinicDoc.titulo)}
+        <DocumentView doc={clinicDoc} slug={company.slug} />
+      </>
+    )
+  // Pré-visualização da gestora (sem a lista de documentos): texto salvo.
+  const clinicText = platform
+    ? ""
+    : (kind === "termos" ? company.termsOfUse : company.privacyPolicy)?.trim() || ""
   return (
-    <main className="ff-page lg-page">
-      <header className="ff-header">
-        {/* Marca da clínica do link (logo + nome), como no cadastro da cliente */}
-        <button
-          type="button"
-          className="lg-brand"
-          aria-label={`${company.name} — voltar para a clínica`}
-          onClick={onBack}
-        >
-          <span className="lg-logo">
-            {company.logoImage ? <img src={company.logoImage} alt="" /> : company.initials}
-          </span>
-          <strong>{company.name}</strong>
-        </button>
-        <button type="button" onClick={onBack}>
-          ← Voltar para a clínica
-        </button>
-      </header>
-      <article className="ff-card legal lg-card" aria-labelledby="lg-title">
-        <span className="section-kicker">{KICKER[kind]}</span>
+    <>
         {/* Termos de uso */}
         {kind === "termos" &&
-          (company.termsOfUse?.trim() ? (
+          (clinicText ? (
             <>
-              <h1 id="lg-title">Termos de uso — {company.name}</h1>
-              <div className="lg-text">{company.termsOfUse}</div>
+              {title(<>Termos de uso — {company.name}</>)}
+              <div className="lg-text">{clinicText}</div>
             </>
           ) : (
             <>
-              <h1 id="lg-title">Termos de uso</h1>
+              {title(<>Termos de uso</>)}
               <h2>1. Sobre o serviço</h2>
               <p>
                 O Prontto é a plataforma de agendamento usada pela{" "}
@@ -134,9 +133,9 @@ function LegalPage({ kind, company, onBack }) {
               <h2>4. Preços, horários e sinal</h2>
               <p>
                 Preço, duração e horários disponíveis aparecem antes da
-                confirmação. Para clientes novas, o sistema mostra uma simulação
+                confirmação. Para clientes novos, o sistema mostra uma simulação
                 de sinal. Nesta versão, nenhum pagamento real é feito. Clientes
-                recorrentes ficam isentas do sinal.
+                recorrentes ficam isentos do sinal.
               </p>
               <h2>5. Cancelamento e alteração</h2>
               <p>
@@ -146,22 +145,27 @@ function LegalPage({ kind, company, onBack }) {
               </p>
               <h2>6. Contato</h2>
               <p>
-                Dúvidas e reclamações: veja a página{" "}
-                <a href="#contato">Fale com a clínica</a>.
+                Dúvidas e reclamações:{" "}
+                {inModal ? (
+                  <>fale com a clínica pelo WhatsApp ou pelo e-mail {company.email}</>
+                ) : (
+                  <>veja a página <a href="#contato">Fale com a clínica</a></>
+                )}
+                .
               </p>
             </>
           ))}
 
         {/* Política de privacidade */}
         {kind === "privacidade" &&
-          (company.privacyPolicy?.trim() ? (
+          (clinicText ? (
             <>
-              <h1 id="lg-title">Política de privacidade — {company.name}</h1>
-              <div className="lg-text">{company.privacyPolicy}</div>
+              {title(<>Política de privacidade — {company.name}</>)}
+              <div className="lg-text">{clinicText}</div>
             </>
           ) : (
             <>
-              <h1 id="lg-title">Política de privacidade</h1>
+              {title(<>Política de privacidade</>)}
               <h2>Quais dados usamos e para quê</h2>
               <p>
                 Usamos nome, data de nascimento, WhatsApp e e-mail para
@@ -173,7 +177,7 @@ function LegalPage({ kind, company, onBack }) {
               <h2>Quem pode ver seus dados</h2>
               <p>
                 Você vê apenas os seus dados e agendamentos. A gestora vê os
-                dados das clientes da própria clínica. Ninguém mais tem acesso.
+                dados dos clientes da própria clínica. Ninguém mais tem acesso.
               </p>
               <h2>Por quanto tempo guardamos</h2>
               <ul>
@@ -204,6 +208,42 @@ function LegalPage({ kind, company, onBack }) {
               </p>
             </>
           ))}
+
+    </>
+  )
+}
+
+/**
+ * Exibe termos de uso, política de privacidade ou canais de contato da empresa.
+ * Visual da área da cliente: logo e nome da clínica no topo e rodapé da vitrine.
+ */
+// kind = 'termos' | 'privacidade' | 'contato' (vem do # da URL, veja App.jsx).
+function LegalPage({ kind, company, onBack }) {
+  const wa = `https://wa.me/55${company.phone.replace(/\D/g, "")}`
+  const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`
+  const instagram = instagramLink(company.instagram)
+  return (
+    <main className="ff-page lg-page">
+      <header className="ff-header">
+        {/* Marca da clínica do link (logo + nome), como no cadastro da cliente */}
+        <button
+          type="button"
+          className="lg-brand"
+          aria-label={`${company.name} — voltar para a clínica`}
+          onClick={onBack}
+        >
+          <span className="lg-logo">
+            {company.logoImage ? <img src={company.logoImage} alt="" /> : company.initials}
+          </span>
+          <strong>{company.name}</strong>
+        </button>
+        <button type="button" onClick={onBack}>
+          ← Voltar para a clínica
+        </button>
+      </header>
+      <article className="ff-card legal lg-card" aria-labelledby="lg-title">
+        <span className="section-kicker">{KICKER[kind]}</span>
+        <LegalText kind={kind} company={company} />
 
         {/* Canais de contato */}
         {kind === "contato" && (

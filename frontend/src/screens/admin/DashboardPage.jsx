@@ -70,7 +70,7 @@ const nextToAppt = (item) => ({
   horario: item.time,
   status: item.status,
 })
-const STATUS_LABEL ={ CONFIRMADO: "Confirmado", PENDENTE: "Aguardando confirmação da cliente" }
+const STATUS_LABEL ={ CONFIRMADO: "Confirmado", PENDENTE: "Aguardando confirmação do cliente" }
 const pad2 = (n) => String(n).padStart(2, "0")
 /** Agendamentos (não cancelados) agrupados por dia ("2026-11-12" → [...]), em ordem de horário. */
 const groupByDay = (appointments) => {
@@ -84,6 +84,115 @@ const groupByDay = (appointments) => {
   return byDay
 }
 const isPending = (slot) => slot.appointmentStatus === "PENDENTE"
+const toMinutes = (t = "00:00") => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+
+/**
+ * Coluna de um dia da semana como GRADE DE MEIAS HORAS (cada hora = 2 linhas).
+ * - Hora livre/bloqueada: ocupa as 2 linhas da hora, como sempre.
+ * - Atendimento: ocupa exatamente as meias horas dele (horário real), então
+ *   uma hora com dois clientes aparece partida ao meio (ex.: um termina 16:30
+ *   e o outro começa 16:30) e um atendimento de 3h vira um bloco só.
+ * - Meia hora de uma hora ocupada que ficou sem atendimento: espaço vazio.
+ * Devolve itens { kind: "hour" | "appt" | "gap", ... } com as linhas da grade.
+ */
+const buildDayTimeline = (daySlots = []) => {
+  const items = []
+  const appts = new Map() // id → { appt, first, last } (índices das horas)
+  daySlots.forEach((slot, i) => {
+    // Backend novo: lista de atendimentos da hora. Antigo: só o primeiro.
+    const fallback =
+      slot.status === "busy" && slot.agendamentoId
+        ? [
+            {
+              id: slot.agendamentoId,
+              client: slot.client,
+              whatsapp: slot.whatsapp,
+              service: slot.service,
+              status: slot.appointmentStatus,
+              start: slot.appointmentStart || slot.time,
+              end: slot.appointmentEnd || slot.end,
+            },
+          ]
+        : []
+    const list = slot.atendimentos?.length ? slot.atendimentos : fallback
+    if (slot.status !== "busy" || list.length === 0) {
+      items.push({ kind: "hour", slot, row: 2 * i + 1 })
+      return
+    }
+    list.forEach((appt) => {
+      const known = appts.get(appt.id)
+      if (!known) {
+        appts.set(appt.id, { appt, first: i, last: i })
+        return
+      }
+      known.last = i
+      // O mesmo atendimento em várias horas: o bloco vai até o MAIOR fim
+      // (no backend antigo cada hora só traz o próprio pedaço, ex.: 10:00–11:00;
+      // sem isso o bloco ficava só na 1ª hora e abria um buraco na agenda).
+      if (toMinutes(appt.end) > toMinutes(known.appt.end)) known.appt = { ...known.appt, end: appt.end }
+    })
+    const h0 = toMinutes(slot.time)
+    for (const half of [0, 1]) {
+      const from = h0 + half * 30
+      const covered = list.some((x) => toMinutes(x.start) < from + 30 && toMinutes(x.end) > from)
+      if (!covered) items.push({ kind: "gap", row: 2 * i + 1 + half, key: `${slot.time}-${half}` })
+    }
+  })
+  // Linha da grade de um horário (arredonda para a meia hora: início para
+  // baixo, fim para cima).
+  const lineOf = (t, isEnd) => {
+    const m = toMinutes(t)
+    for (let i = 0; i < daySlots.length; i++) {
+      const s0 = toMinutes(daySlots[i].time)
+      const e0 = toMinutes(daySlots[i].end)
+      const inside = isEnd ? m > s0 && m <= e0 : m >= s0 && m < e0
+      if (inside) {
+        const off = m - s0
+        const extra = isEnd ? (off <= 30 ? 1 : 2) : off >= 30 ? 1 : 0
+        return 2 * i + 1 + extra
+      }
+    }
+    return null
+  }
+  appts.forEach(({ appt, first, last }) => {
+    const rowStart = lineOf(appt.start, false) ?? 2 * first + 1
+    const rowEnd = Math.max(lineOf(appt.end, true) ?? 2 * last + 3, rowStart + 1)
+    items.push({
+      kind: "appt",
+      rowStart,
+      rowEnd,
+      // Mesmo formato de um horário "busy": balão, detalhes e cancelar funcionam igual.
+      slot: {
+        status: "busy",
+        agendamentoId: appt.id,
+        client: appt.client,
+        whatsapp: appt.whatsapp,
+        service: appt.service,
+        appointmentStatus: appt.status,
+        time: appt.start,
+        end: appt.end,
+        appointmentStart: appt.start,
+        appointmentEnd: appt.end,
+      },
+    })
+  })
+  return items
+}
+/** Início/fim REAIS do atendimento (backend), ou a hora da grade se não vier. */
+const slotStart = (slot) => slot.appointmentStart || slot.time
+const slotEnd = (slot) => slot.appointmentEnd || slot.end
+/** Duração entre dois "HH:mm": "2h30", "3h", "45 min". */
+const durationLabel = (start, end) => {
+  const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+  const total = toMin(end) - toMin(start)
+  if (!(total > 0)) return ""
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  if (!h) return `${m} min`
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`
+}
+/** Horário que já começou (dia passado ou hoje mais cedo): não fica mais verde. */
+const isPastSlot = (dateIso, time) => new Date(`${dateIso}T${time}:00`) <= new Date()
 /** Situação do horário para o leitor de tela: "agendado com X, confirmado" | "bloqueado" | "livre". */
 const slotStatusText = (slot) => {
   if (slot.status === "busy") {
@@ -175,7 +284,7 @@ function NextClient({ item, open, onToggle, now, messageTemplates, company }) {
         <div>
           <strong>{item.name}</strong>
           <span>
-            {item.recorrente ? "Cliente recorrente" : "Cliente nova"}
+            {item.recorrente ? "Cliente recorrente" : "Cliente novo"}
           </span>
         </div>
         <button
@@ -288,7 +397,7 @@ function DashboardMetrics({ todayCount, confirmedToday, freeSlots, isCurrentWeek
         <div>
           <small>TOTAL DE CLIENTES</small>
           <strong>{clientsTotal == null ? "—" : pad2(clientsTotal)}</strong>
-          <span>Cadastradas na clínica</span>
+          <span>Cadastrados na clínica</span>
         </div>
       </div>
     </section>
@@ -306,7 +415,7 @@ function SlotTooltip({ slot, dateIso, messageTemplates, company }) {
         </div>
         <div>
           <strong>{slot.client}</strong>
-          <span>{pending ? "Aguardando confirmação" : "Cliente confirmada"}</span>
+          <span>{pending ? "Aguardando confirmação" : "Presença confirmada"}</span>
         </div>
         <div
           className={`status-dot ${pending ? "pending" : ""}`}
@@ -322,8 +431,8 @@ function SlotTooltip({ slot, dateIso, messageTemplates, company }) {
       </div>
       <div className="tooltip-row">
         <span>
-          <Icon name="clock" size={14} /> {slot.time} —{" "}
-          {slot.end}
+          <Icon name="clock" size={14} /> {slotStart(slot)} —{" "}
+          {slotEnd(slot)}
         </span>
         <span className={pending ? "pending" : "confirmed"}>
           {pending ? "Pendente" : "Confirmado"}
@@ -498,6 +607,11 @@ function DashboardPageView({
    *   livre             → pergunta se quer bloquear
    */
   const handleSlot = (slot, dayIndex) => {
+    // Horário livre ou bloqueado que já passou: não há o que bloquear/liberar.
+    if (slot.status !== "busy" && isPastSlot(dates[dayIndex], slot.time)) {
+      notify("Este horário já passou. Só é possível bloquear ou liberar horários futuros.", "error")
+      return
+    }
     if (slot.status === "busy") {
       setCancelReason("")
       setErrors({})
@@ -554,10 +668,10 @@ function DashboardPageView({
     const { body, success } = blockRequest(dates[dayIndex], slot)
     await run(() => api.schedule.createBlock(body), success)
   }
-  /** Cancela o atendimento selecionado (motivo obrigatório) e abre o WhatsApp para avisar a cliente. */
+  /** Cancela o atendimento selecionado (motivo obrigatório) e abre o WhatsApp para avisar o cliente. */
   const confirmCalendarCancellation = async () => {
     if (!selectedSlot) return
-    if (showErrors({ [REASON_ID]: !cancelReason.trim() && "Informe o motivo do cancelamento. Ele vai na mensagem para a cliente. Exemplo: indisponibilidade da profissional." })) return
+    if (showErrors({ [REASON_ID]: !cancelReason.trim() && "Informe o motivo do cancelamento. Ele vai na mensagem para o cliente. Exemplo: indisponibilidade da profissional." })) return
     const reason = cancelReason.trim()
     const slot = selectedSlot
     const ok = await run(
@@ -671,34 +785,89 @@ function DashboardPageView({
                       Ajustar
                     </button>
                   </div>
-                  <div className="day-slots">
-                    {slots[dayIndex].map((slot) => (
-                      // ACESSIBILIDADE (WCAG 4.1.2): o horário é um <button> de verdade e o
-                      // balão (com o botão do WhatsApp) fica AO LADO dele, não dentro.
-                      // O balão abre ao passar o mouse ou ao focar pelo teclado (Tab).
-                      <div className="time-slot-wrap" key={slot.time}>
-                      <button
-                        type="button"
-                        onClick={() => handleSlot(slot, dayIndex)}
-                        className={`time-slot ${slot.status}`}
-                        aria-label={`${days[dayIndex]} ${slot.time}: ${slotStatusText(slot)}`}
-                      >
-                        <span>{slot.time}</span>
-                        {slot.status === "busy" && <i />}
-                        {slot.status === "blocked" && (
-                          <Icon name="lock" size={12} />
-                        )}
-                      </button>
-                        {slot.status === "busy" && (
-                          <SlotTooltip
-                            slot={slot}
-                            dateIso={dates[dayIndex]}
-                            messageTemplates={messageTemplates}
-                            company={company}
+                  <div className="day-slots day-timeline">
+                    {buildDayTimeline(slots[dayIndex]).map((item) => {
+                      if (item.kind === "gap")
+                        return (
+                          // Meia hora sem atendimento numa hora ocupada.
+                          <div
+                            key={`gap-${item.key}`}
+                            className="time-gap"
+                            style={{ gridRow: `${item.row}` }}
+                            aria-hidden="true"
                           />
-                        )}
-                      </div>
-                    ))}
+                        )
+                      const { slot } = item
+                      const isAppt = item.kind === "appt"
+                      // Meias horas que o atendimento ocupa (1 = 30 min, 2 = 1h...).
+                      const halves = isAppt ? item.rowEnd - item.rowStart : 2
+                      const past = !isAppt && slot.status !== "busy" && isPastSlot(dates[dayIndex], slot.time)
+                      return (
+                        // ACESSIBILIDADE (WCAG 4.1.2): o horário é um <button> de verdade e o
+                        // balão (com o botão do WhatsApp) fica AO LADO dele, não dentro.
+                        // O balão abre ao passar o mouse ou ao focar pelo teclado (Tab).
+                        <div
+                          className="time-slot-wrap"
+                          key={isAppt ? `appt-${slot.agendamentoId}` : slot.time}
+                          style={{
+                            gridRow: isAppt ? `${item.rowStart} / ${item.rowEnd}` : `${item.row} / span 2`,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSlot(slot, dayIndex)}
+                            // Livre/bloqueado que já passou fica cinza ("past"); agendado
+                            // continua âmbar (é o histórico do atendimento).
+                            className={`time-slot ${slot.status} ${past ? "past" : ""} ${
+                              isAppt ? `appt-block appt-${Math.min(halves, 3)}` : ""
+                            }`}
+                            aria-label={`${days[dayIndex]} ${
+                              isAppt ? `${slotStart(slot)} às ${slotEnd(slot)}` : slot.time
+                            }: ${past ? "já passou" : slotStatusText(slot)}`}
+                          >
+                            {isAppt && halves === 1 && (
+                              // 30 min: só início e primeiro nome.
+                              <span className="appt-compact">
+                                <b>{slotStart(slot)}</b> {slot.client?.split(" ")[0]}
+                              </span>
+                            )}
+                            {isAppt && halves === 2 && (
+                              // 1h: início e nome (o horário completo fica no balão).
+                              <span className="merged-slot-info">
+                                <span className="merged-slot-time">{slotStart(slot)}</span>
+                                <strong>{slot.client}</strong>
+                              </span>
+                            )}
+                            {isAppt && halves >= 3 && (
+                              // 1h30 ou mais: horário, cliente, procedimento e duração.
+                              <span className="merged-slot-info">
+                                <span className="merged-slot-time">
+                                  {slotStart(slot)}
+                                  <span>até {slotEnd(slot)}</span>
+                                </span>
+                                <strong>{slot.client}</strong>
+                                <small>{slot.service}</small>
+                                <small className="merged-slot-duration">
+                                  <Icon name="clock" size={12} />{" "}
+                                  {durationLabel(slotStart(slot), slotEnd(slot))}
+                                </small>
+                              </span>
+                            )}
+                            {!isAppt && <span>{slot.time}</span>}
+                            {slot.status === "busy" && <i />}
+                            {slot.status === "blocked" && <Icon name="lock" size={12} />}
+                          </button>
+                          {slot.status === "busy" && (
+                            <SlotTooltip
+                              slot={slot}
+                              dateIso={dates[dayIndex]}
+                              messageTemplates={messageTemplates}
+                              company={company}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
@@ -819,7 +988,7 @@ function DashboardPageView({
           aria-label="Próxima cliente e próximos atendimentos"
         >
           <div className="next-top">
-            <span className="section-kicker">PRÓXIMA CLIENTE</span>
+            <span className="section-kicker">PRÓXIMO CLIENTE</span>
           </div>
 
           {firstNext ? (
@@ -833,8 +1002,8 @@ function DashboardPageView({
             />
           ) : (
             <p className="next-empty">
-              Nenhum atendimento agendado a partir de agora. Quando uma cliente
-              agendar, ela aparece aqui.
+              Nenhum atendimento agendado a partir de agora. Quando um cliente
+              agendar, ele aparece aqui.
             </p>
           )}
 
@@ -946,7 +1115,7 @@ function DashboardPageView({
               <small>SITUAÇÃO</small>
               <strong>
                 {selectedSlot.appointmentStatus === "PENDENTE"
-                  ? "Aguardando confirmação da cliente"
+                  ? "Aguardando confirmação do cliente"
                   : "Confirmado"}
               </strong>
             </span>
@@ -978,7 +1147,7 @@ function DashboardPageView({
                   onClick={() => {
                     if (
                       showErrors({
-                        [REASON_ID]: !cancelReason.trim() && "Informe o motivo do cancelamento. Ele vai na mensagem para a cliente. Exemplo: indisponibilidade da profissional.",
+                        [REASON_ID]: !cancelReason.trim() && "Informe o motivo do cancelamento. Ele vai na mensagem para o cliente. Exemplo: indisponibilidade da profissional.",
                       })
                     )
                       return
@@ -1047,7 +1216,7 @@ function DashboardPageView({
             </Action>
             <Action variant="danger" onClick={confirmCalendarCancellation}>
               Sim, cancelar agendamento{" "}
-              <NewTabHint compact text="abre o WhatsApp em nova guia para avisar a cliente" />
+              <NewTabHint compact text="abre o WhatsApp em nova guia para avisar o cliente" />
             </Action>
           </div>
         </Modal>

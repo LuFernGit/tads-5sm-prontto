@@ -1,0 +1,24 @@
+/* Estilos de ClampedText.jsx (texto cortado com "Ver mais"). */
+.clamped-text p { margin: 0; }
+.clamped-text p.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--clamp-lines, 2);
+  line-clamp: var(--clamp-lines, 2);
+  overflow: hidden;
+}
+/* "Ver mais": #92400e × branco = 7,09:1; área de toque de 32px de altura. */
+.clamped-text-toggle {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--amber-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.clamped-text-toggle:hover { color: var(--amber-dark); }

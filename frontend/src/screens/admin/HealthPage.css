@@ -72,6 +72,28 @@
 .health-cards strong {
   font-size: 12px;
 }
+/* Observações médicas: um item por linha (rótulo em negrito + detalhe). */
+.health-observations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.health-observations li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+.health-cards .health-observations span {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text);
+}
 .health-cards small {
   font-size: 12px;
   color: var(--muted);
@@ -262,4 +284,17 @@
     grid-template-columns: 1fr;
     gap: 2px;
   }
+}
+
+/* ===== Responsivo =====
+   Até 900px (meia tela do notebook): lista de clientes em cima, ficha embaixo.
+   A lista fica baixa e rola por dentro, para a ficha aparecer logo. */
+@media (max-width: 900px) {
+  .health-layout { grid-template-columns: minmax(0, 1fr); }
+  .health-layout .client-sidebar { max-height: 320px; overflow-y: auto; }
+  .health-layout > * { min-width: 0; }
+}
+@media (max-width: 560px) {
+  .health-cards { grid-template-columns: 1fr; }
+  .record-hero { flex-wrap: wrap; }
 }

@@ -14,7 +14,9 @@ import {
   phoneError,
   validateAnamnesis,
 } from "@/lib/validators"
-import NewTabHint from "@/components/ui/NewTabHint"
+import Modal from "@/components/ui/Modal"
+import { LegalText } from "@/screens/LegalPage"
+import DocumentView from "@/components/ui/DocumentView"
 import "./ClientRegisterPage.css"
 
 /**
@@ -37,6 +39,19 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
   const [h, setH] = useState(emptyAnamnesis)
   const [accept, setAccept] = useState(false)
   const [acceptClinicTerms, setAcceptClinicTerms] = useState(false)
+  // Termos/privacidade abertos em modal ('termos' | 'privacidade' | null): o
+  // cadastro continua na tela por trás, sem perder o que já foi preenchido.
+  const [legalOpen, setLegalOpen] = useState(null)
+  // Documentos publicados DA CLÍNICA (termos, privacidade, consentimento) e o
+  // que está aberto no modal de leitura.
+  const clinicDocs = (company.documents ?? []).filter(
+    (d) => !d.plataforma && ["TERMOS_USO", "POLITICA_PRIVACIDADE", "TERMO_CLINICA"].includes(d.tipo),
+  )
+  const [clinicDocOpen, setClinicDocOpen] = useState(null)
+  const openLegal = (kind) => (event) => {
+    event.preventDefault() // não marca/desmarca a caixa do aceite
+    setLegalOpen(kind)
+  }
   // Atalho para os inputs: onChange={set('email')} atualiza só aquele campo.
   const set = (k) => (e) => setD((c) => ({ ...c, [k]: e.target.value }))
   const updateHealth = (key, value) =>
@@ -163,7 +178,7 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
       <div className="ff-registration-shell">
         {/* Lista lateral com as 3 etapas. */}
         <aside className="ff-registration-sidebar">
-          <span className="ff-sidebar-kicker">CADASTRO DA CLIENTE</span>
+          <span className="ff-sidebar-kicker">CADASTRO DO CLIENTE</span>
           <h2>Seu cuidado começa por aqui</h2>
           <p>
             Preencha seus dados e a ficha de saúde para que a profissional possa
@@ -330,27 +345,32 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
                 <h2 id="ff-clinic-terms-title">
                   Termos de atendimento da {company.name}
                 </h2>
-                {company.clinicTermsDocument ? (
-                  <p>
-                    A empresa anexou o documento{" "}
-                    <strong>
-                      {company.clinicTermsFileName ||
-                        "Termos de atendimento.pdf"}
-                    </strong>
-                    .{" "}
-                    <a
-                      href={company.clinicTermsDocument}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Abrir PDF dos termos <NewTabHint />
-                    </a>
-                    .
-                  </p>
+                {clinicDocs.length > 0 ? (
+                  // Documentos publicados pela clínica em "Documentos e termos"
+                  // (texto e/ou PDF): cada um abre num modal, sem sair do cadastro.
+                  <ul className="ff-doc-list">
+                    {clinicDocs.map((doc) => (
+                      <li key={doc.id}>
+                        <span>
+                          <strong>{doc.titulo}</strong>
+                          <small>
+                            Versão {doc.versao}
+                            {doc.temPdf ? " · PDF" : ""}
+                          </small>
+                        </span>
+                        <button
+                          type="button"
+                          className="ff-btn ff-secondary"
+                          onClick={() => setClinicDocOpen(doc)}
+                        >
+                          Ler documento
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
                   <p>
-                    {company.termsOfUse?.trim() ||
-                      `Estes são os termos demonstrativos de atendimento da ${company.name}. Ao agendar, a cliente deve conferir as informações do serviço, valores, horários, regras de cancelamento e orientações informadas pela empresa.`}
+                    {`Estes são os termos demonstrativos de atendimento da ${company.name}. Ao agendar, o cliente deve conferir as informações do serviço, valores, horários, regras de cancelamento e orientações informadas pela empresa.`}
                   </p>
                 )}
               </section>
@@ -370,8 +390,15 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
                   }
                 />
                 <label htmlFor="ff-accept">
-                  Li e aceito os <a href="#termos">Termos de Uso do Prontto</a>{" "}
-                  e a <a href="#privacidade">Política de Privacidade</a>.
+                  Li e aceito os{" "}
+                  <button type="button" className="ff-link-button" onClick={openLegal("termos")}>
+                    Termos de Uso do Prontto
+                  </button>{" "}
+                  e a{" "}
+                  <button type="button" className="ff-link-button" onClick={openLegal("privacidade")}>
+                    Política de Privacidade
+                  </button>
+                  .
                 </label>
               </div>
               {errors.accept && (
@@ -436,6 +463,39 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
           </div>
         </form>
       </div>
+      {legalOpen && (
+        <Modal
+          wide
+          kicker={legalOpen === "termos" ? "TERMOS DE USO" : "PRIVACIDADE E DADOS"}
+          title={legalOpen === "termos" ? "Termos de Uso do Prontto" : "Política de Privacidade"}
+          onClose={() => setLegalOpen(null)}
+        >
+          <div className="legal ff-legal-modal">
+            {/* platform: o aceite é dos termos DO PRONTTO (os da clínica ficam abaixo) */}
+            <LegalText kind={legalOpen} company={company} inModal platform />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="ff-btn ff-navy" onClick={() => setLegalOpen(null)}>
+              ← Voltar para o cadastro
+            </button>
+          </div>
+        </Modal>
+      )}
+      {clinicDocOpen && (
+        <Modal
+          wide
+          kicker={`DOCUMENTO DA ${company.name.toUpperCase()}`}
+          title={clinicDocOpen.titulo}
+          onClose={() => setClinicDocOpen(null)}
+        >
+          <DocumentView doc={clinicDocOpen} slug={company.slug} />
+          <div className="modal-actions">
+            <button type="button" className="ff-btn ff-navy" onClick={() => setClinicDocOpen(null)}>
+              ← Voltar para o cadastro
+            </button>
+          </div>
+        </Modal>
+      )}
     </main>
   )
 }

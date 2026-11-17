@@ -10,7 +10,9 @@ import "./Sidebar.css";
  */
 // page = página aberta agora; setPage troca de página; setMode troca o fluxo
 // ('preview' abre a vitrine, 'login' faz logout).
-function Sidebar({ page, setPage, setMode, notify, company }) {
+// open/onClose: gaveta em telas estreitas (em telas largas o menu fica sempre visível).
+// onLogout: pede confirmação antes de sair (o modal fica no AdminApp).
+function Sidebar({ page, setPage, setMode, notify, company, open = false, onClose, onLogout }) {
   // Link da vitrine que a gestora envia às clientes. O 'slug' é gerado pelo
   // backend no fim do cadastro da empresa (CLINICA.slug); o endereço base é o
   // do próprio sistema (localhost em desenvolvimento, o domínio real em produção).
@@ -23,7 +25,7 @@ function Sidebar({ page, setPage, setMode, notify, company }) {
     try {
       await navigator.clipboard.writeText(vitrineUrl);
       notify(
-        "Link da vitrine copiado. Agora é só colar e enviar para suas clientes.",
+        "Link da vitrine copiado. Agora é só colar e enviar para seus clientes.",
       );
     } catch {
       notify(
@@ -32,7 +34,22 @@ function Sidebar({ page, setPage, setMode, notify, company }) {
     }
   };
   return (
-    <aside className="sidebar" style={{ paddingBottom: 9 }}>
+    <aside
+      id="menu-lateral"
+      className={`sidebar ${open ? "is-open" : ""}`}
+      style={{ paddingBottom: 9 }}
+      aria-label="Menu do painel"
+    >
+      {/* Fechar a gaveta (só aparece em telas estreitas). */}
+      <button
+        type="button"
+        id="menu-lateral-fechar"
+        className="sidebar-close"
+        aria-label="Fechar menu"
+        onClick={onClose}
+      >
+        <Icon name="close" size={18} />
+      </button>
       {/* Logo do Prontto leva para a página inicial do painel */}
       <button
         type="button"
@@ -96,6 +113,7 @@ function Sidebar({ page, setPage, setMode, notify, company }) {
           type="button"
           className="logout-button"
           onClick={() => {
+            if (onLogout) return onLogout();
             setMode("login");
             notify("Sessão da gestora encerrada.");
           }}

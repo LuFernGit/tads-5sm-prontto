@@ -24,6 +24,7 @@ public class GestoraController {
     @Autowired private HorarioService horarioService;
     @Autowired private AgendamentoService agendamentoService;
     @Autowired private GestoraAdminService gestoraAdminService;
+    @Autowired private NotificacaoService notificacaoService;
 
     @GetMapping("/empresa")
     public ResponseEntity<EmpresaResponse> obterEmpresa(Authentication authentication) {
@@ -49,6 +50,26 @@ public class GestoraController {
     public ResponseEntity<java.util.Map<String, String>> obterVersaoAgenda(Authentication authentication) {
         Usuario gestora = (Usuario) authentication.getPrincipal();
         return ResponseEntity.ok(java.util.Map.of("versao", gestoraAdminService.obterVersaoAgenda(gestora)));
+    }
+
+    /* ---------- Notificações (sino do painel) ---------- */
+
+    @GetMapping("/notificacoes")
+    public ResponseEntity<NotificacoesResponse> listarNotificacoes(Authentication authentication) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(notificacaoService.listar(gestora));
+    }
+
+    @PostMapping("/notificacoes/lidas")
+    public ResponseEntity<NotificacoesResponse> marcarTodasNotificacoesComoLidas(Authentication authentication) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(notificacaoService.marcarTodasComoLidas(gestora));
+    }
+
+    @PostMapping("/notificacoes/{id}/lida")
+    public ResponseEntity<NotificacoesResponse> marcarNotificacaoComoLida(Authentication authentication, @PathVariable Long id) {
+        Usuario gestora = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(notificacaoService.marcarComoLida(gestora, id));
     }
 
     @GetMapping("/painel")

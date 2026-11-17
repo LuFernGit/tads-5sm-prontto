@@ -72,7 +72,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
     termsOfUse:
       "Este é um texto demonstrativo de Termos de Uso da empresa. A clínica pode editar este conteúdo para explicar as regras de agendamento, cancelamento e atendimento.",
     privacyPolicy:
-      "Este é um texto demonstrativo de Política de Privacidade da empresa. A clínica pode editar este conteúdo para explicar quais dados das clientes utiliza, para quais finalidades e como entrar em contato.",
+      "Este é um texto demonstrativo de Política de Privacidade da empresa. A clínica pode editar este conteúdo para explicar quais dados dos clientes utiliza, para quais finalidades e como entrar em contato.",
   })
   // Etapa 4 (Serviços): categorias criadas, texto da nova categoria, serviços
   // já adicionados e o 'rascunho' do serviço que está sendo digitado.
@@ -502,7 +502,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
           <span>CADASTRO DA EMPRESA</span>
           <strong>Configure seu espaço no Prontto</strong>
           <p>
-            As informações criam o painel da gestora e a vitrine apresentada às
+            As informações criam o painel da gestora e a vitrine apresentada aos
             clientes.
           </p>
           <nav aria-label="Etapas do cadastro">
@@ -627,7 +627,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   />
                   {errorFor("cad-e-mail-de-contato")}
                   <small id="cad-e-mail-de-contato-hint" className="field-hint">
-                    Aparece na vitrine para as clientes. Precisa ser diferente
+                    Aparece na vitrine para os clientes. Precisa ser diferente
                     do e-mail de acesso ao painel.
                   </small>
                 </label>
@@ -721,7 +721,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   />
                   {errorFor("cad-e-mail-de-acesso")}
                   <small id="cad-e-mail-de-acesso-hint" className="field-hint">
-                    Usado só para entrar no painel; não aparece para as
+                    Usado só para entrar no painel; não aparece para os
                     clientes. Por segurança, não use o mesmo e-mail de contato
                     da clínica.
                   </small>
@@ -1387,7 +1387,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                     <span>
                       <strong>{clinicTermsFileName}</strong>
                       <small>
-                        PDF anexado. A cliente poderá abrir e confirmar que leu
+                        PDF anexado. O cliente poderá abrir e confirmar que leu
                         os termos.
                       </small>
                       <button
@@ -1405,7 +1405,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                 )}
                 <small style={{ color: "#475569" }}>
                   Os textos são exemplos editáveis. O PDF é opcional nesta
-                  demonstração; se nenhum arquivo for anexado, a cliente verá os
+                  demonstração; se nenhum arquivo for anexado, o cliente verá os
                   termos escritos acima.
                 </small>
               </div>

@@ -2,6 +2,7 @@ import { useState } from "react"
 import Action from "@/components/ui/Action"
 import Brand from "@/components/ui/Brand"
 import Icon from "@/components/ui/Icon"
+import PasswordInput from "@/components/ui/PasswordInput"
 import { USE_MOCKS, api } from "@/api"
 import { neutralLoginImage } from "@/constants"
 import { useFieldErrors } from "@/hooks/useFieldErrors"
@@ -134,9 +135,8 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
             </label>
             <label htmlFor="lg-senha">
               <span>SENHA</span>
-              <input
+              <PasswordInput
                 {...a11y("lg-senha")}
-                type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -164,7 +164,7 @@ function LoginScreen({ notify, onManagerLogin, onRegisterCompany }) {
             <strong>Quer usar o Prontto na sua empresa?</strong>
             <p>
               Crie o painel, o catálogo e a vitrine em um cadastro guiado. Você
-              receberá o link para suas clientes.
+              receberá o link para seus clientes.
             </p>
             <Action
               variant="secondary"

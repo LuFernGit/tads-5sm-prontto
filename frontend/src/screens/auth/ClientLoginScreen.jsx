@@ -1,6 +1,7 @@
 import { useState } from "react"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
+import PasswordInput from "@/components/ui/PasswordInput"
 import { USE_MOCKS, api } from "@/api"
 import { useFieldErrors } from "@/hooks/useFieldErrors"
 import { emailError } from "@/lib/validators"
@@ -76,7 +77,7 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
         onDone={async (data) => {
           try {
             await onRegister(data)
-            notify("Conta criada. Bem-vinda!")
+            notify("Conta criada. Bem-vindo!")
           } catch (error) {
             notify(error.message)
           }
@@ -123,7 +124,7 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
               ← Voltar para a vitrine
             </button>
           )}
-          <span className="section-kicker">ÁREA DA CLIENTE</span>
+          <span className="section-kicker">ÁREA DO CLIENTE</span>
           <div className="login-title">Entre na sua conta</div>
           <p>
             Acesse para agendar na {company.name} e acompanhar seus
@@ -145,9 +146,8 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
             </label>
             <label htmlFor="cl-senha">
               <span>SENHA</span>
-              <input
+              <PasswordInput
                 {...a11y("cl-senha")}
-                type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -181,11 +181,25 @@ function ClientLoginScreen({ company, notify, onLogin, onRegister, onBack }) {
               Criar conta de cliente
             </Action>
           </div>
-          <small className="login-hint">
-            Agendamentos por Prontto
-            {USE_MOCKS &&
-              " · Demonstração: jamily@email.com · senha: Prontto@123"}
-          </small>
+          {/* Assinatura do Prontto: discreta (a página é da clínica), mas com
+              a marca de verdade (símbolo + nome na fonte do logo). */}
+          <p className="prontto-signature">
+            <span className="prontto-signature-label">Agendamentos por</span>
+            <span className="prontto-signature-brand">
+              <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                <rect x="13" y="13" width="38" height="38" rx="7"
+                  transform="rotate(45 32 32)" stroke="#E0A96D" strokeWidth="4" />
+                <rect x="22.5" y="22.5" width="19" height="19" rx="4"
+                  transform="rotate(45 32 32)" stroke="#D97706" strokeWidth="4" />
+              </svg>
+              prontto
+            </span>
+          </p>
+          {USE_MOCKS && (
+            <small className="login-hint">
+              Demonstração: jamily@email.com · senha: Prontto@123
+            </small>
+          )}
         </div>
       </section>
     </main>

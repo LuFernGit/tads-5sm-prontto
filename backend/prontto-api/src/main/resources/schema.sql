@@ -2,18 +2,18 @@
 -- PRONTTO - Schema do banco de dados (MySQL 8)
 --
 -- V2 - Imagens passam de VARCHAR(255) para LONGTEXT (Base64).
--- V3 - Script idempotente: não apaga mais o banco a cada start.
---      * CREATE DATABASE / CREATE TABLE com IF NOT EXISTS
---      * FK circular USUARIO -> CLINICA adicionada só se não existir
---      * Dados iniciais inseridos só se ainda não existirem
+-- V3 - Script idempotente (CREATE ... IF NOT EXISTS).
+-- V9 - FASE DE TESTES: o banco é APAGADO e recriado a cada start do Spring
+--      (spring.sql.init.mode: always), para os testes sempre começarem com
+--      dados limpos. Depois do schema, o seed-dev.sql cadastra só a gestora,
+--      a CA Beauty Clinic e uma cliente.
 --
--- Executado automaticamente pelo Spring a cada start
--- (spring.sql.init.mode: always). Cria só o que ainda não existe e
--- mantém os dados entre execuções.
---
--- Atenção: o script NÃO altera tabelas já existentes. Se mudar uma
--- coluna aqui, recrie o banco manualmente: DROP DATABASE prontto;
+-- ⚠️ TUDO o que for cadastrado durante os testes some ao reiniciar o backend.
+--    Para voltar a manter os dados entre execuções, remova o
+--    "DROP DATABASE IF EXISTS prontto;" logo abaixo.
 -- ============================================
+
+DROP DATABASE IF EXISTS prontto;
 
 CREATE DATABASE IF NOT EXISTS prontto
     CHARACTER SET utf8mb4
@@ -702,6 +702,33 @@ SET @sql_col = IF(@col_existe = 0, 'ALTER TABLE AGENDAMENTO ADD COLUMN reembolso
 PREPARE stmt_col FROM @sql_col;
 EXECUTE stmt_col;
 DEALLOCATE PREPARE stmt_col;
+
+
+-- ============================================
+-- V9 - NOTIFICACAO: sino do painel da gestora. Criada nos eventos do
+-- agendamento (novo agendamento, presença confirmada, cancelamento pelo
+-- cliente, cancelamento automático). lida_em NULL = não lida.
+-- ============================================
+CREATE TABLE IF NOT EXISTS NOTIFICACAO (
+    id_notificacao INT PRIMARY KEY AUTO_INCREMENT,
+    id_clinica INT NOT NULL,
+    id_agendamento INT NULL,
+    tipo VARCHAR(40) NOT NULL,
+    titulo VARCHAR(150) NOT NULL,
+    mensagem VARCHAR(500) NOT NULL,
+    requer_acao BOOLEAN NOT NULL DEFAULT FALSE,
+    criada_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lida_em DATETIME NULL,
+
+    CONSTRAINT fk_notificacao_clinica
+        FOREIGN KEY (id_clinica) REFERENCES CLINICA(id_clinica)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_notificacao_agendamento
+        FOREIGN KEY (id_agendamento) REFERENCES AGENDAMENTO(id_agendamento)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
+    INDEX idx_notificacao_clinica (id_clinica, criada_em)
+) ENGINE=InnoDB;
 
 
 -- ============================================

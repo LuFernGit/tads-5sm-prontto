@@ -20,12 +20,14 @@ spring:
       hibernate:
         format_sql: true
 
-  # Execução automática do script SQL ao iniciar a aplicação
+  # Execução automática do script SQL ao iniciar a aplicação.
+  # FASE DE TESTES: o schema.sql APAGA e recria o banco a cada start
+  # (DROP DATABASE), então tudo começa limpo sempre que o backend sobe.
   sql:
     init:
       mode: always
       schema-locations: classpath:schema.sql
-      # Dados de teste da CA Beauty Clinic (gestora, cliente, catálogo e agenda).
+      # Dados de teste: gestora, CA Beauty Clinic (catálogo e horários) e 1 cliente.
       # Só para desenvolvimento: REMOVA esta linha antes de publicar em produção.
       data-locations: classpath:seed-dev.sql
 

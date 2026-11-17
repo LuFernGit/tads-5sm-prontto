@@ -15,7 +15,7 @@ export const CONFIRM_HOURS = 24
 /** Textos padrão do sistema por finalidade (reserva quando não há modelo ativo). */
 export const DEFAULT_TEXTS = {
   CONFIRMACAO:
-    "Olá, {nome}! Seu horário de {procedimento} está reservado para {data} às {horario}. Para garantir a sua vaga, confirme sua presença pelo nosso site até {prazo}: {link} Sem a confirmação, o horário é liberado para outra cliente. Te esperamos! — {clinica}",
+    "Olá, {nome}! Seu horário de {procedimento} está reservado para {data} às {horario}. Para garantir a sua vaga, confirme sua presença pelo nosso site até {prazo}: {link} Sem a confirmação, o horário é liberado para outro cliente. Te esperamos! — {clinica}",
   CANCELAMENTO:
     "Olá, {nome}! Informamos que seu agendamento de {procedimento}, marcado para {data} às {horario}, precisou ser cancelado. Motivo: {motivo}. Pedimos desculpas pelo transtorno. — {clinica}",
   LEMBRETE:

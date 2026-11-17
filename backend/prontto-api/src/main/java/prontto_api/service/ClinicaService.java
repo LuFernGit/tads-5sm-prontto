@@ -45,6 +45,56 @@ public class ClinicaService {
                 .orElse(null);
     }
 
+    /** Documento publicado e não excluído (exclusão lógica = excluido_em preenchido). */
+    private static boolean vigente(DocumentoTermo d) {
+        return "PUBLICADO".equals(d.getStatus()) && d.getExcluidoEm() == null;
+    }
+
+    private static boolean temPdf(DocumentoTermo d) {
+        return d.getCaminhoArquivo() != null && !d.getCaminhoArquivo().isBlank();
+    }
+
+    /**
+     * Versão publicada mais recente de cada tipo, da clínica e do Prontto,
+     * sem o PDF (só a indicação de que existe).
+     */
+    private List<ClinicaVitrineResponse.DocumentoPublicoResponse> documentosPublicos(Clinica clinica) {
+        java.util.Map<String, DocumentoTermo> maisRecente = new java.util.LinkedHashMap<>();
+        documentoTermoRepository.findByClinicaIdOuPlataforma(clinica.getId()).stream()
+                .filter(ClinicaService::vigente)
+                .sorted(java.util.Comparator.comparing(DocumentoTermo::getDataPublicacao,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .forEach(d -> maisRecente.put((d.getClinica() == null ? "P:" : "C:") + d.getTipoDocumento(), d));
+        return maisRecente.values().stream()
+                .map(d -> new ClinicaVitrineResponse.DocumentoPublicoResponse(
+                        d.getId(), d.getTipoDocumento(), d.getClinica() == null, d.getTitulo(),
+                        d.getVersao(), d.getConteudo(), temPdf(d), d.getNomeArquivo()))
+                .toList();
+    }
+
+    /**
+     * PDF de um documento publicado (da clínica do link ou do Prontto).
+     * O arquivo fica no banco como data URL ("data:application/pdf;base64,...").
+     */
+    public DocumentoTermo documentoPdf(String slug, Long id) {
+        Clinica clinica = buscarClinicaPorSlugAtiva(slug);
+        DocumentoTermo d = documentoTermoRepository.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Documento não encontrado."));
+        boolean daClinica = d.getClinica() == null || d.getClinica().getId().equals(clinica.getId());
+        if (!daClinica || !vigente(d) || !temPdf(d)) {
+            throw new RecursoNaoEncontradoException("Documento não encontrado.");
+        }
+        return d;
+    }
+
+    /** Bytes do PDF guardado como data URL (ou base64 puro). */
+    public static byte[] bytesDoPdf(DocumentoTermo d) {
+        String valor = d.getCaminhoArquivo();
+        int virgula = valor.indexOf(',');
+        String base64 = valor.startsWith("data:") && virgula > 0 ? valor.substring(virgula + 1) : valor;
+        return java.util.Base64.getMimeDecoder().decode(base64);
+    }
+
     private String textoPublicado(Clinica clinica, String tipo) {
         DocumentoTermo d = publicado(clinica, tipo);
         return d != null ? d.getConteudo() : null;
@@ -94,10 +144,9 @@ public class ClinicaService {
                 clinica.getEndereco(),
                 textoPublicado(clinica, "TERMOS_USO"),
                 textoPublicado(clinica, "POLITICA_PRIVACIDADE"),
-                publicado(clinica, "TERMO_CLINICA") != null ? publicado(clinica, "TERMO_CLINICA").getCaminhoArquivo() : null,
-                publicado(clinica, "TERMO_CLINICA") != null ? publicado(clinica, "TERMO_CLINICA").getNomeArquivo() : null,
                 clinica.getTextoHorario(),
-                clinica.getPoliticaCancelamento()
+                clinica.getPoliticaCancelamento(),
+                documentosPublicos(clinica)
         );
 
         return new ClinicaVitrineResponse(empresaPublica, servicosAtivos, categorias, capasCategorias);

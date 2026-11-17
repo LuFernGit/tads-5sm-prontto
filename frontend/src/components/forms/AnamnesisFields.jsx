@@ -349,7 +349,7 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName, editing = false
           placeholder="Informe qualquer detalhe relevante..."
         />
       )}
-      <h2 className="ff-section-heading">6. Declaração da cliente</h2>
+      <h2 className="ff-section-heading">6. Declaração do cliente</h2>
       <div className="ff-notice">
         <p>
           Declaro que respondi às perguntas de forma verdadeira, conforme meu
@@ -386,14 +386,14 @@ function AnamnesisFields({ h, errors, updateHealth, defaultName, editing = false
             placeholder="Cidade, DD/MM/AAAA"
           />
         </Field>
-        <Field id="ff-nome-ficha" label="Nome da cliente">
+        <Field id="ff-nome-ficha" label="Nome do cliente">
           <input
             id="ff-nome-ficha"
             value={h.nomeCliente || defaultName}
             onChange={(e) => updateHealth("nomeCliente", e.target.value)}
           />
         </Field>
-        <Field id="ff-assinatura" label="Assinatura da cliente (se aplicável)">
+        <Field id="ff-assinatura" label="Assinatura do cliente (se aplicável)">
           <input
             id="ff-assinatura"
             value={h.assinatura}

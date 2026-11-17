@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
 import { useApiQuery } from "@/hooks/useApiQuery"
@@ -26,7 +26,10 @@ import {
   readPendingBooking,
   savePendingBooking,
 } from "@/lib/pendingBooking"
-import { toHealthRecord } from "@/lib/anamnesis"
+import { cleanAnamnesis, toHealthRecord } from "@/lib/anamnesis"
+import { findDocument } from "@/lib/documents"
+import DocumentView from "@/components/ui/DocumentView"
+import ClampedText from "@/components/ui/ClampedText"
 import { formatDuration, formatPrice, toSlug } from "@/lib/format"
 import { PLACEHOLDER, maskPhone } from "@/lib/masks"
 import {
@@ -37,8 +40,6 @@ import {
 } from "@/lib/booking"
 import { openWhatsApp } from "@/lib/whatsapp"
 import {
-  MIN_AGE_CLIENT,
-  birthError,
   emailError,
   phoneError,
   validateAnamnesis,
@@ -68,6 +69,44 @@ const pad = (n) => String(n).padStart(2, "0")
  * true se hoje não cabe mais nenhum atendimento com esta duração antes do
  * fechamento (19h, veja fitsBusinessHours). Nesse caso hoje conta como "Passado".
  */
+/**
+ * Dias de atendimento a partir da Agenda real da clínica (dias da semana
+ * fechados vêm de GET /clinicas/{slug}/calendario). Ex.: [0] → "Atendemos de
+ * segunda a sábado"; [0, 6] → "Atendemos de segunda a sexta".
+ * Antes era o texto fixo "Atendemos de segunda a sábado" para toda clínica.
+ */
+const WEEKDAY_NAMES = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"]
+const openDaysLabel = (closedWeekdays = []) => {
+  const open = [1, 2, 3, 4, 5, 6, 0].filter((d) => !closedWeekdays.includes(d))
+  if (open.length === 0) return "Sem dias de atendimento no momento"
+  if (open.length === 7) return "Atendemos todos os dias"
+  const names = open.map((d) => WEEKDAY_NAMES[d])
+  if (open.length === 1) return `Atendemos só ${d0(open[0])} ${names[0]}`
+  // Dias seguidos (na ordem segunda → domingo): "de segunda a sexta".
+  const order = [1, 2, 3, 4, 5, 6, 0]
+  const idx = open.map((d) => order.indexOf(d))
+  const consecutive = idx.every((v, i) => i === 0 || v === idx[i - 1] + 1)
+  if (consecutive) return `Atendemos de ${names[0]} a ${names[names.length - 1]}`
+  return `Atendemos: ${names.slice(0, -1).join(", ")} e ${names[names.length - 1]}`
+}
+// "o domingo"/"o sábado" × "a segunda"...: artigo para "Atendemos só a segunda".
+const d0 = (day) => (day === 0 || day === 6 ? "no" : "na")
+
+/**
+ * Quem cancelou um agendamento (AGENDAMENTO.cancelado_por), em texto para o
+ * cliente: na lista ("Cancelado por você") e nos detalhes (explicação).
+ */
+const CANCELLED_BY = {
+  CLIENTE: { label: "Cancelado por você", tone: "self", icon: "user" },
+  GESTORA: { label: "Cancelado pela clínica", tone: "clinic", icon: "calendar-off" },
+  SISTEMA: { label: "Cancelado automaticamente", tone: "system", icon: "clock" },
+}
+const cancelledByOf = (item) =>
+  item?.rawStatus === "CANCELADO" ? (CANCELLED_BY[item.cancelledBy] ?? null) : null
+
+// Telas da vitrine que entram no histórico do navegador (seta "voltar").
+const HISTORY_VIEWS = ["home", "services", "schedule", "schedule:deposit", "profile"]
+
 const todayIsOver = (duration) => {
   const now = new Date()
   return !fitsBusinessHours(`${pad(now.getHours())}:${pad(now.getMinutes())}`, duration)
@@ -100,7 +139,7 @@ function CancelRefundNotice({ preview, recurring }) {
           "is-neutral",
           "check",
           "Sem sinal a reembolsar",
-          "Como cliente recorrente, você é isenta do sinal. Este cancelamento não gera cobrança nem reembolso.",
+          "Como cliente recorrente, você é isento do sinal. Este cancelamento não gera cobrança nem reembolso.",
         )
       : notice(
           "is-neutral",
@@ -192,7 +231,15 @@ function ClientAppView({
     }
   })
   // Aba aberta e escolhas do agendamento (categoria, serviço, dia, horário, pagamento).
-  const [tab, setTab] = useState(resumed ? "schedule" : "home")
+  // Aba inicial: a do histórico (ex.: voltou do login pela seta do navegador)
+  // ou "Início"; com agendamento recuperado, "Agendar".
+  const [tab, setTab] = useState(() => {
+    if (resumed) return "schedule"
+    const fromHistory = String(window.history.state?.prontoView ?? "").split(":")[0]
+    // Meu perfil só com login: visitante (ex.: acabou de sair da conta) vai para o Início.
+    const allowed = guest || preview ? ["home", "services"] : ["home", "services", "profile"]
+    return allowed.includes(fromHistory) ? fromHistory : "home"
+  })
   const [category, setCategory] = useState("")
   // Sem serviço pré-escolhido: o calendário só aparece depois que a cliente
   // escolhe um serviço (a duração dele define os horários livres).
@@ -202,8 +249,60 @@ function ClientAppView({
   const [selectedDay, setSelectedDay] = useState(resumed?.day ?? new Date().getDate())
   const [bookingMonthOffset, setBookingMonthOffset] = useState(resumed?.monthOffset ?? 0)
   const [confirmed, setConfirmed] = useState(false)
+  // Termo de exclusão de conta do Prontto (lido no modal de excluir conta).
+  const exclusionTerm = findDocument(company, "TERMO_EXCLUSAO", true)
+  const [readingExclusionTerm, setReadingExclusionTerm] = useState(false)
+  // "Sair" (topo) e "Sair da conta" (Meu perfil) pedem confirmação.
+  const [confirmingLogout, setConfirmingLogout] = useState(false)
+  const confirmedRef = useRef(confirmed)
+  useEffect(() => {
+    confirmedRef.current = confirmed
+  }, [confirmed])
   const [paymentInfo, setPaymentInfo] = useState(null)
   const [depositStep, setDepositStep] = useState(Boolean(resumed))
+  // Sem login não existe "Meu perfil": se a aba ficou nele (saiu da conta,
+  // seta "voltar"...), mostra o Início em vez de uma tela em branco.
+  useEffect(() => {
+    if ((guest || preview) && tab === "profile") setTab("home") // eslint-disable-line react-hooks/set-state-in-effect
+  }, [guest, preview, tab])
+  /* ---------- HISTÓRICO DO NAVEGADOR (seta "voltar") ----------
+     Cada aba (e a etapa do sinal) vira uma entrada no histórico: a seta de
+     voltar do navegador volta para a tela anterior em vez de sair da vitrine.
+     A tela atual fica em history.state.prontoView ("home", "services",
+     "schedule", "profile" ou "schedule:deposit"). */
+  const view = tab === "schedule" && depositStep && !confirmed ? "schedule:deposit" : tab
+  const viewRef = useRef(view)
+  const viewFromHistory = useRef(false)
+  useEffect(() => {
+    viewRef.current = view
+    if (viewFromHistory.current) {
+      viewFromHistory.current = false
+      return
+    }
+    const current = window.history.state?.prontoView
+    if (current === view) return
+    const state = { ...(window.history.state ?? {}), prontoView: view }
+    // Substituem a entrada atual (em vez de criar outra): a 1ª tela, a volta
+    // do login ("login" é a tela de entrar, fora da vitrine) e o agendamento
+    // concluído (voltar depois de pagar não reabre o pagamento).
+    if (!current || current === "login" || (current === "schedule:deposit" && confirmed))
+      window.history.replaceState(state, "")
+    else window.history.pushState({ prontoView: view }, "")
+  }, [view, confirmed])
+  useEffect(() => {
+    const onPop = (event) => {
+      const next = event.state?.prontoView
+      // Sem tela (ex.: entrada do #termos) ou tela que não é da vitrine: ignora.
+      if (!next || !HISTORY_VIEWS.includes(next) || next === viewRef.current) return
+      viewFromHistory.current = true
+      const [nextTab, step] = next.split(":")
+      setTab(nextTab)
+      // Etapa do sinal só volta se o agendamento ainda não foi concluído.
+      setDepositStep(step === "deposit" && !confirmedRef.current)
+    }
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [])
   // Escolha recuperada: apaga do navegador e avisa a cliente (uma vez só).
   useEffect(() => {
     if (guest || preview) return
@@ -288,18 +387,42 @@ function ClientAppView({
    * "Agendar agora" no topo), mantém o que já estava escolhido; se não houver
    * nenhum, a aba pede para escolher um serviço antes do calendário.
    */
-  const goSchedule = (chosen = service) => {
+  const goSchedule = (chosen) => {
     if (preview) {
       notify(
         "Ações de agendamento ficam desativadas no modo de visualização da gestora.",
       )
       return
     }
-    setService(chosen)
+    // Depois de um agendamento concluído, começa do zero ("escolha o
+    // serviço"), a não ser que um serviço tenha sido escolhido agora.
+    if (confirmed) resetBooking()
+    setService(chosen ?? (confirmed ? EMPTY_SERVICE : service))
     setTab("schedule")
     setDepositStep(false)
     setConfirmed(false)
   }
+  /**
+   * Limpa o agendamento concluído: serviço, dia, horário e pagamento. Sem
+   * isso, o próximo "Agendar" abria o calendário com o serviço anterior,
+   * pulando a regra "primeiro escolha o serviço".
+   */
+  const resetBooking = () => {
+    setService(EMPTY_SERVICE)
+    setSelectedTime("")
+    setSelectedDay(new Date().getDate())
+    setBookingMonthOffset(0)
+    setDepositStep(false)
+    setConfirmed(false)
+    setCreatedAppointment(null)
+    setPaymentInfo(null)
+    setSignalValue(null)
+  }
+  // Saiu da tela de confirmação (outra aba, seta "voltar"...): limpa.
+  useEffect(() => {
+    if (confirmed && tab !== "schedule") resetBooking()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
   /** Abre a aba de serviços filtrada pela categoria clicada. */
   const openCategory = (chosenCategory) => {
     setCategory(chosenCategory)
@@ -380,6 +503,18 @@ function ClientAppView({
     { initialData: [], live: false, enabled: hasService },
   )
   const timePeriods = timesQuery.data ?? []
+  // Recarrega dias lotados e horários livres na hora (sem esperar os 20s do
+  // ao vivo): depois de agendar ou cancelar, a aba Agendar já mostra a mudança.
+  const refreshAvailability = () => {
+    if (!hasService) return
+    calendarQuery.reload()
+    timesQuery.reload()
+  }
+  // Ao voltar para a aba Agendar, os horários são buscados de novo.
+  useEffect(() => {
+    if (tab === "schedule") refreshAvailability()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
 
   /* ---------- AO VIVO: mudanças da gestora e de outras clientes ---------- */
   // Serviço desativado (ou alterado) pela gestora enquanto a cliente estava na
@@ -412,7 +547,8 @@ function ClientAppView({
   )
   // Horário escolhido foi ocupado nesse meio-tempo: desmarca e avisa.
   useEffect(() => {
-    if (!selectedTime) return
+    // Agendamento já concluído: o horário ocupado é o do próprio cliente.
+    if (!selectedTime || confirmed) return
     const slot = timePeriods.flatMap((p) => p.slots ?? []).find((x) => x.time === selectedTime)
     if (slot?.occupied) {
       setSelectedTime("")
@@ -533,11 +669,12 @@ function ClientAppView({
     try {
       updated = await api.me.cancelAppointment(
         cancelling.id,
-        "Solicitado pela cliente",
+        "Solicitado pelo cliente",
       )
       setAppointments((current) =>
         current.map((item) => (item.id === cancelling.id ? updated : item)),
       )
+      refreshAvailability() // o horário cancelado volta a ficar livre
     } catch (error) {
       notify(error.message)
       return
@@ -607,11 +744,12 @@ function ClientAppView({
       notify("Corrija os campos indicados para continuar.")
       return
     }
-    const updatedHealth = {
+    // Respostas que deixaram de valer (ex.: alergia trocada para "Não") são apagadas.
+    const updatedHealth = cleanAnamnesis({
       ...healthDraft,
       procedimentos: [...healthDraft.procedimentos],
       sinaisAtuais: [...healthDraft.sinaisAtuais],
-    }
+    })
     try {
       // resumo (alergias/observacoes_medicas) + respostas completas (JSON)
       const saved = await api.me.updateHealthRecord(toHealthRecord(updatedHealth))
@@ -651,11 +789,6 @@ function ClientAppView({
       errs.email = emailError(profileDraft.email)
     if (profileDraft.whatsapp.trim() && phoneError(profileDraft.whatsapp))
       errs.whatsapp = phoneError(profileDraft.whatsapp)
-    if (
-      profileDraft.birthDate &&
-      birthError(profileDraft.birthDate, MIN_AGE_CLIENT)
-    )
-      errs.birthDate = birthError(profileDraft.birthDate, MIN_AGE_CLIENT)
     setProfileErrors(errs)
     if (Object.keys(errs).length) {
       notify("Corrija os campos indicados para continuar.")
@@ -732,7 +865,7 @@ function ClientAppView({
           </button>
           <button
             type="button"
-            onClick={() => setTab("schedule")}
+            onClick={() => (confirmed ? goSchedule() : setTab("schedule"))}
             className={tab === "schedule" ? "active" : ""}
             aria-current={tab === "schedule" ? "page" : undefined}
           >
@@ -761,9 +894,15 @@ function ClientAppView({
                   <Icon name="login" size={14} /> Login
                 </Action>
               ) : (
-                // Sair encerra a sessão e volta para a vitrine (modo visitante)
-                <Action variant="ghost" onClick={() => setMode("guest")}>
-                  <Icon name="logout" size={14} /> Sair
+                // Sair pede confirmação; confirmado, encerra a sessão e volta
+                // para a vitrine (modo visitante).
+                <Action
+                  variant="ghost"
+                  className="head-logout"
+                  onClick={() => setConfirmingLogout(true)}
+                >
+                  {/* No celular só o ícone aparece; o texto continua para o leitor de tela. */}
+                  <Icon name="logout" size={14} /> <span className="head-logout-text">Sair</span>
                 </Action>
               )}
               <Action onClick={() => goSchedule()}>Agendar agora</Action>
@@ -826,6 +965,20 @@ function ClientAppView({
       {/* ===== ABA SERVIÇOS ===== */}
       {tab === "services" && (
         <main className="client-page">
+          {/* Volta para a página inicial da vitrine (aba Início). Com uma
+              categoria aberta, "Ver todas as categorias" continua mais abaixo. */}
+          <div className="catalog-back">
+            <button
+              type="button"
+              onClick={() => {
+                setCategory("")
+                setTab("home")
+                window.scrollTo(0, 0)
+              }}
+            >
+              ← Voltar para o início
+            </button>
+          </div>
           <span className="section-kicker">NOSSO CATÁLOGO</span>
           <div className="client-section-title">
             {category || "Escolha uma categoria"}
@@ -849,14 +1002,17 @@ function ClientAppView({
                     <span>
                       <strong>{item.name}</strong>
                       <small>
-                        {
-                          serviceCatalog.filter(
+                        {(() => {
+                          const total = serviceCatalog.filter(
                             (serviceItem) =>
                               serviceItem.active &&
                               serviceItem.category === item.name,
                           ).length
-                        }{" "}
-                        serviços disponíveis
+                          // Singular/plural: "1 serviço disponível", "3 serviços disponíveis"
+                          return total === 1
+                            ? "1 serviço disponível"
+                            : `${total} serviços disponíveis`
+                        })()}
                       </small>
                     </span>
                     <Icon name="arrow" />
@@ -883,15 +1039,12 @@ function ClientAppView({
                     <div className="service-card-body">
                       <span>{item.category.toUpperCase()}</span>
                       <strong>{item.name}</strong>
-                      {/* Resumo: o CSS mostra até 3 linhas; o texto completo
-                          fica no title (mouse) e é lido inteiro pelo leitor de tela. */}
-                      <p
-                        className="service-card-description"
-                        title={item.description || undefined}
-                      >
+                      {/* Descrição: até 2 linhas; "Ver mais" abre o texto
+                          inteiro no próprio cartão (só aparece se passar de 2). */}
+                      <ClampedText className="service-card-description" lines={2}>
                         {item.description ||
                           "Resultado delicado e personalizado para valorizar sua beleza."}
-                      </p>
+                      </ClampedText>
                       <div>
                         <small>
                           <Icon name="clock" size={14} />{" "}
@@ -942,6 +1095,10 @@ function ClientAppView({
                   })
                   setAppointments((current) => [created, ...current])
                   setCreatedAppointment(created)
+                  // (Sem recarregar os horários aqui: o horário recém-marcado
+                  // voltaria "ocupado" e o aviso de "acabou de ser reservado"
+                  // aparecia para o próprio cliente. A próxima escolha de
+                  // serviço já busca os horários de novo.)
                 } catch (error) {
                   notify(error.message)
                   return
@@ -1124,9 +1281,9 @@ function ClientAppView({
                   <div className="bk-cal-foot">
                     <span>
                       <Icon name="sparkle" size={14} />
-                      Dica: escolha um dia e depois o horário na coluna ao lado.
+                      Dica: escolha um dia e depois um dos horários disponíveis.
                     </span>
-                    <span>Atendemos de segunda a sábado</span>
+                    <span>{openDaysLabel(closedWeekdays)}</span>
                   </div>
                 </section>
 
@@ -1136,6 +1293,15 @@ function ClientAppView({
                       {selectedDateLabel.toUpperCase()}
                     </span>
                     <h2>Horários disponíveis</h2>
+                    {/* Os horários são de INÍCIO e já consideram a duração do
+                        serviço: "Indisponível" também aparece antes de um
+                        horário reservado, quando o atendimento não caberia. */}
+                    <p className="bk-times-hint">
+                      Cada horário é o início do atendimento, que dura{" "}
+                      {formatDuration(service.duration)}. Um horário fica
+                      indisponível quando o atendimento terminaria depois do
+                      início de outro já reservado.
+                    </p>
 
                     {/* Sempre os três períodos, nesta ordem; período sem horário mostra um aviso. */}
                     {["MANHÃ", "TARDE", "NOITE"]
@@ -1224,7 +1390,7 @@ function ClientAppView({
 
                     <div className="bk-line">
                       <span>Horário</span>
-                      <strong>{selectedTime || "Selecione ao lado"}</strong>
+                      <strong>{selectedTime || "Escolha um horário"}</strong>
                     </div>
 
                     <div className="bk-line">
@@ -1248,7 +1414,7 @@ function ClientAppView({
                           {preview
                             ? "Modo de visualização"
                             : clientSession.recurring
-                              ? "Cliente recorrente · isenta de sinal"
+                              ? "Cliente recorrente · isento de sinal"
                               : `Sinal de ${SIGNAL_PERCENT}%: ${formatPrice(
                                   Math.round(Number(service.price || 0) * SIGNAL_PERCENT) / 100,
                                 )}`}
@@ -1258,7 +1424,7 @@ function ClientAppView({
                             ? "A gestora não pode concluir agendamentos."
                             : clientSession.recurring
                               ? "Você confirma a presença até 24 horas antes do horário."
-                              : "Pago na próxima etapa para garantir o horário. O restante é pago no atendimento. Depois, confirme sua presença em “Meu perfil” até 24 horas antes. Se cancelar com menos de 24 horas de antecedência, você perde o sinal (exceto em caso de força maior)."}
+                              : "Pago na próxima etapa para garantir o horário. O restante é pago no atendimento. Depois, confirme sua presença em “Meu perfil” até 24 horas antes. Se cancelar com menos de 24 horas de antecedência, você perde o sinal (exceto em caso de força maior). Depois do seu primeiro atendimento concluído, você vira cliente recorrente e não paga mais sinal."}
                         </small>
                       </div>
                     </div>
@@ -1313,9 +1479,8 @@ function ClientAppView({
               clientName={clientSession.name}
               clientWhatsapp={clientSession.whatsapp}
               onBack={() => {
+                resetBooking()
                 setTab("home")
-                setConfirmed(false)
-                setDepositStep(false)
               }}
             />
           )}
@@ -1373,7 +1538,7 @@ function ClientAppView({
                 </h2>
                 <p>
                   Se não confirmar até o prazo, o horário é cancelado
-                  automaticamente e liberado para outra cliente. Se você pagou
+                  automaticamente e liberado para outro cliente. Se você pagou
                   sinal, ele fica retido.
                 </p>
                 <ul>
@@ -1454,10 +1619,21 @@ function ClientAppView({
                     <div>
                       <strong>Isenção da taxa de sinal</strong>
                       <p>
-                        Clientes recorrentes da {company.name} ficam isentas do
-                        sinal. Continue agendando para se tornar um cliente
-                        recorrente e conquistar esse benefício.
+                        Clientes recorrentes da {company.name} não pagam sinal.
+                        Veja como chegar lá:
                       </p>
+                      {/* Passo a passo: deixa claro que só agendar não basta. */}
+                      <ol className="pf-benefit-steps">
+                        <li>Agende e compareça ao seu primeiro atendimento.</li>
+                        <li>
+                          Quando ele for concluído, você vira cliente
+                          recorrente automaticamente.
+                        </li>
+                        <li>Seus próximos agendamentos ficam sem sinal.</li>
+                      </ol>
+                      <small className="pf-benefit-note">
+                        Só agendar não basta: o atendimento precisa acontecer.
+                      </small>
                     </div>
                   )}
                 </div>
@@ -1489,6 +1665,12 @@ function ClientAppView({
                           <Icon name="calendar" size={13} /> {item.date} ·{" "}
                           {item.time}
                         </small>
+                        {cancelledByOf(item) && (
+                          <small className={`pf-cancel-by ${cancelledByOf(item).tone}`}>
+                            <Icon name={cancelledByOf(item).icon} size={13} />{" "}
+                            {cancelledByOf(item).label}
+                          </small>
+                        )}
                       </div>
                       <span className={`pf-pill ${badgeClass[item.badge]}`}>
                         {item.badge}
@@ -1571,7 +1753,7 @@ function ClientAppView({
                     <strong
                       className={`pf-pill ${badgeClass[selectedAppointment.badge]}`}
                     >
-                      {selectedAppointment.badge}
+                      {cancelledByOf(selectedAppointment)?.label ?? selectedAppointment.badge}
                     </strong>
                   </span>{" "}
                   <span>
@@ -1591,6 +1773,7 @@ function ClientAppView({
                     <strong>{formatPrice(selectedAppointment.price)}</strong>
                   </span>
                 </div>
+                {!(cancelledByOf(selectedAppointment) && !selectedAppointment.signal) && (
                 <div className="pf-receipt-free">
                   <Icon name="check" size={16} />
                   <span>
@@ -1599,7 +1782,11 @@ function ClientAppView({
                         <strong>
                           Sinal pago: {formatPrice(selectedAppointment.signal)}
                         </strong>
-                        <small>Descontado do valor no dia do atendimento</small>
+                        <small>
+                          {cancelledByOf(selectedAppointment)
+                            ? "Agendamento cancelado: veja abaixo o que acontece com o sinal"
+                            : "Descontado do valor no dia do atendimento"}
+                        </small>
                       </>
                     ) : (
                       <>
@@ -1609,14 +1796,59 @@ function ClientAppView({
                     )}
                   </span>
                 </div>
+                )}
               </div>
 
+              {/* Cancelado: diz claramente QUEM cancelou e o que acontece com o sinal. */}
+              {cancelledByOf(selectedAppointment) && (
+                <div
+                  className={`pf-cancel-notice ${cancelledByOf(selectedAppointment).tone}`}
+                  role="note"
+                >
+                  <Icon name={cancelledByOf(selectedAppointment).icon} size={18} />
+                  <div>
+                    <strong>{cancelledByOf(selectedAppointment).label}</strong>
+                    {selectedAppointment.cancelledBy === "GESTORA" && (
+                      <>
+                        <p>
+                          A {company.name} cancelou este agendamento.
+                          {selectedAppointment.cancellationReason &&
+                            ` Motivo: ${selectedAppointment.cancellationReason}`}
+                        </p>
+                        <p>
+                          {selectedAppointment.signal
+                            ? "Fale com a clínica pelo WhatsApp para combinar a devolução do sinal ou um novo horário."
+                            : "Se quiser, fale com a clínica pelo WhatsApp ou agende um novo horário."}
+                        </p>
+                      </>
+                    )}
+                    {selectedAppointment.cancelledBy === "CLIENTE" && (
+                      <p>
+                        Você cancelou este agendamento.
+                        {selectedAppointment.signal &&
+                          (selectedAppointment.cancelledInTime
+                            ? " Como foi com 24 horas ou mais de antecedência, a clínica vai verificar o reembolso do sinal."
+                            : " Como foi com menos de 24 horas de antecedência, o sinal fica retido (exceto em caso de força maior: fale com a clínica).")}
+                      </p>
+                    )}
+                    {selectedAppointment.cancelledBy === "SISTEMA" && (
+                      <p>
+                        O sistema cancelou porque a presença não foi confirmada
+                        até 24 horas antes do horário.
+                        {selectedAppointment.signal &&
+                          " O sinal fica retido (exceto em caso de força maior: fale com a clínica)."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="pf-location">
                 <div className="pf-location-info">
                   <span className="section-kicker">LOCAL DO ATENDIMENTO</span>
                   <strong>{company.name}</strong>
                   <p>{company.address}</p>
-                  <small>Seg–Sáb · 09h às 19h</small>
+                  {/* Horário salvo em Configurações (antes era fixo) */}
+                  {company.hoursText?.trim() && <small>{company.hoursText}</small>}
                   <div className="pf-location-actions">
                     <a href={directionsUrl} target="_blank" rel="noreferrer">
                       <Icon name="arrow" size={13} /> Como chegar{" "}
@@ -1663,12 +1895,6 @@ function ClientAppView({
                   Sem confirmação, o horário é cancelado automaticamente.
                 </p>
               )}
-              {selectedAppointment.rawStatus === "CANCELADO" &&
-                selectedAppointment.cancellationReason && (
-                  <p className="pf-policy">
-                    Motivo do cancelamento: {selectedAppointment.cancellationReason}
-                  </p>
-                )}
 
               <div className="modal-actions service-detail-actions">
                 {selectedAppointment.needsConfirmation && (
@@ -1760,7 +1986,7 @@ function ClientAppView({
                 <p>
                   Seu horário de <strong>{cancelling.name}</strong> em{" "}
                   {cancelling.date} às {cancelling.time} será liberado para
-                  outras clientes.
+                  outros clientes.
                 </p>
               </div>
               {/* Aviso do sinal: regra de 24h calculada no backend (prévia). */}
@@ -1839,18 +2065,20 @@ function ClientAppView({
                     onChange={setDraftField("name")}
                   />
                 </Field>
+                {/* Data de nascimento não é editável depois do cadastro
+                    (regra de idade mínima e dado cadastral). Para corrigir,
+                    o cliente fala com a clínica. */}
                 <Field
                   id="profile-birth"
                   label="Data de nascimento"
-                  error={profileErrors.birthDate}
-                  hint={`Cadastro permitido a partir de ${MIN_AGE_CLIENT} anos.`}
+                  hint="Não pode ser alterada por aqui. Se estiver errada, fale com a clínica."
                 >
                   <input
-                    {...aria("profile-birth", profileErrors.birthDate, "x")}
+                    {...aria("profile-birth", undefined, "x")}
                     type="date"
-                    autoComplete="bday"
                     value={profileDraft.birthDate}
-                    onChange={setDraftField("birthDate")}
+                    readOnly
+                    aria-readonly="true"
                   />
                 </Field>
                 <Field
@@ -1934,6 +2162,16 @@ function ClientAppView({
                   guardados, sem identificar você, pelo prazo legal.
                 </p>
               </div>
+              {/* Termo de exclusão de conta do Prontto (documento da plataforma) */}
+              {exclusionTerm && (
+                <p className="delete-term-link">
+                  Antes de confirmar, leia o{" "}
+                  <button type="button" onClick={() => setReadingExclusionTerm(true)}>
+                    {exclusionTerm.titulo}
+                  </button>
+                  .
+                </p>
+              )}
               <div className="modal-actions">
                 <Action
                   variant="secondary"
@@ -1966,6 +2204,22 @@ function ClientAppView({
               </div>
             </Modal>
           )}
+          {/* Termo de exclusão aberto por cima do modal de excluir conta. */}
+          {readingExclusionTerm && exclusionTerm && (
+            <Modal
+              wide
+              kicker="DOCUMENTO DO PRONTTO"
+              title={exclusionTerm.titulo}
+              onClose={() => setReadingExclusionTerm(false)}
+            >
+              <DocumentView doc={exclusionTerm} slug={company.slug} />
+              <div className="modal-actions">
+                <Action variant="secondary" onClick={() => setReadingExclusionTerm(false)}>
+                  ← Voltar para a exclusão da conta
+                </Action>
+              </div>
+            </Modal>
+          )}
 
           <footer className="booking-footer pf-footer">
             <p>
@@ -1983,6 +2237,40 @@ function ClientAppView({
       )}
 
       {/* Menu inferior das abas (celular). A aba Perfil não aparece no modo de visualização. */}
+      {/* Modal: confirmar saída da conta (vale em qualquer aba: o "Sair" fica no topo). */}
+      {confirmingLogout && (
+        <Modal
+          kicker="SAIR DA CONTA"
+          title="Sair da sua conta?"
+          onClose={() => setConfirmingLogout(false)}
+        >
+          <div className="confirmation-content">
+            <div className="confirmation-icon warning">
+              <Icon name="logout" />
+            </div>
+            <p>
+              Você continua vendo a vitrine da {company.name}, mas para
+              agendar ou ver seus agendamentos vai precisar entrar de novo.
+            </p>
+          </div>
+          <div className="modal-actions">
+            <Action variant="secondary" onClick={() => setConfirmingLogout(false)}>
+              Ficar na minha conta
+            </Action>
+            <Action
+              variant="danger"
+              onClick={() => {
+                setConfirmingLogout(false)
+                setTab("home")
+                setMode("guest")
+                notify("Você saiu da sua conta.", "success")
+              }}
+            >
+              Sim, sair da conta
+            </Action>
+          </div>
+        </Modal>
+      )}
       <nav className="mobile-nav">
         {[
           { key: "home", icon: "home", label: "Início" },
@@ -2002,6 +2290,7 @@ function ClientAppView({
             onClick={() => {
               if (item.key === "login") return setMode("login")
               if (item.key === "services") setCategory("")
+              if (item.key === "schedule" && confirmed) return goSchedule()
               setTab(item.key)
             }}
           >

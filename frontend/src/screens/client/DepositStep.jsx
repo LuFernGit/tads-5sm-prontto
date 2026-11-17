@@ -283,9 +283,14 @@ function DepositStep({
           <div className="bf-box">
             <h2>Política de sinal</h2>
             <p>
-              Para clientes novas, a clínica cobra um sinal de {SIGNAL_PERCENT}%
+              Para clientes novos, a clínica cobra um sinal de {SIGNAL_PERCENT}%
               do valor do serviço para garantir o horário. O restante é pago no
               atendimento.
+            </p>
+            <p>
+              Depois do seu primeiro atendimento concluído, você passa a ser
+              cliente recorrente e fica isento do sinal nos próximos
+              agendamentos.
             </p>
             <dl className="bf-rows">
               <div>
@@ -407,7 +412,7 @@ function DepositStep({
                   </li>
                   <li>
                     <span className="pay-step-icon"><PayIcon kind="qr" size={18} /></span>
-                    <p>2. Escolha <b>pagar com QR code</b> e escaneie o código ao lado.</p>
+                    <p>2. Escolha <b>pagar com QR code</b> e escaneie o código desta tela.</p>
                   </li>
                   <li>
                     <span className="pay-step-icon"><Icon name="check" size={18} /></span>

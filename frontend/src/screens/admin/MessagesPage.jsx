@@ -336,7 +336,7 @@ function MessagesPageView({
           </h1>
         </div>
         <p className="ff-copy">
-          Prepare mensagens com os dados da cliente já preenchidos e gerencie os
+          Prepare mensagens com os dados do cliente já preenchidos e gerencie os
           modelos da clínica. O envio é sempre feito por você, no WhatsApp.
         </p>
 
@@ -428,7 +428,7 @@ function MessagesPageView({
                   ) : (
                     <p className="ff-small">
                       {isConfirmRequest
-                        ? "Nenhum agendamento aguardando confirmação dentro do prazo. Clientes novas pagam o sinal e já ficam confirmadas."
+                        ? "Nenhum agendamento aguardando confirmação dentro do prazo. Clientes novos pagam o sinal e já ficam confirmadas."
                         : "Não há agendamentos futuros para este tipo de mensagem."}
                     </p>
                   )
@@ -504,7 +504,7 @@ function MessagesPageView({
                     onClick={(e) => {
                       if (!href) {
                         e.preventDefault()
-                        notify("Escolha uma cliente com WhatsApp cadastrado.", "error")
+                        notify("Escolha um cliente com WhatsApp cadastrado.", "error")
                       }
                     }}
                   >

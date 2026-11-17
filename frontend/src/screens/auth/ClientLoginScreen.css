@@ -7,3 +7,37 @@
 /* Botão "← Voltar para a vitrine" no login da cliente: #334155 × branco = 10,35:1 */
 .back-to-store { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; padding: 0; border: 0; background: transparent; color: #334155; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .back-to-store:hover { color: var(--navy); text-decoration: underline; }
+
+/* Assinatura "Agendamentos por ◇ prontto" no fim do quadro de login.
+   Rótulo #475569 × branco = 7,58:1; nome navy × branco = 17,85:1 (AAA).
+   O símbolo é decorativo (aria-hidden): o leitor de tela lê "Agendamentos por prontto". */
+.prontto-signature {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 24px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.prontto-signature-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #475569;
+}
+.prontto-signature-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-heading);
+  font-size: 19px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--navy);
+}
+.prontto-signature-brand svg { width: 20px; height: 20px; flex: none; }
+/* Slogan da clínica sobre o fundo escuro: dourado claro (#e0a96d × navy = 8,56:1).
+   Antes herdava o âmbar escuro da vitrine e ficava ilegível sobre o navy. */
+.clinic-on-dark span { color: var(--gold); }

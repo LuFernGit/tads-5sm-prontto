@@ -19,13 +19,14 @@ import prontto_api.repository.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Period;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class ClienteAreaService {
+
+    @Autowired private NotificacaoService notificacaoService;
 
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private FichaAnamneseRepository fichaAnamneseRepository;
@@ -51,13 +52,8 @@ public class ClienteAreaService {
     public PerfilClienteDto atualizarPerfil(Usuario cliente, PerfilClienteDto dto) {
         cliente.setNome(dto.name().trim());
 
-        if (dto.birthDate() != null && !dto.birthDate().isBlank()) {
-            LocalDate birth = LocalDate.parse(dto.birthDate());
-            if (Period.between(birth, LocalDate.now()).getYears() < 15) {
-                throw new RegraNegocioException("O cadastro é permitido a partir de 15 anos. Confira a data informada.");
-            }
-            cliente.setDataNascimento(birth);
-        }
+        // Data de nascimento NÃO é alterada pelo cliente depois do cadastro
+        // (idade mínima e dado cadastral): o valor enviado aqui é ignorado.
 
         if (dto.whatsapp() != null && !dto.whatsapp().isBlank()) {
             cliente.setWhatsapp(dto.whatsapp().replaceAll("\\D", ""));
@@ -217,6 +213,8 @@ public class ClienteAreaService {
         log.setAcao("CRIAR_AGENDAMENTO");
         log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
+        // Sino da gestora
+        notificacaoService.registrar(agendamento, NotificacaoService.NOVO_AGENDAMENTO);
 
         return paraResponse(agendamento);
     }
@@ -253,6 +251,8 @@ public class ClienteAreaService {
         log.setAcao("CONFIRMACAO_CLIENTE");
         log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
+        // Sino da gestora
+        notificacaoService.registrar(a, NotificacaoService.PRESENCA_CONFIRMADA);
 
         return paraResponse(a);
     }
@@ -341,6 +341,8 @@ public class ClienteAreaService {
         log.setAcao("CANCELAMENTO_CLIENTE");
         log.setIpOrigem(IpOrigem.atual());
         logAuditoriaRepository.save(log);
+        // Sino da gestora
+        notificacaoService.registrar(a, NotificacaoService.CANCELAMENTO_CLIENTE);
 
         return paraResponse(a);
     }

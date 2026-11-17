@@ -2,7 +2,7 @@ import { useState } from "react"
 import Action from "@/components/ui/Action"
 import Icon from "@/components/ui/Icon"
 import Modal from "@/components/ui/Modal"
-import { anamnesisEntries, toHealthRecord } from "@/lib/anamnesis"
+import { anamnesisEntries, observationItems, toHealthRecord } from "@/lib/anamnesis"
 import { emptyAnamnesis } from "@/constants"
 import { api } from "@/api"
 import AsyncState from "@/components/ui/AsyncState"
@@ -17,16 +17,33 @@ const NOTE_MAX = 1000
 
 /** Resumo (alergias/observações) de uma versão: o gravado ou, se não houver, calculado das respostas. */
 function versionSummary(v) {
-  const computed = toHealthRecord({ ...emptyAnamnesis, ...(v.respostas ?? {}) })
-  return {
-    alergias: v.alergias || computed.alergias,
-    observacoes: v.observacoes || computed.observacoes_medicas,
-  }
+  const hasAnswers = v.respostas && Object.keys(v.respostas).length > 0
+  if (!hasAnswers) return { alergias: v.alergias || "Nenhuma", observacoes: v.observacoes || "Nenhuma" }
+  // Com as respostas em mãos, o resumo é recalculado: sai no formato atual e
+  // sem detalhes que já não valiam (ex.: alergia trocada para "Não").
+  const computed = toHealthRecord({ ...emptyAnamnesis, ...v.respostas })
+  return { alergias: computed.alergias, observacoes: computed.observacoes_medicas }
+}
+
+/** Observações médicas uma por linha, com o rótulo em destaque. */
+function Observations({ text }) {
+  const items = observationItems(text)
+  if (items.length === 0) return <strong>Nenhuma</strong>
+  return (
+    <ul className="health-observations">
+      {items.map((item, index) => (
+        <li key={`${item.label}-${index}`}>
+          <strong>{item.label}</strong>
+          {item.detail && <span>{item.detail}</span>}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 /**
  * Histórico da ficha por VERSÕES COMPLETAS (GET /gestora/clientes/{id}/ficha/versoes).
- * Cada vez que a cliente salva a ficha, o backend guarda uma cópia inteira dela;
+ * Cada vez que o cliente salva a ficha, o backend guarda uma cópia inteira dela;
  * aqui aparece uma linha por versão, com data e hora, e "Ver ficha completa".
  */
 function HealthVersions({ clientId, onView }) {
@@ -38,7 +55,7 @@ function HealthVersions({ clientId, onView }) {
         HISTÓRICO DA FICHA (VERSÕES COMPLETAS)
       </span>
       <p className="ff-small history-help">
-        Cada vez que a cliente salva a ficha, uma versão completa é guardada.
+        Cada vez que o cliente salva a ficha, uma versão completa é guardada.
         As versões anteriores nunca são alteradas.
       </p>
       {query.loading && !query.data && <p className="ff-small">Carregando versões…</p>}
@@ -51,7 +68,7 @@ function HealthVersions({ clientId, onView }) {
         </p>
       )}
       {query.data && versions.length === 0 && (
-        <p className="ff-small">A cliente ainda não preencheu a ficha de saúde.</p>
+        <p className="ff-small">O cliente ainda não preencheu a ficha de saúde.</p>
       )}
       {versions.map((v) => (
         <div key={v.id ?? `v${v.numero}`} className="history-version">
@@ -228,8 +245,8 @@ function HealthPageView({ notify, clientList }) {
             <h2 className="section-title">{c.name}</h2>
             <p>
               {brDateTime(c.atualizadaEm)
-                ? `Atualizada pela cliente em ${brDateTime(c.atualizadaEm)}`
-                : "A cliente ainda não preencheu a ficha de saúde."}
+                ? `Atualizada pelo cliente em ${brDateTime(c.atualizadaEm)}`
+                : "O cliente ainda não preencheu a ficha de saúde."}
             </p>
           </div>
         </div>
@@ -244,16 +261,16 @@ function HealthPageView({ notify, clientList }) {
             <span>
               <Icon name="sparkle" /> OBSERVAÇÕES MÉDICAS
             </span>
-            <strong>{c.observacoes}</strong>
+            <Observations text={c.observacoes} />
           </div>
         </div>
         <div className="health-readonly">
           <Icon name="lock" size={14} />
           <span>
-            <strong>Respostas da cliente: somente consulta</strong>
+            <strong>Respostas do cliente: somente consulta</strong>
             <small>
-              Dados de saúde são sensíveis (LGPD). Só a cliente altera; cada
-              vez que ela salva, uma versão completa da ficha fica no histórico
+              Dados de saúde são sensíveis (LGPD). Só o cliente altera; cada
+              vez que ele salva, uma versão completa da ficha fica no histórico
               e o acesso é registrado.
             </small>
           </span>
@@ -287,7 +304,7 @@ function HealthPageView({ notify, clientList }) {
           )}
           <div className="settings-save">
             <small id="nova-nota-ajuda">
-              {newNote.length}/{NOTE_MAX} · a cliente não vê estas notas.
+              {newNote.length}/{NOTE_MAX} · o cliente não vê estas notas.
             </small>
             <Action onClick={askCreate}>
               <Icon name="plus" size={15} /> Adicionar nota
@@ -296,7 +313,7 @@ function HealthPageView({ notify, clientList }) {
 
           {/* Notas salvas (mais recente primeiro) */}
           {notes.length === 0 ? (
-            <p className="ff-small notes-empty">Nenhuma nota ainda para esta cliente.</p>
+            <p className="ff-small notes-empty">Nenhuma nota ainda para este cliente.</p>
           ) : (
             <ul className="notes-list" aria-labelledby="notas-titulo">
               {notes.map((note) => (
@@ -372,7 +389,7 @@ function HealthPageView({ notify, clientList }) {
         >
           <p className="ff-small version-meta">
             {viewingVersion.data
-              ? `Salva pela cliente em ${brDateTime(viewingVersion.data) ?? viewingVersion.data}`
+              ? `Salva pelo cliente em ${brDateTime(viewingVersion.data) ?? viewingVersion.data}`
               : "Versão anterior ao histórico por versões (data não registrada)"}
             {" · somente consulta"}
           </p>
@@ -387,7 +404,7 @@ function HealthPageView({ notify, clientList }) {
               <span>
                 <Icon name="sparkle" /> OBSERVAÇÕES MÉDICAS
               </span>
-              <strong>{versionSummary(viewingVersion).observacoes}</strong>
+              <Observations text={versionSummary(viewingVersion).observacoes} />
             </div>
           </div>
           <dl className="version-answers">
@@ -442,7 +459,7 @@ function HealthPage(props) {
         ) : (
           <section className="page-card">
             <h1 className="section-title">Fichas de saúde</h1>
-            <p>Nenhuma cliente cadastrada ainda.</p>
+            <p>Nenhum cliente cadastrado ainda.</p>
           </section>
         )
       }

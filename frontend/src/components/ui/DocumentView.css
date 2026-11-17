@@ -1,0 +1,39 @@
+/* Estilos de DocumentView.jsx (texto e/ou PDF de um documento publicado). */
+.doc-view { display: grid; gap: 14px; text-align: left; }
+.doc-view-meta { margin: 0; font-size: 12px; color: #475569; } /* 7,58:1 */
+.doc-view-text { white-space: pre-line; font-size: 14px; line-height: 1.7; color: var(--text); }
+/* PDF dentro da página: alto o bastante para ler uma página inteira rolando. */
+.doc-view-frame {
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f1f5f9;
+}
+/* Dentro de um modal o PDF é mais baixo: o botão "← Voltar..." do rodapé do
+   modal continua visível sem rolar (o PDF rola por dentro). */
+.modal-card .doc-view-frame { height: min(48vh, 560px); }
+/* Botão do celular (escondido no computador) */
+.doc-view-open-mobile { display: none; }
+.doc-view-actions { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.doc-view .doc-view-actions a { color: var(--amber-text); font-size: 13px; font-weight: 700; } /* 7,09:1 */
+
+/* Celular ou tela de toque: sem PDF embutido (não funciona no Android/iOS). */
+@media (max-width: 700px), (pointer: coarse) {
+  .doc-view-frame { display: none; }
+  /* .doc-view a.x: vence ".legal a" (texto âmbar das páginas de termos), que
+     deixava o texto do botão âmbar sobre fundo âmbar. */
+  .doc-view a.doc-view-open-mobile {
+    display: grid;
+    gap: 3px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--amber-dark);
+    color: #fff; /* 7,09:1 */
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+  }
+  .doc-view a.doc-view-open-mobile small { font-size: 12px; font-weight: 400; color: #fff; word-break: break-all; }
+}

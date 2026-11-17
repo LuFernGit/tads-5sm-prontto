@@ -7,7 +7,8 @@
 .brand-uploads { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; padding-top: 18px; border-top: 1px solid var(--line); }
 .brand-uploads label { display: flex; flex-direction: column; gap: 7px; }
 .brand-uploads label > span { font-size: 12px; font-weight: 800; color: #475569; letter-spacing: 0.08em; }
-.brand-uploads input { position: absolute; opacity: 0; pointer-events: none; }
+/* width/height 1px: o campo de arquivo invisível não alarga a página no celular */
+.brand-uploads input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
 .brand-uploads label > div {
   height: 130px;
   border: 1px dashed #cbd5e1;

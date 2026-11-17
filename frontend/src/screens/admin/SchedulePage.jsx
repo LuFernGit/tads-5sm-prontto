@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Action from "@/components/ui/Action"
 import NewTabHint from "@/components/ui/NewTabHint"
 import Field from "@/components/ui/Field"
@@ -68,6 +68,8 @@ function SchedulePageView({
   onCancelAppointment,
   initialRules,
   initialBlocks,
+  focusAppointmentId = null,
+  onFocusHandled,
 }) {
   // rules = horário de funcionamento de cada dia da semana; errors = erro por dia.
   const [rules, setRules] = useState(initialRules)
@@ -103,7 +105,7 @@ function SchedulePageView({
     const motivo = cancelReason.trim()
     if (!motivo) {
       setCancelReasonError(
-        "Informe o motivo do cancelamento. Ele vai na mensagem para a cliente. Exemplo: indisponibilidade da profissional.",
+        "Informe o motivo do cancelamento. Ele vai na mensagem para o cliente. Exemplo: indisponibilidade da profissional.",
       )
       return
     }
@@ -114,6 +116,15 @@ function SchedulePageView({
   }
   // Agendamento aberto no modal "Detalhes do agendamento".
   const [appointmentDetails, setAppointmentDetails] = useState(null)
+  // Veio de uma notificação (sino): abre os detalhes desse agendamento assim
+  // que ele estiver na lista (um agendamento novo pode chegar no recarregamento).
+  useEffect(() => {
+    if (!focusAppointmentId) return
+    const found = loadedAppointments.find((a) => String(a.id) === String(focusAppointmentId))
+    if (!found) return
+    setAppointmentDetails(found) // eslint-disable-line react-hooks/set-state-in-effect
+    onFocusHandled?.()
+  }, [focusAppointmentId, loadedAppointments, onFocusHandled])
   // Confirmação de "Marcar reembolso como verificado" (agendamento) e envio.
   const [refundToVerify, setRefundToVerify] = useState(null)
   const [verifyingRefund, setVerifyingRefund] = useState(false)
@@ -202,7 +213,7 @@ function SchedulePageView({
     // são cancelados automaticamente (ela cancela ou remarca depois, se quiser).
     setWarning(
       conflicts.length > 0
-        ? `Existem agendamentos neste período: ${conflicts.map((c) => `${c.cliente} às ${c.hora}`).join(", ")}. Eles não serão cancelados automaticamente; fale com as clientes para cancelar ou remarcar, se for o caso.`
+        ? `Existem agendamentos neste período: ${conflicts.map((c) => `${c.cliente} às ${c.hora}`).join(", ")}. Eles não serão cancelados automaticamente; fale com os clientes para cancelar ou remarcar, se for o caso.`
         : "",
     )
     setConfirmBlock(true)
@@ -577,9 +588,9 @@ function SchedulePageView({
                 <p>
                   Sinal registrado:{" "}
                   <strong>{formatPrice(appointmentDetails.valorSinal)}</strong>.
-                  Se a cliente cancelar até{" "}
+                  Se o cliente cancelar até{" "}
                   <strong>{appointmentDetails.reembolsoAteLabel}</strong> (24
-                  horas antes), ela pode pedir o reembolso do sinal e o caso
+                  horas antes), ele pode pedir o reembolso do sinal e o caso
                   aparece aqui como “Cliente aguardando reembolso”. Depois desse prazo,
                   o sinal fica retido, exceto em caso de força maior.
                 </p>
@@ -597,17 +608,17 @@ function SchedulePageView({
                 Sinal registrado neste agendamento:{" "}
                 <strong>{formatPrice(appointmentDetails.valorSinal)}</strong>.{" "}
                 {appointmentDetails.canceladoPor === "SISTEMA"
-                  ? "O agendamento foi cancelado automaticamente porque a cliente não confirmou a presença até 24 horas antes"
-                  : "A cliente cancelou"}{" "}
+                  ? "O agendamento foi cancelado automaticamente porque o cliente não confirmou a presença até 24 horas antes"
+                  : "O cliente cancelou"}{" "}
                 {appointmentDetails.cancelamentoNoPrazo
                   ? "com 24 horas ou mais de antecedência e pode solicitar o reembolso do sinal."
                   : appointmentDetails.canceladoPor === "SISTEMA"
-                    ? "— pela política da clínica, o sinal fica retido, exceto em caso de força maior. Se a cliente entrar em contato alegando força maior, avalie o caso e combine o reembolso diretamente com ela."
-                    : "com menos de 24 horas de antecedência: pela política da clínica, o sinal fica retido, exceto em caso de força maior. Se a cliente entrar em contato alegando força maior, avalie o caso e combine o reembolso diretamente com ela."}
+                    ? "— pela política da clínica, o sinal fica retido, exceto em caso de força maior. Se o cliente entrar em contato alegando força maior, avalie o caso e combine o reembolso diretamente com ele."
+                    : "com menos de 24 horas de antecedência: pela política da clínica, o sinal fica retido, exceto em caso de força maior. Se o cliente entrar em contato alegando força maior, avalie o caso e combine o reembolso diretamente com ele."}
               </p>
               <p>
                 {appointmentDetails.cancelamentoNoPrazo
-                  ? "Confira se o pagamento do sinal foi realmente recebido e, se o reembolso for devido, faça-o diretamente com a cliente. "
+                  ? "Confira se o pagamento do sinal foi realmente recebido e, se o reembolso for devido, faça-o diretamente com o cliente. "
                   : ""}
                 O Prontto não realiza estornos nem transferências.
               </p>
@@ -667,8 +678,8 @@ function SchedulePageView({
               </span>
             </div>
             <p>
-              O horário ficará disponível para novos agendamentos. A cliente
-              será avisada por uma mensagem pronta no WhatsApp (modelo
+              O horário ficará disponível para novos agendamentos. O cliente
+              será avisado por uma mensagem pronta no WhatsApp (modelo
               "Cancelamento" da Central de Mensagens), que poderá ser revisada
               antes do envio.
             </p>
@@ -702,7 +713,7 @@ function SchedulePageView({
               onClick={() => !cancelling && confirmCancel()}
             >
               {cancelling ? "Cancelando…" : "Sim, cancelar agendamento"}{" "}
-              <NewTabHint compact text="abre o WhatsApp em nova guia para avisar a cliente" />
+              <NewTabHint compact text="abre o WhatsApp em nova guia para avisar o cliente" />
             </Action>
           </div>
         </Modal>
@@ -729,7 +740,7 @@ function SchedulePageView({
             </div>
             <p>
               Use esta opção depois de conferir o pagamento do sinal e de
-              resolver o reembolso com a cliente, se ele for devido. O selo
+              resolver o reembolso com o cliente, se ele for devido. O selo
               passa a mostrar “Reembolso verificado”. Nenhum valor é
               movimentado pelo Prontto.
             </p>

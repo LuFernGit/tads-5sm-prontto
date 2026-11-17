@@ -42,6 +42,10 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 escreverErro(response, 403, "Acesso negado para este perfil."))
                 )
+                // PDF dos termos aparece dentro da página da vitrine (iframe):
+                // permitido só para a MESMA origem (outros sites continuam sem
+                // poder embutir o Prontto). Antes: DENY, que bloqueava o PDF.
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .authorizeHttpRequests(auth -> auth
                         // 1. Swagger / OpenAPI
                         .requestMatchers(

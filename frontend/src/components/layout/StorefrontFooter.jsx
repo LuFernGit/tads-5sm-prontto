@@ -57,7 +57,9 @@ function StorefrontFooter({ company }) {
         <a href="#termos">Termos de uso</a>
         <a href="#privacidade">Política de privacidade</a>
         <a href="#contato">Fale com a clínica</a>
-        <small>Seg–Sáb · 09h às 19h</small>
+        {/* Horário que a gestora salva em Configurações ("Horário de
+            funcionamento"); antes era um texto fixo igual para toda clínica. */}
+        {company.hoursText?.trim() && <small>{company.hoursText}</small>}
       </div>
       <div className="footer-bottom">
         © {new Date().getFullYear()} {company.name} · Agendamentos por Prontto

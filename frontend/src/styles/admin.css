@@ -192,3 +192,46 @@
 .client-history h3 { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #475569; }
 .client-history .af-list { margin-top: 10px; }
 .client-history .af-list li { background: #fff; font-size: 13px; color: var(--navy); }
+
+/* ===================== RESPONSIVO (todas as páginas do painel) ===================== */
+/* Meia tela e menores: a barra de busca/filtros quebra linha em vez de vazar
+   (a busca tinha largura mínima de 310px). */
+@media (max-width: 900px) {
+  .table-toolbar { flex-wrap: wrap; gap: 10px; }
+  .search-box { min-width: 0; flex: 1 1 260px; }
+  .page-card-head { flex-wrap: wrap; gap: 14px; }
+}
+/* Celular: cartões com menos respiro e TABELAS EM CARTÕES. Cada linha vira um
+   cartão: nome e botões em cima; cada campo embaixo, com o nome da coluna
+   (data-label) acima do valor. O cabeçalho da tabela some (os rótulos
+   aparecem em cada cartão). */
+@media (max-width: 640px) {
+  .page-card { padding: 16px; }
+  .table-toolbar { margin: 0 -16px; padding: 12px 16px; }
+  .search-box { flex-basis: 100%; }
+  .data-table .table-header { display: none; }
+  /* .data-table.x: vence as colunas fixas de ServicesPage.css (carregado depois). */
+  .data-table .table-row,
+  .data-table.clients-table .table-row,
+  .data-table.services-table .table-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+    min-height: 0;
+    padding: 14px 4px;
+  }
+  .data-table .table-row > .main-cell { grid-column: 1; grid-row: 1; min-width: 0; }
+  .data-table .table-row > .client-row-actions { grid-column: 2; grid-row: 1; justify-self: end; }
+  .data-table .table-row > [data-label] { grid-column: 1 / -1; display: block; min-width: 0; }
+  .data-table .table-row > [data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 3px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #475569; /* 7,58:1 */
+  }
+  /* Valores em duas colunas de rótulo/valor ficam lado a lado (2 por linha). */
+  .data-table.services-table .table-row > [data-label] { grid-column: auto; }
+}

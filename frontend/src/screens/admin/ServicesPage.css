@@ -110,7 +110,7 @@
 .service-form { grid-template-columns: 190px 1fr; gap: 18px; }
 .service-form-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .service-form-fields label { min-width: 0; }
-.service-upload input { position: absolute; opacity: 0; pointer-events: none; }
+.service-upload input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
 .service-upload > div {
   height: 190px;
   border: 1px dashed #cbd5e1;
@@ -136,7 +136,12 @@
    caixa de upload; abaixo dele, o nome do arquivo e o botão "Trocar foto". */
 .service-upload:focus-within > div { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .service-media { display: grid; gap: 10px; align-content: start; min-width: 0; }
-.service-photo-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+/* Coluna da foto tem 190px: nome do arquivo em cima (cortado com "…" se for
+   longo, nome completo no title) e "Trocar foto" embaixo, alinhados à esquerda
+   como o texto e o zoom do enquadramento (antes o nome longo invadia a coluna
+   dos campos e empurrava o botão). */
+.service-photo-file { display: grid; justify-items: start; gap: 8px; min-width: 0; }
+.service-photo-file .file-name { display: block; max-width: 100%; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Botão secundário do sistema (navy × branco = 17,85:1) */
 .service-change-photo { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: var(--navy); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .service-change-photo:hover { border-color: var(--amber); background: var(--cream); }
@@ -205,7 +210,8 @@
   .category-manager-list span { min-width: 140px; }
 }
 @media (max-width: 700px) {
-  .page-head-actions { flex-direction: column; }
+  .page-head-actions { flex-direction: column; width: 100%; }
+  .page-head-actions .action { width: 100%; justify-content: center; }
   .service-form,
   .service-form-fields { grid-template-columns: 1fr; }
   .service-upload > div { height: 150px; }

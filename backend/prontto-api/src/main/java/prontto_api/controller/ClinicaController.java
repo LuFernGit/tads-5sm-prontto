@@ -35,6 +35,28 @@ public class ClinicaController {
         return ResponseEntity.ok(java.util.Map.of("versao", clinicaService.obterVersaoVitrine(slug)));
     }
 
+    /**
+     * PDF de um documento publicado (termos da clínica ou do Prontto), servido
+     * como arquivo de verdade: abre no visualizador do navegador, em nova guia
+     * ou dentro da página (antes ia como data URL, que o Chrome bloqueia em
+     * nova guia). ?download=1 baixa o arquivo em vez de abrir.
+     */
+    @GetMapping("/{slug}/documentos/{id}/pdf")
+    public ResponseEntity<byte[]> obterPdfDocumento(@PathVariable String slug, @PathVariable Long id,
+                                                    @RequestParam(defaultValue = "0") String download) {
+        var documento = clinicaService.documentoPdf(slug, id);
+        String nome = documento.getNomeArquivo() != null && !documento.getNomeArquivo().isBlank()
+                ? documento.getNomeArquivo() : "documento.pdf";
+        var disposicao = ("1".equals(download)
+                ? org.springframework.http.ContentDisposition.attachment()
+                : org.springframework.http.ContentDisposition.inline())
+                .filename(nome, java.nio.charset.StandardCharsets.UTF_8).build();
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, disposicao.toString())
+                .body(ClinicaService.bytesDoPdf(documento));
+    }
+
     @GetMapping("/{slug}/calendario")
     public ResponseEntity<CalendarioDisponibilidadeResponse> obterCalendarioMensal(
             @PathVariable String slug,

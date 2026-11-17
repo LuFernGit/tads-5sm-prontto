@@ -1,0 +1,107 @@
+/* Estilos de NotificationBell.jsx (sino do painel da gestora). */
+.notif-wrap { position: relative; }
+/* Sino: navy × branco (17,85:1), área de 44px */
+.notif-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--navy);
+  cursor: pointer;
+}
+.notif-bell:hover { border-color: var(--amber); background: var(--cream); }
+/* Contador: branco × #b91c1c (6,47:1) */
+.notif-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 70;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+.notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.notif-head strong { font-size: 14px; color: var(--navy); }
+.notif-mark-all {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--amber-text); /* 7,09:1 */
+  cursor: pointer;
+}
+.notif-mark-all:hover { text-decoration: underline; }
+.notif-empty { margin: 0; padding: 18px 16px; font-size: 13px; line-height: 1.6; color: #475569; }
+.notif-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.notif-list li + li { border-top: 1px solid var(--line); }
+.notif-item {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 0;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.notif-item:hover { background: var(--cream); }
+/* Não lida: fundo âmbar bem claro + barrinha à esquerda */
+.notif-item.is-unread { background: #fffbeb; box-shadow: inset 3px 0 0 var(--amber); }
+.notif-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+.notif-icon.new { background: var(--amber-pale); color: var(--amber-text); }
+.notif-icon.ok { background: var(--green-bg); color: var(--green); }
+.notif-icon.cancel { background: #fee2e2; color: #b91c1c; }
+.notif-text { display: grid; gap: 3px; min-width: 0; }
+.notif-text strong { font-size: 13px; color: var(--navy); }
+.notif-text > span { font-size: 12px; line-height: 1.5; color: #334155; } /* 10,35:1 */
+.notif-text small { font-size: 12px; color: #475569; }
+.notif-action { font-style: normal; font-size: 12px; font-weight: 800; color: #b91c1c; } /* 6,47:1 */
+
+/* Celular: a lista ocupa a largura da tela, logo abaixo do topo. */
+@media (max-width: 520px) {
+  .notif-panel { position: fixed; top: 76px; right: 16px; left: 16px; width: auto; }
+}

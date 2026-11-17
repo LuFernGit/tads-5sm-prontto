@@ -56,7 +56,7 @@ function ClientsPageView({ notify, clientList }) {
       <div className="page-card-head">
         <div>
           <span className="section-kicker">RELACIONAMENTO</span>
-          <h1 className="section-title">Clientes cadastradas</h1>
+          <h1 className="section-title">Clientes cadastrados</h1>
           <p>
             Busque por nome, e-mail ou WhatsApp e acompanhe o tempo desde o
             último procedimento.
@@ -119,21 +119,21 @@ function ClientsPageView({ notify, clientList }) {
                       ? "Identidade anonimizada"
                       : c.recorrente
                         ? "Cliente recorrente"
-                        : "Cliente nova"}
+                        : "Cliente novo"}
                   </small>
                 </span>
               </span>
-              <span role="cell">
+              <span role="cell" data-label="Último procedimento">
                 <strong className="application-model">{c.model}</strong>
                 <small className="application-category">{c.service}</small>
               </span>
-              <span className="application-date" role="cell">
+              <span className="application-date" role="cell" data-label="Último atendimento">
                 <strong>
                   {gone || !lastApplication(c) ? "—" : br(lastApplication(c).date)}
                 </strong>
                 <small>{m.days === null ? "" : daysAgoLabel(m.days)}</small>
               </span>
-              <span role="cell">
+              <span role="cell" data-label="Manutenção">
                 <span className={`alert-pill ${m.tone}`}>{m.label}</span>
               </span>
               <span className="client-row-actions" role="cell">
@@ -195,7 +195,7 @@ function ClientsPageView({ notify, clientList }) {
                 <span>
                   <small>PERFIL</small>
                   <strong>
-                    {open.recorrente ? "Recorrente (isenta de sinal)" : "Nova"}
+                    {open.recorrente ? "Recorrente (isento de sinal)" : "Novo"}
                   </strong>
                 </span>
                 <span>

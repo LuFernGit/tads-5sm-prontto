@@ -31,13 +31,13 @@ function SessionTimeoutWarning({ secondsLeft, onStay, onLeave }) {
           </strong>
           .
         </p>
-        <p>Para continuar de onde parou, clique em “Continuar conectada”.</p>
+        <p>Para continuar de onde parou, clique em “Continuar conectado”.</p>
       </div>
       <div className="modal-actions">
         <Action variant="secondary" onClick={onLeave}>
           Sair agora
         </Action>
-        <Action onClick={onStay}>Continuar conectada</Action>
+        <Action onClick={onStay}>Continuar conectado</Action>
       </div>
     </Modal>
   )

@@ -17,7 +17,26 @@ public record PainelSemanalResponse(
             String whatsapp,
             String service,
             BloqueioInfo bloqueio,
-            String appointmentStatus  // CONFIRMADO | PENDENTE (quando busy)
+            String appointmentStatus, // CONFIRMADO | PENDENTE (quando busy)
+            // Início e fim REAIS do atendimento ("HH:mm"), quando busy. time/end
+            // são a hora da grade (ex.: 16:00–17:00); o atendimento pode ser
+            // 16:30–19:00. O painel junta as horas e mostra o horário real.
+            String appointmentStart,
+            String appointmentEnd,
+            // TODOS os atendimentos que caem nesta hora, em ordem de início
+            // (ex.: 16:00–17:00 com um que termina 16:30 e outro que começa
+            // 16:30). Os campos acima são só do primeiro.
+            List<AtendimentoNaHora> atendimentos
+    ) {}
+
+    public record AtendimentoNaHora(
+            String id,
+            String client,
+            String whatsapp,
+            String service,
+            String status,   // CONFIRMADO | PENDENTE
+            String start,    // "HH:mm" real
+            String end       // "HH:mm" real (início + duração)
     ) {}
 
     public record BloqueioInfo(

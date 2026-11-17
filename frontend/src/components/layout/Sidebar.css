@@ -188,3 +188,66 @@
 .profile-menu [role="menuitem"]:focus-visible { background: var(--amber-pale); color: var(--amber-text); }
 .profile-menu [role="menuitem"]:focus-visible { outline: 2px solid var(--navy) !important; outline-offset: -2px; }
 .profile-menu svg { color: var(--amber-text); flex: none; }
+
+/* ===== NOTEBOOK (altura até 820px, ex.: 1366×768) =====
+   Menu compacto para os 9 itens caberem sem rolagem escondida (antes só 5
+   apareciam e o resto ficava numa rolagem que passava despercebida). */
+@media (min-width: 901px) and (max-height: 820px) {
+  .sidebar { padding-top: 18px; }
+  .sidebar .brand { height: 48px !important; }
+  .sidebar .brand-mark { width: 32px; height: 32px; flex-basis: 32px; }
+  .sidebar .brand-name { font-size: 24px; line-height: 22px; }
+  .clinic-pill { margin: 14px 2px 14px; padding: 8px; }
+  .clinic-logo { width: 36px; height: 36px; flex-basis: 36px; }
+  .nav { gap: 2px; }
+  .nav-label { margin-bottom: 4px; }
+  .nav-item { min-height: 38px; }
+  .sidebar-bottom { padding-top: 10px; }
+  .vitrine-card { padding: 10px 12px; }
+  .profile-mini { height: 54px !important; padding-top: 10px; margin-top: 10px; }
+  .logout-button { padding-top: 10px; }
+}
+
+/* ===== GAVETA (até 900px de largura — meia tela do notebook e celular — ou
+   até 600px de altura — 1/4 de tela) =====
+   O menu sai da tela e volta pelo botão "Menu" do topo (Topbar). visibility
+   esconde também do Tab e do leitor de tela enquanto está fechado. */
+.sidebar-close { display: none; }
+.sidebar-backdrop { display: none; }
+@media (max-width: 900px), (max-height: 600px) {
+  .sidebar {
+    width: min(300px, 86vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.25s ease, visibility 0.25s;
+    z-index: 60;
+    overflow-y: auto;
+    box-shadow: 0 0 40px rgba(15, 23, 42, 0.45);
+  }
+  .sidebar.is-open { transform: none; visibility: visible; }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(15, 23, 42, 0.55); }
+  /* X no canto: branco sobre navy (17,85:1), área de toque de 44px */
+  .sidebar-close {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 14px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    cursor: pointer;
+  }
+  .sidebar .brand { padding-right: 52px; }
+  /* Na gaveta a GAVETA INTEIRA rola (cabe em telas baixas, ex.: 1/4 de tela):
+     nenhum bloco encolhe, senão os itens do menu ficavam por baixo do cartão
+     "Vitrine publicada". */
+  .sidebar > * { flex-shrink: 0; }
+  .sidebar .nav { overflow: visible; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}

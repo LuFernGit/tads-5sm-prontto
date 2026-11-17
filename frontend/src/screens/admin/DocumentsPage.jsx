@@ -184,7 +184,7 @@ function DocumentsPageView({ notify, initialDocs, initialDeleted }) {
         </div>
         <p className="ff-copy">
           Os documentos do Prontto são só de leitura. Os termos da clínica têm
-          versões: ao publicar uma nova, a anterior fica inativa e as clientes
+          versões: ao publicar uma nova, a anterior fica inativa e os clientes
           aceitam de novo.
         </p>
         <ul className="af-list" aria-label="Documentos">
@@ -275,7 +275,7 @@ function DocumentsPageView({ notify, initialDocs, initialDeleted }) {
                         onClick={() =>
                           ask({
                             title: "Publicar esta versão?",
-                            message: `A versão ${d.versao} de "${d.titulo}" passa a valer na vitrine. A versão publicada anterior fica inativa e as clientes aceitam a nova.`,
+                            message: `A versão ${d.versao} de "${d.titulo}" passa a valer na vitrine. A versão publicada anterior fica inativa e os clientes aceitam a nova.`,
                             cancelLabel: "Não, manter rascunho",
                             confirmLabel: "Sim, publicar",
                             run: () => publish(d),

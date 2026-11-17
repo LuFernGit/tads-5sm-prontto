@@ -185,7 +185,7 @@ const validateAnamnesis = (h) => {
     next.informacaoAdicionalDetalhe =
       "Descreva a informação que deseja compartilhar."
   if (!h.cienciaInformacoes)
-    next.cienciaInformacoes = "Confirme que leu a declaração da cliente."
+    next.cienciaInformacoes = "Confirme que leu a declaração do cliente."
   return next
 }
 

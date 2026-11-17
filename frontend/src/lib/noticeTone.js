@@ -13,7 +13,7 @@ const ERROR_START =
   /^(não|nao|corrija|selecione|marque|cadastre|informe|digite|escolha|preencha|use |este |esta |essa |esse |o |os |a |as |para |é |já |entre na sua conta|confira|anexe|adicione|crie )/i
 
 const SUCCESS_WORDS =
-  /\b(salv[ao]s?|criad[ao]s?|removid[ao]s?|atualizad[ao]s?|copiad[ao]s?|identificad[ao]s?|bem-vinda|enviaremos|liberad[ao]s?|bloquead[ao]s?|adicionad[ao]s?|aplicad[ao]s?|publicad[ao]s?|inativad[ao]s?|reativad[ao]s?|desativad[ao]s?|anexad[ao]s?|confirmad[ao]|encerrad[ao]|recuperamos)\b|\bcancelad[ao]\./i
+  /\b(salv[ao]s?|criad[ao]s?|removid[ao]s?|atualizad[ao]s?|copiad[ao]s?|identificad[ao]s?|bem-vind[ao]|enviaremos|liberad[ao]s?|bloquead[ao]s?|adicionad[ao]s?|aplicad[ao]s?|publicad[ao]s?|inativad[ao]s?|reativad[ao]s?|desativad[ao]s?|anexad[ao]s?|confirmad[ao]|encerrad[ao]|recuperamos)\b|\bcancelad[ao]\./i
 
 export function noticeTone(message = "") {
   const text = String(message).trim()

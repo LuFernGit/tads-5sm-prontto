@@ -32,6 +32,7 @@ public class AgendamentoAutoCancelamentoJob {
     @Autowired private AgendamentoRepository agendamentoRepository;
     @Autowired private LogAuditoriaRepository logAuditoriaRepository;
     @Autowired private prontto_api.repository.UsuarioRepository usuarioRepository;
+    @Autowired private NotificacaoService notificacaoService;
 
     /**
      * Atendimento CONFIRMADO cujo horário já terminou (início + duração) vira
@@ -88,6 +89,8 @@ public class AgendamentoAutoCancelamentoJob {
             registro.setUsuario(a.getCliente());
             registro.setAcao("CANCELAMENTO_AUTOMATICO_SEM_CONFIRMACAO");
             logAuditoriaRepository.save(registro);
+            // Sino da gestora
+            notificacaoService.registrar(a, NotificacaoService.CANCELAMENTO_AUTOMATICO);
         }
         if (!vencidos.isEmpty()) {
             log.info("{} agendamento(s) pendente(s) cancelado(s) por falta de confirmação.", vencidos.size());

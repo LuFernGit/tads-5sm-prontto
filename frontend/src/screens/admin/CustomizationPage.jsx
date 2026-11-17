@@ -82,7 +82,7 @@ function CustomizationPage({ company, setCompany, notify }) {
         <span className="section-kicker">IDENTIDADE DA EMPRESA</span>
         <div className="section-title">Personalização da marca</div>
         <p>
-          As alterações são aplicadas ao painel da gestora e à vitrine que suas
+          As alterações são aplicadas ao painel da gestora e à vitrine que seus
           clientes visualizam.
         </p>
         <div className="form-grid" onInput={clearOnInput}>
@@ -265,7 +265,7 @@ function CustomizationPage({ company, setCompany, notify }) {
             </div>
             <p>
               A identidade da clínica será atualizada no painel e na vitrine
-              que as clientes acessam.
+              que os clientes acessam.
             </p>
           </div>
           <div className="modal-actions">

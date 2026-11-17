@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { api } from "@/api"
 import Action from "@/components/ui/Action"
 import ConfirmModal from "@/components/ui/ConfirmModal"
@@ -38,7 +38,55 @@ function AdminApp({
   setCompany,
 }) {
   // Página aberta no painel. Começa no 'dashboard' e muda pelos botões do Sidebar.
-  const [page, setPage] = useState("dashboard")
+  const [page, setPageState] = useState("dashboard")
+  // Telas estreitas (meia tela do notebook e celular): o menu lateral vira uma
+  // gaveta aberta pelo botão "Menu" do topo (veja AdminApp.css / Sidebar.css).
+  const [menuOpen, setMenuOpen] = useState(false)
+  // Notificações (sino): busca ao vivo (a cada 20s e ao voltar à aba).
+  const notificationsQuery = useApiQuery(() => api.notifications.list(), [], {
+    initialData: { naoLidas: 0, itens: [] },
+  })
+  // Agendamento a abrir na Agenda ("Ver na agenda" de uma notificação).
+  const [focusAppointmentId, setFocusAppointmentId] = useState(null)
+  const markAllNotificationsRead = async () => {
+    try {
+      notificationsQuery.setData(await api.notifications.markAllRead())
+    } catch (error) {
+      notify(error.message, "error")
+    }
+  }
+  const openNotification = (n) => {
+    // Marca como lida sem esperar (a lista atualiza quando o backend responder).
+    if (!n.lida)
+      api.notifications
+        .markRead(n.id)
+        .then((data) => notificationsQuery.setData(data))
+        .catch(() => {})
+    if (!n.agendamentoId) return
+    appointmentsQuery.reload() // agendamento novo pode ainda não estar na lista
+    setFocusAppointmentId(String(n.agendamentoId))
+    setPage("schedule")
+  }
+  // "Sair da conta" pede confirmação antes de encerrar a sessão.
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  /** Troca de página: fecha a gaveta e volta ao topo da nova página. */
+  const setPage = (next) => {
+    setPageState(next)
+    setMenuOpen(false)
+    window.scrollTo(0, 0)
+  }
+  // Esc fecha a gaveta e devolve o foco ao botão "Menu" (WCAG 2.1.2 / 2.4.3).
+  useEffect(() => {
+    if (!menuOpen) return
+    document.getElementById("menu-lateral-fechar")?.focus()
+    const onKey = (event) => {
+      if (event.key !== "Escape") return
+      setMenuOpen(false)
+      document.getElementById("menu-lateral-abrir")?.focus()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [menuOpen])
   // Busca os agendamentos uma vez aqui, porque várias páginas usam a mesma lista.
   const appointmentsQuery = useApiQuery(() => api.appointments.list(), [], {
     initialData: [],
@@ -82,7 +130,7 @@ function AdminApp({
       appointment.whatsapp,
     )
     notify(
-      "Agendamento cancelado. O WhatsApp foi aberto com uma mensagem pronta para a cliente.",
+      "Agendamento cancelado. O WhatsApp foi aberto com uma mensagem pronta para o cliente.",
       "success",
     )
     return true
@@ -121,10 +169,31 @@ function AdminApp({
         setMode={setMode}
         notify={notify}
         company={company}
+        open={menuOpen}
+        onLogout={() => {
+          setMenuOpen(false)
+          setConfirmLogout(true)
+        }}
+        onClose={() => {
+          setMenuOpen(false)
+          document.getElementById("menu-lateral-abrir")?.focus()
+        }}
       />
+      {/* Fundo escuro da gaveta (só em telas estreitas): clicar fora fecha. */}
+      {menuOpen && (
+        <div className="sidebar-backdrop" aria-hidden="true" onClick={() => setMenuOpen(false)} />
+      )}
       {/* Menu lateral à esquerda; conteúdo da página à direita. */}
       <main className="admin-main" id="conteudo">
-        <Topbar title={titles[page]} setMode={setMode} />
+        <Topbar
+          title={titles[page]}
+          setMode={setMode}
+          menuOpen={menuOpen}
+          onOpenMenu={() => setMenuOpen(true)}
+          notifications={notificationsQuery.data}
+          onOpenNotification={openNotification}
+          onMarkAllRead={markAllNotificationsRead}
+        />
         <div className="admin-content">
           {/* Só a página escolhida é mostrada: cada linha testa page === '<nome>'. */}
           {page === "dashboard" && (
@@ -155,6 +224,9 @@ function AdminApp({
               notify={notify}
               appointments={managerAppointments}
               onCancelAppointment={cancelManagerAppointment}
+              // Notificação clicada: abre os detalhes deste agendamento.
+              focusAppointmentId={focusAppointmentId}
+              onFocusHandled={() => setFocusAppointmentId(null)}
               // Horários já ocupados, com a data convertida de DD/MM/AAAA para AAAA-MM-DD.
               booked={managerAppointments
                 .filter((a) => a.status !== "CANCELADO")
@@ -193,6 +265,38 @@ function AdminApp({
           )}
         </div>
       </main>
+      {confirmLogout && (
+        <ConfirmModal
+          kicker="SAIR DA CONTA"
+          title="Sair da sua conta?"
+          onClose={() => setConfirmLogout(false)}
+        >
+          <div className="confirmation-content">
+            <div className="confirmation-icon warning">
+              <Icon name="logout" />
+            </div>
+            <p>
+              Você vai sair do painel da {company.name}. Para voltar, entre de
+              novo com seu e-mail e senha.
+            </p>
+          </div>
+          <div className="modal-actions">
+            <Action variant="secondary" onClick={() => setConfirmLogout(false)}>
+              Ficar no painel
+            </Action>
+            <Action
+              variant="danger"
+              onClick={() => {
+                setConfirmLogout(false)
+                setMode("login")
+                notify("Sessão da gestora encerrada.")
+              }}
+            >
+              Sim, sair da conta
+            </Action>
+          </div>
+        </ConfirmModal>
+      )}
       {confirmClinicDeletion && (
         <ConfirmModal
           title="Solicitar exclusão da conta da clínica?"

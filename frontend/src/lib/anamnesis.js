@@ -27,17 +27,48 @@ const QUESTIONS = [
 const clip = (text, max) =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
+/**
+ * Apaga as respostas que deixaram de valer. Ex.: a cliente tinha "Alergia: Sim
+ * — Acetona" e trocou para "Não": o detalhe "Acetona" não pode continuar
+ * guardado (antes ele só ficava escondido e reaparecia como "Não — Acetona").
+ */
+export function cleanAnamnesis(h) {
+  const clean = { ...h }
+  const clearUnless = (detailKey, keep) => {
+    if (!keep && detailKey in clean) clean[detailKey] = ""
+  }
+  clearUnless("alergiaDetalhe", h.alergia === "Sim")
+  QUESTIONS.forEach(([key, detailKey]) => {
+    // alteracaoAtualDetalhe = "Outro" sinal: vale só com "Outro" marcado.
+    if (detailKey && key !== "alteracaoAtual") clearUnless(detailKey, h[key] === "Sim")
+  })
+  clearUnless(
+    "alteracaoAtualDetalhe",
+    h.alteracaoAtual === "Sim" && (h.sinaisAtuais ?? []).includes("Outro"),
+  )
+  if (h.procedimentosAnteriores !== "Sim") {
+    if ("procedimentos" in clean) clean.procedimentos = []
+    clearUnless("outroProcedimento", false)
+  }
+  return clean
+}
+
 /** h = respostas do formulário. Devolve o objeto pronto para gravar em FICHA_ANAMNESE. */
-export function toHealthRecord(h) {
+export function toHealthRecord(answers) {
+  const h = cleanAnamnesis(answers)
   const alergias =
     h.alergia === "Sim" ? h.alergiaDetalhe.trim() || "Sim" : "Nenhuma"
   const items = QUESTIONS.filter(([key]) => h[key] === "Sim").map(
-    ([, detailKey, label]) => {
-      const detail = detailKey ? String(h[detailKey] ?? "").trim() : ""
+    ([key, detailKey, label]) => {
+      let detail = detailKey ? String(h[detailKey] ?? "").trim() : ""
+      // Alteração atual: os sinais marcados viram o detalhe ("Outro" = o texto digitado).
+      if (key === "alteracaoAtual") {
+        const signs = (h.sinaisAtuais ?? []).filter((x) => x !== "Outro")
+        detail = [...signs, detail].filter(Boolean).join(", ")
+      }
       return detail ? `${label}: ${detail}` : label
     },
   )
-  if (h.sinaisAtuais?.length) items.push(`Sinais: ${h.sinaisAtuais.join(", ")}`)
   return {
     alergias: clip(alergias, 255),
     observacoes_medicas: clip(items.join("; ") || "Nenhuma", 500),
@@ -58,7 +89,7 @@ const EXTRA_LABELS = {
   outroProcedimento: "Outro procedimento",
   cienciaInformacoes: "Ciência das informações",
   localData: "Local e data",
-  nomeCliente: "Nome da cliente",
+  nomeCliente: "Nome do cliente",
   assinatura: "Assinatura",
 }
 const QUESTION_LABELS = Object.fromEntries(
@@ -73,6 +104,24 @@ export function anamnesisLabel(key) {
   if (EXTRA_LABELS[key]) return EXTRA_LABELS[key]
   const words = String(key).replace(/([A-Z])/g, " $1").toLowerCase()
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/**
+ * Observações médicas (texto "A: x; B: y" de FICHA_ANAMNESE.observacoes_medicas)
+ * em itens separados, para mostrar um por linha: [{ label, detail }].
+ */
+export function observationItems(text) {
+  const value = String(text ?? "").trim()
+  if (!value || value === "Nenhuma") return []
+  return value
+    .split(/;\s*/)
+    .filter(Boolean)
+    .map((item) => {
+      const at = item.indexOf(":")
+      return at > 0
+        ? { label: item.slice(0, at).trim(), detail: item.slice(at + 1).trim() }
+        : { label: item.trim(), detail: "" }
+    })
 }
 
 /* ---------- Ficha completa (versões do histórico) ---------- */
@@ -121,8 +170,9 @@ export function anamnesisEntries(respostas = {}) {
     ),
   ]
   return keys.map((key) => {
-    const detail = String(r[detailOf(key)] ?? "").trim()
     const value = answerText(r[key])
+    // Detalhe só acompanha "Sim" (fichas antigas podiam guardar "Não — Acetona").
+    const detail = value === "Não" ? "" : String(r[detailOf(key)] ?? "").trim()
     return { key, label: anamnesisLabel(key), value: detail ? `${value} — ${detail}` : value }
   })
 }

@@ -41,6 +41,29 @@ public class AuthService {
     @Autowired private ModeloMensagemRepository modeloMensagemRepository;
 
     /** Cria um documento publicado da clínica, se houver texto ou arquivo. */
+    /** Tipos aceitos no cadastro. O TERMO_EXCLUSAO do Prontto vale só ao pedir a exclusão da conta. */
+    private static final java.util.Set<String> TIPOS_DO_CADASTRO =
+            java.util.Set.of("TERMOS_USO", "POLITICA_PRIVACIDADE", "TERMO_CLINICA");
+
+    /**
+     * Versões publicadas (não excluídas) aceitas no cadastro: as do Prontto
+     * (clinica = null) ou as da clínica. Uma por tipo: a publicada mais recente.
+     */
+    private List<DocumentoTermo> termosDoCadastro(Clinica clinica) {
+        List<DocumentoTermo> base = clinica == null
+                ? documentoTermoRepository.findByClinicaIsNull()
+                : documentoTermoRepository.findByClinicaIdOuPlataforma(clinica.getId()).stream()
+                        .filter(d -> d.getClinica() != null).toList();
+        java.util.Map<String, DocumentoTermo> porTipo = new java.util.HashMap<>();
+        base.stream()
+                .filter(d -> "PUBLICADO".equals(d.getStatus()) && d.getExcluidoEm() == null)
+                .filter(d -> TIPOS_DO_CADASTRO.contains(d.getTipoDocumento()))
+                .sorted(java.util.Comparator.comparing(DocumentoTermo::getDataPublicacao,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .forEach(d -> porTipo.put(d.getTipoDocumento(), d));
+        return new java.util.ArrayList<>(porTipo.values());
+    }
+
     private void criarDocumentoClinica(Clinica clinica, String titulo, String tipo,
                                        String conteudo, String arquivo, String nomeArquivo) {
         boolean temTexto = conteudo != null && !conteudo.isBlank();
@@ -234,7 +257,7 @@ public class AuthService {
         criarDocumentoClinica(clinica, "Termo de consentimento — " + clinica.getNome(), "TERMO_CLINICA",
                 null, request.empresa().clinicTermsDocument(), request.empresa().clinicTermsFileName());
 
-        List<DocumentoTermo> termosPlataforma = documentoTermoRepository.findByClinicaIsNull();
+        List<DocumentoTermo> termosPlataforma = termosDoCadastro(null);
         for (DocumentoTermo termo : termosPlataforma) {
             AceiteDocumento aceite = new AceiteDocumento();
             aceite.setUsuario(gestora);
@@ -283,7 +306,7 @@ public class AuthService {
         }
 
         LocalDate dataNascimento = LocalDate.parse(request.usuario().data_nascimento());
-        validarIdadeMinima(dataNascimento, 15, "A cliente deve ter no mínimo 15 anos.");
+        validarIdadeMinima(dataNascimento, 15, "O cliente deve ter no mínimo 15 anos.");
 
         Usuario cliente = new Usuario();
         cliente.setClinica(clinica);
@@ -317,8 +340,12 @@ public class AuthService {
             fichaVersaoService.registrarVersao(ficha);
         }
 
-        List<DocumentoTermo> termosPlataforma = documentoTermoRepository.findByClinicaIsNull();
-        for (DocumentoTermo termo : termosPlataforma) {
+        // Aceite do cadastro: termos de uso e privacidade do Prontto + todos os
+        // documentos publicados da clínica (antes só os do Prontto eram
+        // registrados, e o aceite dos termos da clínica não ficava gravado).
+        List<DocumentoTermo> termosAceitos = new java.util.ArrayList<>(termosDoCadastro(null));
+        termosAceitos.addAll(termosDoCadastro(clinica));
+        for (DocumentoTermo termo : termosAceitos) {
             AceiteDocumento aceite = new AceiteDocumento();
             aceite.setUsuario(cliente);
             aceite.setDocumento(termo);

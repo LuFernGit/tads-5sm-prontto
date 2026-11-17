@@ -64,6 +64,12 @@
 .category-showcase strong { font-family: var(--font-heading); font-size: 25px; }
 .category-showcase small { font-size: 12px; color: #e2e8f0; }
 .category-showcase button > svg { position: absolute; right: 20px; bottom: 24px; color: var(--gold); }
+/* "← Voltar para o início" no topo do Catálogo, alinhado à esquerda
+   (mesmo estilo do "← Voltar para a vitrine" do login: #334155 × creme = 9,9:1). */
+.catalog-back { display: flex; margin: -50px 0 26px; }
+.catalog-back button { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: transparent; color: #334155; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.catalog-back button:hover { color: var(--navy); text-decoration: underline; }
+@media (max-width: 700px) { .catalog-back { margin: -12px 0 12px; } }
 .back-categories { display: block; margin: 0 auto 22px; border: 0; background: transparent; color: var(--amber-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .service-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; text-align: left; max-width: 1200px; margin: 0 auto; }
 /* Cartão em coluna: duração/preço e o botão ficam sempre no rodapé, então
@@ -74,8 +80,12 @@
 .service-card-body > span { font-size: 12px; color: var(--amber-text); letter-spacing: 0.12em; font-weight: 800; }
 .service-card-body > strong { display: block; font-family: var(--font-heading); font-size: 19px; line-height: 1.25; color: var(--navy); margin: 6px 0 8px; }
 .service-card-body > p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
-/* Descrição resumida: no máximo 3 linhas com "…" */
-.service-card-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* Descrição: até 2 linhas com "Ver mais" (components/ui/ClampedText) */
+/* pre-line: respeita os parágrafos que a gestora escreve na descrição */
+.service-card-description p { font-size: 12px; color: var(--muted); line-height: 1.6; white-space: pre-line; }
+/* O bloco da descrição também é um <div> filho do cartão: não herda o layout
+   da linha "duração · preço" (.service-card-body > div). */
+.service-card-body > .clamped-text { display: block; margin: 0; padding: 0; }
 .service-card-body > div { display: flex; justify-content: space-between; align-items: center; margin: auto 0 13px; padding-top: 13px; }
 .service-card-body small { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
 .service-card-body b { font-size: 12px; color: var(--navy); }
@@ -140,16 +150,42 @@
 .pf-item > svg,
 .pf-history-row > svg,
 .pf-health-status > svg { color: var(--muted); }
-.pf-benefit { display: flex; gap: 14px; align-items: center; }
+.pf-benefit { display: flex; gap: 14px; align-items: flex-start; }
 .pf-benefit .pf-icon-box { width: 52px; height: 52px; border-radius: 14px; }
 .pf-benefit strong { font-size: 13px; color: var(--navy); }
 .pf-benefit p { margin: 5px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+/* Passo a passo da isenção: números em círculo âmbar (#92400e × #fef3c7 = 6,9:1). */
+.pf-benefit-steps { list-style: none; counter-reset: passo; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.pf-benefit-steps li {
+  counter-increment: passo;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 8px;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #334155; /* 10,35:1 */
+}
+.pf-benefit-steps li::before {
+  content: counter(passo);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--amber-pale);
+  color: var(--amber-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+.pf-benefit-note { display: block; margin-top: 10px; font-size: 12px; font-style: italic; color: #475569; } /* 7,58:1 */
 .pf-list { display: grid; gap: 10px; }
 .pf-item { width: 100%; background: transparent; color: inherit; font: inherit; text-align: left; display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px solid #f3ede8; border-radius: 12px; cursor: pointer; transition: 0.2s; }
 .pf-item:hover { border-color: var(--amber-light); box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05); }
-.pf-item-info { flex: 1; display: grid; gap: 5px; }
+/* min-width: 0 → a linha não passa da largura da tela no celular (texto quebra) */
+.pf-item-info { flex: 1; display: grid; gap: 5px; min-width: 0; }
 .pf-item-info strong { font-size: 13px; color: var(--navy); }
-.pf-item-info small { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.pf-item-info small { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--muted); }
 .pf-pill { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .pf-pill.scheduled { background: var(--amber-pale); color: var(--amber-text); border: 1px solid #f8d9a8; }
 .pf-pill.done { background: #e5f5ee; color: #1f6f50; border: 1px solid #bfe5d3; }
@@ -271,6 +307,7 @@
 /* Horários */
 .bk-times { padding: 20px 28px 24px; }
 .bk-times h2 { margin: 6px 0 18px; font-family: var(--font-heading); font-weight: 400; font-size: 28px; color: var(--navy); }
+.bk-times-hint { margin: -10px 0 16px; font-size: 13px; line-height: 1.5; color: #475569; }
 .bk-period { margin-bottom: 14px; }
 .bk-period:last-child { margin-bottom: 0; }
 .bk-period > span { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: #475569; }
@@ -300,7 +337,21 @@
 @media (max-width: 1100px) {
   .service-cards,
   .specialty-grid { grid-template-columns: 1fr 1fr; }
-  .client-nav { display: none; }
+  /* Meia tela: o menu das abas CONTINUA no topo, mais compacto (antes sumia
+     aqui e a barra de baixo só aparece abaixo de 700px: entre 701 e 1100px
+     não havia como trocar de aba). */
+  .client-header { padding: 0 24px; gap: 16px; }
+  .client-nav { gap: 20px; }
+}
+@media (max-width: 1000px) {
+  /* Meia tela: nome da clínica menor e topo compacto, para caber nome + menu
+     + botões (antes o nome sumia abaixo de 900px). */
+  .client-header { padding: 0 18px; gap: 12px; }
+  .client-header .client-brand { gap: 8px; }
+  .client-header .client-brand strong { font-size: 15px; }
+  .client-header .ca-monogram { width: 40px; height: 40px; flex-basis: 40px; }
+  .client-nav { gap: 16px; }
+  .client-head-actions .action { padding-inline: 14px; }
 }
 @media (max-width: 900px) {
   .bk-layout { grid-template-columns: minmax(0, 1fr); max-width: 620px; }
@@ -310,6 +361,8 @@
   .pf-history-date { display: none; }
 }
 @media (max-width: 700px) {
+  /* Celular: as abas vão para a barra de baixo (.mobile-nav). */
+  .client-nav { display: none; }
   /* Cabeçalho e vitrine */
   .client-header { height: 68px; padding: 0 18px; }
   .client-head-actions { margin-left: auto; }
@@ -591,3 +644,59 @@
    (.section-kicker + .client-section-title + .client-intro), centralizado. */
 .bk-choose-service { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 42px; }
 .bk-choose-service .client-section-title { margin-bottom: 0; font-weight: 400; line-height: normal; }
+/* Link para o termo de exclusão no modal "Excluir minha conta?" (#92400e × branco = 7,09:1) */
+.delete-term-link { margin: 12px 0 0; font-size: 13px; color: #475569; }
+.delete-term-link button { padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--amber-text); text-decoration: underline; cursor: pointer; }
+
+
+/* QUEM CANCELOU (lista "Seus atendimentos" e detalhes do agendamento).
+   Você: cinza (#475569 × branco 7,58:1) · Clínica: vermelho (#991b1b × #fef2f2
+   8,9:1) · Automático: âmbar escuro (#92400e × #fffbeb 6,9:1). */
+.pf-item-info small.pf-cancel-by { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-weight: 700; }
+.pf-cancel-by.self { color: #475569; }
+.pf-cancel-by.clinic { color: #991b1b; }
+.pf-cancel-by.system { color: #92400e; }
+.pf-cancel-notice {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+}
+.pf-cancel-notice > svg { flex: none; margin-top: 2px; }
+.pf-cancel-notice strong { display: block; font-size: 13px; color: var(--navy); }
+.pf-cancel-notice p { margin: 4px 0 0; font-size: 13px; line-height: 1.55; }
+.pf-cancel-notice.clinic { background: #fef2f2; border-color: #fecaca; }
+.pf-cancel-notice.clinic > svg,
+.pf-cancel-notice.clinic strong { color: #991b1b; }
+.pf-cancel-notice.system { background: #fffbeb; border-color: #fde68a; }
+.pf-cancel-notice.system > svg,
+.pf-cancel-notice.system strong { color: #92400e; }
+
+/* "Sair" do topo: o único lugar para sair da conta, então continua visível no
+   celular (o "Login" do visitante some porque a barra de baixo tem "Entrar"). */
+@media (max-width: 700px) {
+  .client-head-actions .action-ghost.head-logout {
+    display: inline-flex;
+    justify-content: center;
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  /* Texto "Sair" escondido só visualmente (o botão continua se chamando "Sair"). */
+  .head-logout .head-logout-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .client-head-actions { gap: 8px; flex: none; }
+  .client-head-actions .action-primary { white-space: nowrap; }
+}

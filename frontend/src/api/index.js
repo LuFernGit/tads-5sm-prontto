@@ -13,6 +13,7 @@ import { companyApi } from "./services/company"
 import { documentsApi } from "./services/documents"
 import { meApi } from "./services/me"
 import { messagesApi } from "./services/messages"
+import { notificationsApi } from "./services/notifications"
 import { scheduleApi } from "./services/schedule"
 
 // Cada chave agrupa as rotas de um assunto: api.auth (login), api.company (empresa) etc.
@@ -26,6 +27,7 @@ export const api = {
   schedule: scheduleApi,
   documents: documentsApi,
   messages: messagesApi,
+  notifications: notificationsApi,
   audit: auditApi,
   me: meApi,
 }

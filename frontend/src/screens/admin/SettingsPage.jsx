@@ -406,7 +406,7 @@ function SettingsPage({
             </div>
             <p>
               Os dados da clínica serão atualizados e as mudanças aparecem na
-              vitrine pública para as clientes.
+              vitrine pública para os clientes.
             </p>
           </div>
           <div className="modal-actions">

@@ -416,21 +416,25 @@ function ServicesPage({
                 )}
                 {service.name}
               </span>
-              <span>{service.category}</span>
-              <span>{formatDuration(service.duration)}</span>
-              <strong>{formatPrice(service.price)}</strong>
-              <button
-                type="button"
-                aria-label={`Alterar visibilidade de ${service.name}`}
-                className={`status-control ${
-                  service.active ? "published" : "hidden"
-                }`}
-                onClick={() => setStatusChange(service)}
-              >
-                <Icon name={service.active ? "check" : "lock"} size={13} />
-                <span>{service.active ? "Ativo" : "Inativo"}</span>
-                <Icon name="chevron" size={12} />
-              </button>
+              {/* data-label: no celular a linha vira cartão e o rótulo aparece
+                  acima do valor (admin.css, "tabelas no celular"). */}
+              <span data-label="Categoria">{service.category}</span>
+              <span data-label="Duração">{formatDuration(service.duration)}</span>
+              <strong data-label="Valor">{formatPrice(service.price)}</strong>
+              <span data-label="Na vitrine">
+                <button
+                  type="button"
+                  aria-label={`Alterar visibilidade de ${service.name}`}
+                  className={`status-control ${
+                    service.active ? "published" : "hidden"
+                  }`}
+                  onClick={() => setStatusChange(service)}
+                >
+                  <Icon name={service.active ? "check" : "lock"} size={13} />
+                  <span>{service.active ? "Ativo" : "Inativo"}</span>
+                  <Icon name="chevron" size={12} />
+                </button>
+              </span>
               {/* Mesmo botão "⋯" da tela Clientes (quadrado com borda, ícone navy) */}
               <span className="client-row-actions">
                 <button
@@ -529,7 +533,7 @@ function ServicesPage({
               ? editingService
                 ? "Editar serviço"
                 : "Novo serviço"
-              : "Nova cliente"
+              : "Novo cliente"
           }
           onClose={() => {
             setShowAdd(false)
@@ -573,7 +577,9 @@ function ServicesPage({
                   />
                   <div className="service-photo-file">
                     {formImageName && (
-                      <small className="file-name">{formImageName}</small>
+                      <small className="file-name" title={formImageName}>
+                        {formImageName}
+                      </small>
                     )}
                     <button
                       type="button"

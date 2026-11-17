@@ -74,11 +74,14 @@ public class GestoraAdminService {
                     LocalTime end = t.plusMinutes(60);
                     LocalTime curT = t;
 
-                    Agendamento ag = agendamentos.stream().filter(a ->
+                    // Todos os atendimentos (não cancelados) que caem nesta hora,
+                    // em ordem de início; "ag" = o primeiro (campos antigos).
+                    List<Agendamento> naHora = agendamentos.stream().filter(a ->
                             a.getStatus() != StatusAgendamento.CANCELADO &&
                                     a.getHora().isBefore(end) &&
                                     a.getHora().plusMinutes(a.getServico().getDuracao()).isAfter(curT)
-                    ).findFirst().orElse(null);
+                    ).sorted(java.util.Comparator.comparing(Agendamento::getHora)).toList();
+                    Agendamento ag = naHora.isEmpty() ? null : naHora.get(0);
 
                     BloqueioHorario bl = bloqueios.stream().filter(b ->
                             b.getHoraInicio() == null || (b.getHoraInicio().isBefore(end) && b.getHoraFim().isAfter(curT))
@@ -95,7 +98,18 @@ public class GestoraAdminService {
                             ag != null ? ag.getCliente().getWhatsapp() : null,
                             ag != null ? ag.getNomeProcedimento() : null,
                             bl != null ? new PainelSemanalResponse.BloqueioInfo(bl.getId(), bl.getHoraInicio() != null ? bl.getHoraInicio().toString() : null, bl.getHoraFim() != null ? bl.getHoraFim().toString() : null) : null,
-                            ag != null ? ag.getStatus().name() : null
+                            ag != null ? ag.getStatus().name() : null,
+                            ag != null ? ag.getHora().toString().substring(0, 5) : null,
+                            ag != null ? ag.getHora().plusMinutes(ag.getServico().getDuracao()).toString().substring(0, 5) : null,
+                            naHora.stream().map(a -> new PainelSemanalResponse.AtendimentoNaHora(
+                                    a.getId().toString(),
+                                    a.getCliente().getNome(),
+                                    a.getCliente().getWhatsapp(),
+                                    a.getNomeProcedimento(),
+                                    a.getStatus().name(),
+                                    a.getHora().toString().substring(0, 5),
+                                    a.getHora().plusMinutes(a.getServico().getDuracao()).toString().substring(0, 5)
+                            )).toList()
                     ));
 
                     t = t.plusMinutes(60);
@@ -168,7 +182,7 @@ public class GestoraAdminService {
     /** Texto do sinal mostrado no painel (sem o valor, para caber na etiqueta). */
     private static String textoSinal(java.math.BigDecimal valorSinal, boolean recorrente) {
         if (valorSinal != null && valorSinal.signum() > 0) return "Sinal pago";
-        return recorrente ? "Isenta de sinal" : "Sem sinal registrado";
+        return recorrente ? "Isento de sinal" : "Sem sinal registrado";
     }
 
     public List<ClienteGestoraResponse> listarClientes(Usuario gestora) {
@@ -596,7 +610,7 @@ public class GestoraAdminService {
             // Pede que a cliente CONFIRME pelo site até 24h antes (regra RegrasAgendamento);
             // {prazo} = data/hora limite, {link} = endereço da vitrine.
             {"Pedido de confirmação", "CONFIRMACAO",
-                    "Olá, {nome}! Seu horário de {procedimento} está reservado para {data} às {horario}. Para garantir a sua vaga, confirme sua presença pelo nosso site até {prazo}: {link} Sem a confirmação, o horário é liberado para outra cliente. Te esperamos! — {clinica}"},
+                    "Olá, {nome}! Seu horário de {procedimento} está reservado para {data} às {horario}. Para garantir a sua vaga, confirme sua presença pelo nosso site até {prazo}: {link} Sem a confirmação, o horário é liberado para outro cliente. Te esperamos! — {clinica}"},
             {"Cancelamento de agendamento", "CANCELAMENTO",
                     "Olá, {nome}! Informamos que seu agendamento de {procedimento}, marcado para {data} às {horario}, precisou ser cancelado. Motivo: {motivo}. Pedimos desculpas pelo transtorno. — {clinica}"},
             {"Lembrete de agendamento", "LEMBRETE",
