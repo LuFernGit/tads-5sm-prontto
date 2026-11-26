@@ -137,7 +137,7 @@ Cadastro da empresa (montado em `src/screens/auth/CompanyRegistrationPage.jsx`):
   "servicos": [{ "name": "...", "category": "...", "duration": 60, "price": 150, "description": "...", "image": "..." }],
   "categorias": ["..."],
   "capasCategorias": { "Pilates": "data:image/jpeg;base64,..." }, // obrigatória p/ cada categoria → CATEGORIA.capa
-  "aceites": { "termosUso": true, "politicaPrivacidade": true, "termosClinica": true, "dataHora": "ISO" }
+  "aceites": { "termosUso": true, "politicaPrivacidade": true, "dataHora": "ISO" }
 }
 ```
 
@@ -158,7 +158,8 @@ Cadastro da cliente (montado em `src/screens/client/ClientRegisterPage.jsx`):
 
 | Método | Rota                                              | Resposta |
 | ------ | ------------------------------------------------- | -------- |
-| GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias, capasCategorias }` (`capasCategorias` = `{ [nome]: capa }` só das categorias com foto própria); 404 se o slug não existir ou a clínica estiver ENCERRADA. `empresa` traz também `termsOfUse`/`privacyPolicy` (texto da versão PUBLICADA), `clinicTermsDocument`/`clinicTermsFileName` (PDF publicado), `hoursText` e `cancellationPolicy` |
+| GET    | `/clinicas/{slug}`                                | `{ empresa (só campos públicos, abaixo), servicos (só ativos), categorias, capasCategorias }` (`capasCategorias` = `{ [nome]: capa }` só das categorias com foto própria); 404 se o slug não existir ou a clínica estiver ENCERRADA. `empresa` traz também `termsOfUse`/`privacyPolicy` (texto da versão PUBLICADA), `hoursText`, `cancellationPolicy` e `documents` (abaixo). **O PDF não vem mais aqui** (antes `clinicTermsDocument` mandava o arquivo inteiro em base64) |
+| GET    | `/clinicas/{slug}/documentos/{id}/pdf[?download=1]` | O PDF (`application/pdf`) de um documento PUBLICADO da clínica ou do Prontto (`inline`; com `download=1`, `attachment`). 404 se não for publicado, estiver excluído, não tiver PDF ou for de outra clínica. Pode ser aberto em `<iframe>` da mesma origem (`X-Frame-Options: SAMEORIGIN`) |
 | GET    | `/clinicas/{slug}/versao`                         | `{ versao }` — hash leve (sem imagens) dos dados públicos. A vitrine consulta a cada 15s/ao voltar à aba e só recarrega `/clinicas/{slug}` quando muda (ex.: serviço desativado some na hora) |
 | GET    | `/clinicas/{slug}/calendario?mes=YYYY-MM`         | `{ diasLotados: number[], diasSemanaFechados: number[], diasBloqueados: number[] }` (0 = domingo; `diasBloqueados` = bloqueio do dia inteiro → "Fechado"). Usada pela agenda da cliente **e** pelo calendário do mês da gestora |
 | GET    | `/clinicas/{slug}/horarios?data=&servicoId=`      | `[{ label: "MANHÃ", slots: [{ time: "09:00", occupied: false }] }]` |
@@ -166,7 +167,7 @@ Cadastro da cliente (montado em `src/screens/client/ClientRegisterPage.jsx`):
 **Campos públicos da empresa** (o que a vitrine sem login pode receber):
 `slug`, `name`, `initials`, `logoImage`, `heroImage`, `favicon`, `tagline`,
 `heroTitle`, `description`, `phone`, `email` (contato), `instagram`, `address`,
-`termsOfUse`, `privacyPolicy`, `clinicTermsDocument`, `clinicTermsFileName`.
+`termsOfUse`, `privacyPolicy`, `hoursText`, `cancellationPolicy`, `documents` (sem o arquivo PDF).
 **Não devolver** `cpfCnpj` (pode ser o CPF pessoal da profissional autônoma),
 `ownerName` nem `status`: a vitrine não usa esses dados (LGPD, art. 6º, III —
 princípio da necessidade). Referência: `obterVitrinePorSlug` em `ClinicaService.java`.
@@ -507,3 +508,48 @@ quanto uma data URL.
   (início + duração) vira CONCLUÍDO e torna a cliente recorrente.
 - Duplicados (e-mail, WhatsApp, CPF/CNPJ) voltam como 409 com mensagem
   amigável; erros de restrição do banco nunca mostram o nome técnico.
+
+## Documentos publicados na vitrine (15/11/2026)
+
+`GET /clinicas/{slug}` → `empresa.documents`: a versão publicada mais recente de
+cada tipo, da clínica e do Prontto, **sem o arquivo**:
+
+```json
+[{ "id": 7, "tipo": "TERMOS_USO", "plataforma": false, "titulo": "Termos de Uso e Política de Privacidade — CA Beauty Clinic",
+   "versao": "1.0", "conteudo": null, "temPdf": true, "nomeArquivo": "termos-e-privacidade-ca-beauty.pdf" }]
+```
+
+- `tipo`: `TERMOS_USO`, `POLITICA_PRIVACIDADE`, `TERMO_CLINICA` (clínica) e `TERMO_EXCLUSAO` (Prontto: termo de exclusão de conta).
+- `temPdf = true` → o front mostra o PDF de `/clinicas/{slug}/documentos/{id}/pdf` (`components/ui/DocumentView`): dentro da página no computador; botão "Abrir o PDF" no celular.
+- Aceite no cadastro do cliente (`ACEITE_DOCUMENTO`): termos de uso e privacidade do Prontto **e** os documentos publicados da clínica (antes só os do Prontto). O `TERMO_EXCLUSAO` não entra no aceite do cadastro.
+
+## Painel semanal: horário real do atendimento (16/11/2026)
+
+`GET /gestora/painel` → cada item de `horarios[dia][]` ganhou `appointmentStart` e
+`appointmentEnd` ("HH:mm", só quando `status = "busy"`): início e fim REAIS do
+atendimento. `time`/`end` continuam sendo a hora da grade (ex.: 16:00–17:00 para
+um atendimento das 16:30 às 19:00). O painel junta as horas seguidas com o mesmo
+`agendamentoId` num bloco só e mostra o horário real.
+
+`horarios[dia][]` também traz `atendimentos`: **todos** os atendimentos (não
+cancelados) que caem naquela hora, em ordem de início — `{ id, client, whatsapp,
+service, status, start, end }`. Uma hora pode ter dois (ex.: um termina 16:30 e
+outro começa 16:30); os campos antigos (`agendamentoId`, `client`...) continuam
+sendo os do primeiro.
+
+## Notificações da gestora (16/11/2026)
+
+Tabela `NOTIFICACAO` (schema V9). O backend cria uma notificação em cada evento:
+
+| Evento | `tipo` | Onde |
+| --- | --- | --- |
+| Cliente agenda | `NOVO_AGENDAMENTO` | `ClienteAreaService.criarAgendamento` |
+| Cliente confirma a presença | `PRESENCA_CONFIRMADA` | `ClienteAreaService.confirmarAgendamento` |
+| Cliente cancela | `CANCELAMENTO_CLIENTE` (`requerAcao = true` se o reembolso ficou A_VERIFICAR) | `ClienteAreaService.cancelarAgendamento` |
+| Sistema cancela (sem confirmação até 24h antes) | `CANCELAMENTO_AUTOMATICO` | `AgendamentoAutoCancelamentoJob` |
+
+| Método | Rota | Resposta |
+| --- | --- | --- |
+| GET  | `/gestora/notificacoes` | `{ naoLidas, itens: [{ id, tipo, titulo, mensagem, agendamentoId, dataAgendamento, requerAcao, criadaEm, lida }] }` (30 mais recentes) |
+| POST | `/gestora/notificacoes/lidas` | mesma resposta, todas lidas |
+| POST | `/gestora/notificacoes/{id}/lida` | mesma resposta, essa lida |
