@@ -4,6 +4,7 @@ import Action from "@/components/ui/Action"
 import Brand from "@/components/ui/Brand"
 import Icon from "@/components/ui/Icon"
 import Modal from "@/components/ui/Modal"
+import { LegalText } from "@/screens/LegalPage"
 import CategoryCoverField from "@/components/forms/CategoryCoverField"
 import { getCategoryMeta } from "@/lib/booking"
 import { neutralLoginImage } from "@/constants"
@@ -30,6 +31,15 @@ import {
 import { useFieldErrors } from "@/hooks/useFieldErrors"
 import "./CompanyRegistrationPage.css"
 
+/** Abre o PDF anexado (data URL) numa nova guia. Navegadores bloqueiam data URL direto: usa um Blob. */
+function openPdf(dataUrl) {
+  const [, base64 = ""] = dataUrl.split(",")
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }))
+  window.open(url, "_blank", "noopener,noreferrer")
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+}
+
 /**
  * Conduz a gestora pelo cadastro em etapas da empresa, catálogo e identidade visual.
  */
@@ -43,6 +53,8 @@ import "./CompanyRegistrationPage.css"
 function CompanyRegistrationPage({ onBack, onComplete, notify }) {
   // Etapa atual do cadastro (começa na 0 = 'Empresa').
   const [step, setStep] = useState(0)
+  // Documento do Prontto aberto em modal na etapa 6 ('termos' | 'privacidade' | null).
+  const [legalOpen, setLegalOpen] = useState(null)
   // Etapa mais distante já alcançada: até ela, a lista lateral é clicável.
   const [maxStep, setMaxStep] = useState(0)
   // Todos os campos de texto do formulário ficam juntos neste objeto.
@@ -69,10 +81,11 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
     heroTitle: "",
     description: "",
     instagram: "",
-    termsOfUse:
-      "Este é um texto demonstrativo de Termos de Uso da empresa. A clínica pode editar este conteúdo para explicar as regras de agendamento, cancelamento e atendimento.",
-    privacyPolicy:
-      "Este é um texto demonstrativo de Política de Privacidade da empresa. A clínica pode editar este conteúdo para explicar quais dados dos clientes utiliza, para quais finalidades e como entrar em contato.",
+    // Vazios: sem texto, o backend não cria documento da clínica e o cliente
+    // vê os termos de atendimento padrão (pronttoLegalTexts.js) e, na vitrine,
+    // os termos e a privacidade oficiais do Prontto.
+    termsOfUse: "",
+    privacyPolicy: "",
   })
   // Etapa 4 (Serviços): categorias criadas, texto da nova categoria, serviços
   // já adicionados e o 'rascunho' do serviço que está sendo digitado.
@@ -97,7 +110,6 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
   // Etapa 6 (Revisão): PDF opcional dos termos da clínica e as caixas de aceite.
   const [clinicTermsDocument, setClinicTermsDocument] = useState("")
   const [clinicTermsFileName, setClinicTermsFileName] = useState("")
-  const [acceptClinicTerms, setAcceptClinicTerms] = useState(false)
   const [acceptPronttoTerms, setAcceptPronttoTerms] = useState(false)
   const [acceptPronttoPrivacy, setAcceptPronttoPrivacy] = useState(false)
   // Erros por campo (borda vermelha + orientação embaixo) — hooks/useFieldErrors.
@@ -380,9 +392,6 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
    */
   const complete = () => {
     const found = {}
-    if (!acceptClinicTerms)
-      found["cad-termos-de-atendimento-da"] =
-        "Marque esta caixa para aceitar os termos de atendimento da clínica."
     if (!acceptPronttoTerms)
       found["cad-termos-de-uso-do"] =
         "Marque esta caixa para aceitar os Termos de Uso do Prontto."
@@ -431,7 +440,6 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
     const aceites = {
       termosUso: acceptPronttoTerms,
       politicaPrivacidade: acceptPronttoPrivacy,
-      termosClinica: acceptClinicTerms,
       dataHora: new Date().toISOString(),
     }
     onComplete({
@@ -1231,40 +1239,6 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   <strong style={{ display: "block", marginBottom: 14 }}>
                     Termos e condições
                   </strong>
-                  <label htmlFor="cad-termos-de-atendimento-da"
-                    className="pf-check wide"
-                    style={{ alignItems: "flex-start", marginBottom: 14 }}
-                  >
-                    <input {...a11y("cad-termos-de-atendimento-da")}
-                      type="checkbox"
-                      checked={acceptClinicTerms}
-                      onChange={(event) =>
-                        setAcceptClinicTerms(event.target.checked)
-                      }
-                    />
-                    <span>
-                      <strong>Termos de Atendimento da clínica</strong>
-                      <small style={{ display: "block", marginTop: 5 }}>
-                        Li e aceito as condições de atendimento da{" "}
-                        {data.companyName || "minha clínica"}.
-                      </small>
-                      <a
-                        href="#termos-atendimento-clinica"
-                        onClick={(event) => {
-                          event.preventDefault()
-                          notify(
-                            clinicTermsFileName
-                              ? `Documento anexado: ${clinicTermsFileName}.`
-                              : "Os termos de atendimento podem ser anexados em PDF nesta etapa.",
-                          )
-                        }}
-                        style={{ display: "inline-block", marginTop: 7 }}
-                      >
-                        Visualizar documento
-                      </a>
-                      {errorFor("cad-termos-de-atendimento-da")}
-                    </span>
-                  </label>
                   <label htmlFor="cad-termos-de-uso-do"
                     className="pf-check wide"
                     style={{ alignItems: "flex-start", marginBottom: 14 }}
@@ -1288,9 +1262,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                         href="#termos-uso-prontto"
                         onClick={(event) => {
                           event.preventDefault()
-                          notify(
-                            "Termos de Uso do Prontto — documento demonstrativo.",
-                          )
+                          setLegalOpen("termos")
                         }}
                         style={{ display: "inline-block", marginTop: 7 }}
                       >
@@ -1323,9 +1295,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                         href="#privacidade-prontto"
                         onClick={(event) => {
                           event.preventDefault()
-                          notify(
-                            "Política de Privacidade do Prontto — documento demonstrativo.",
-                          )
+                          setLegalOpen("privacidade")
                         }}
                         style={{ display: "inline-block", marginTop: 7 }}
                       >
@@ -1334,6 +1304,28 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                       {errorFor("cad-politica-de-privacidade-do")}
                     </span>
                   </label>
+                  {/* Termos e privacidade oficiais do Prontto (screens/pronttoLegalTexts.js) */}
+                  {legalOpen && (
+                    <Modal
+                      wide
+                      kicker={legalOpen === "termos" ? "TERMOS DE USO" : "PRIVACIDADE E DADOS"}
+                      title={
+                        legalOpen === "termos"
+                          ? "Termos de Uso do Prontto"
+                          : "Política de Privacidade do Prontto"
+                      }
+                      onClose={() => setLegalOpen(null)}
+                    >
+                      <div className="legal cad-legal-modal">
+                        <LegalText kind={legalOpen} company={{}} inModal platform />
+                      </div>
+                      <div className="modal-actions">
+                        <Action variant="secondary" onClick={() => setLegalOpen(null)}>
+                          ← Voltar para o cadastro
+                        </Action>
+                      </div>
+                    </Modal>
+                  )}
                   <small
                     style={{
                       color: "#475569",
@@ -1349,6 +1341,8 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   <span>ANEXAR TERMOS DE ATENDIMENTO (PDF)</span>
                   <input id="cad-anexar-termos-de-atendimento"
                     type="file"
+                    className="cad-file-input"
+                    aria-describedby="cad-anexar-termos-dica"
                     // Anexo opcional dos termos da clínica: aceita só PDF de até 5 MB.
                     accept="application/pdf,.pdf"
                     onChange={(event) => {
@@ -1382,7 +1376,7 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                   />
                 </label>
                 {clinicTermsFileName && (
-                  <div className="registration-ready">
+                  <div className="registration-ready cad-file-ready">
                     <Icon name="check" />
                     <span>
                       <strong>{clinicTermsFileName}</strong>
@@ -1390,23 +1384,35 @@ function CompanyRegistrationPage({ onBack, onComplete, notify }) {
                         PDF anexado. O cliente poderá abrir e confirmar que leu
                         os termos.
                       </small>
-                      <button
-                        type="button"
-                        className="forgot-password"
-                        onClick={() => {
-                          setClinicTermsDocument("")
-                          setClinicTermsFileName("")
-                        }}
-                      >
-                        Remover arquivo
-                      </button>
+                      <span className="cad-file-actions">
+                        <button
+                          type="button"
+                          className="forgot-password"
+                          onClick={() => openPdf(clinicTermsDocument)}
+                        >
+                          Visualizar PDF
+                          <span aria-hidden="true"> ↗</span>
+                          <span className="sr-only"> (abre em nova guia)</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="forgot-password"
+                          onClick={() => {
+                            setClinicTermsDocument("")
+                            setClinicTermsFileName("")
+                          }}
+                        >
+                          Remover arquivo
+                        </button>
+                      </span>
                     </span>
                   </div>
                 )}
-                <small style={{ color: "#475569" }}>
-                  Os textos são exemplos editáveis. O PDF é opcional nesta
-                  demonstração; se nenhum arquivo for anexado, o cliente verá os
-                  termos escritos acima.
+                <small id="cad-anexar-termos-dica" className="cad-file-hint">
+                  Opcional. Envie um PDF de até 5 MB com as regras de
+                  atendimento da sua clínica (cancelamento, atrasos, sinal). O
+                  cliente lê esse documento ao se cadastrar. Se preferir, você
+                  pode enviar depois pelo menu “Termos” do painel.
                 </small>
               </div>
             </>

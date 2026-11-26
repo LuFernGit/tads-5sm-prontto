@@ -113,3 +113,24 @@ h1.registration-title:focus { outline: none !important; }
   .registration-header .brand-tagline { display: none; }
   .registration-header .brand { height: auto !important; }
 }
+
+/* Modal dos documentos do Prontto (etapa 6) */
+.cad-legal-modal > h2:first-child { margin-top: 0; }
+
+/* Anexo do PDF (etapa 6): botão "Escolher arquivo" separado do nome do arquivo */
+.cad-file-input { cursor: pointer; }
+.cad-file-input::file-selector-button {
+  margin-right: 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--navy);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cad-file-input::file-selector-button:hover { background: var(--line); }
+.cad-file-hint { display: block; grid-column: 1 / -1; margin-top: 6px; color: #475569; }
+.cad-file-ready { grid-column: 1 / -1; }
+.cad-file-actions { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 4px; }

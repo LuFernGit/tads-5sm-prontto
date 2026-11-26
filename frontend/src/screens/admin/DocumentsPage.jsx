@@ -8,7 +8,12 @@ import Field from "@/components/ui/Field"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import { useServerSync } from "@/hooks/useLiveRefresh"
 import { br } from "@/lib/format"
+import { LegalText } from "@/screens/LegalPage"
 import "./DocumentsPage.css"
+
+// Documentos do Prontto cujo texto oficial fica no front (screens/pronttoLegalTexts.js):
+// o banco guarda só um texto provisório para registrar os aceites.
+const PRONTTO_TEXT_KIND = { TERMOS_USO: "termos", POLITICA_PRIVACIDADE: "privacidade" }
 
 /** Tipos de documento da clínica (DOCUMENTO_TERMO.tipo_documento). */
 const DOC_TYPES = {
@@ -425,7 +430,11 @@ function DocumentsPageView({ notify, initialDocs, initialDeleted }) {
             {viewing.publicadoEm ? ` · publicado em ${br(viewing.publicadoEm.slice(0, 10))}` : ""} ·{" "}
             {viewing.aceites} aceite(s)
           </p>
-          {viewing.conteudo ? (
+          {viewing.plataforma && PRONTTO_TEXT_KIND[viewing.tipo] ? (
+            <div className="legal dc-legal">
+              <LegalText kind={PRONTTO_TEXT_KIND[viewing.tipo]} company={{}} inModal platform />
+            </div>
+          ) : viewing.conteudo ? (
             <div className="dc-text">{viewing.conteudo}</div>
           ) : (
             <p className="ff-small">Este documento não tem texto: o conteúdo está no PDF.</p>
@@ -503,6 +512,7 @@ function DocumentsPageView({ notify, initialDocs, initialDeleted }) {
               <input
                 id="dc-pdf"
                 type="file"
+                className="dc-file-input"
                 accept="application/pdf"
                 aria-describedby={formErrors.file ? "dc-pdf-hint dc-pdf-error" : "dc-pdf-hint"}
                 onChange={(e) => setForm({ ...form, file: e.target.files?.[0] ?? null })}

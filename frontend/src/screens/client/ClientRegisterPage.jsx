@@ -369,9 +369,23 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
                     ))}
                   </ul>
                 ) : (
-                  <p>
-                    {`Estes são os termos demonstrativos de atendimento da ${company.name}. Ao agendar, o cliente deve conferir as informações do serviço, valores, horários, regras de cancelamento e orientações informadas pela empresa.`}
-                  </p>
+                  // Sem documento da clínica: termos de atendimento padrão
+                  // (pronttoLegalTexts.js → clinicDefaultTerms).
+                  <ul className="ff-doc-list">
+                    <li>
+                      <span>
+                        <strong>Termos de atendimento — {company.name}</strong>
+                        <small>Agendamento, sinal, cancelamento e ficha de saúde</small>
+                      </span>
+                      <button
+                        type="button"
+                        className="ff-btn ff-secondary"
+                        onClick={() => setLegalOpen("atendimento")}
+                      >
+                        Ler documento
+                      </button>
+                    </li>
+                  </ul>
                 )}
               </section>
               <p className="ff-small ff-terms-note">
@@ -466,8 +480,20 @@ function ClientRegisterPage({ onBack, onDone, notify, company }) {
       {legalOpen && (
         <Modal
           wide
-          kicker={legalOpen === "termos" ? "TERMOS DE USO" : "PRIVACIDADE E DADOS"}
-          title={legalOpen === "termos" ? "Termos de Uso do Prontto" : "Política de Privacidade"}
+          kicker={
+            legalOpen === "termos"
+              ? "TERMOS DE USO"
+              : legalOpen === "atendimento"
+                ? "TERMOS DE ATENDIMENTO"
+                : "PRIVACIDADE E DADOS"
+          }
+          title={
+            legalOpen === "termos"
+              ? "Termos de Uso do Prontto"
+              : legalOpen === "atendimento"
+                ? `Termos de atendimento — ${company.name}`
+                : "Política de Privacidade"
+          }
           onClose={() => setLegalOpen(null)}
         >
           <div className="legal ff-legal-modal">

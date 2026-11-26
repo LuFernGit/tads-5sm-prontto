@@ -95,3 +95,22 @@
   align-items: center;
   gap: 6px;
 }
+
+/* Campo do PDF no modal "Novo documento": botão "Escolher arquivo" separado
+   do nome do arquivo (mesmo visual do cadastro da empresa). */
+.dc-file-input { cursor: pointer; }
+.dc-file-input::file-selector-button {
+  margin-right: 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--navy);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dc-file-input::file-selector-button:hover { background: var(--line); }
+
+/* Texto oficial dos Termos e da Política do Prontto no modal "Ver" */
+.dc-legal > h2:first-of-type { margin-top: 8px; }

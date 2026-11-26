@@ -30,7 +30,7 @@ export const authApi = {
    *   gestora:  { nome, email (ACESSO), senha, dataNascimento: "YYYY-MM-DD", whatsapp },
    *   servicos: [{ name, category, duration (min), price (R$), description, image }],
    *   categorias: string[],
-   *   aceites:  { termosUso, politicaPrivacidade, termosClinica, dataHora }
+   *   aceites:  { termosUso, politicaPrivacidade, dataHora }
    * }
    * BACKEND: validar idade mínima de 16 anos, CPF/CNPJ, e-mails diferentes e
    * aceites; gravar USUARIO, CLINICA, CATEGORIA, SERVICO, HORARIO e

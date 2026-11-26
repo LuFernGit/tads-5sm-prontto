@@ -4,6 +4,7 @@ import { instagramLink } from "@/lib/instagram"
 import { findDocument } from "@/lib/documents"
 import DocumentView from "@/components/ui/DocumentView"
 import { maskPhone } from "@/lib/masks"
+import { PRONTTO_TERMS, PRONTTO_PRIVACY, clinicDefaultTerms } from "./pronttoLegalTexts"
 import "./LegalPage.css"
 
 // Rótulo pequeno acima do título, no padrão das outras telas (section-kicker).
@@ -82,6 +83,9 @@ function ContactCard({ icon, label, value, href, hint, external = false }) {
  */
 export function LegalText({ kind, company, inModal = false, platform = false }) {
   const title = (text) => (inModal ? null : <h1 id="lg-title">{text}</h1>)
+  // Termos de atendimento padrão (clínica sem documento próprio publicado).
+  if (kind === "atendimento")
+    return <PronttoDocument doc={clinicDefaultTerms({ ...company, phone: company.phone && maskPhone(company.phone) })} title={title} />
   // Documento publicado DA CLÍNICA (texto e/ou PDF), vindo da vitrine. Com
   // platform = true (aceite "Termos do Prontto" no cadastro) só vale o texto
   // do Prontto. Sem documento da clínica, também vale o do Prontto.
@@ -99,116 +103,62 @@ export function LegalText({ kind, company, inModal = false, platform = false }) 
   const clinicText = platform
     ? ""
     : (kind === "termos" ? company.termsOfUse : company.privacyPolicy)?.trim() || ""
+  const pronttoDoc = kind === "termos" ? PRONTTO_TERMS : PRONTTO_PRIVACY
+  const clinicTitle = kind === "termos" ? "Termos de uso" : "Política de privacidade"
+  if (kind !== "termos" && kind !== "privacidade") return null
+  if (clinicText)
+    return (
+      <>
+        {title(<>{clinicTitle} — {company.name}</>)}
+        <div className="lg-text">{clinicText}</div>
+      </>
+    )
+  return <PronttoDocument doc={pronttoDoc} title={title} />
+}
+
+/** Parágrafo com rótulo opcional em negrito: "texto" ou ["Rótulo:", "texto"]. */
+function Labeled({ value }) {
+  if (typeof value === "string") return value
+  const [label, text] = value
   return (
     <>
-        {/* Termos de uso */}
-        {kind === "termos" &&
-          (clinicText ? (
-            <>
-              {title(<>Termos de uso — {company.name}</>)}
-              <div className="lg-text">{clinicText}</div>
-            </>
-          ) : (
-            <>
-              {title(<>Termos de uso</>)}
-              <h2>1. Sobre o serviço</h2>
-              <p>
-                O Prontto é a plataforma de agendamento usada pela{" "}
-                {company.name}. Pelo link da clínica você vê os serviços,
-                escolhe data e horário e confirma o agendamento.
-              </p>
-              <h2>2. Cadastro</h2>
-              <p>
-                Para agendar, informe nome completo, data de nascimento,
-                WhatsApp, e-mail e senha. É preciso ter 15 anos ou mais. Você é
-                responsável por manter a senha em segredo e por informar dados
-                verdadeiros.
-              </p>
-              <h2>3. Ficha de saúde</h2>
-              <p>
-                A ficha de saúde ajuda a clínica a realizar o procedimento com
-                segurança. Mantenha-a atualizada. Alterações ficam registradas
-                em histórico.
-              </p>
-              <h2>4. Preços, horários e sinal</h2>
-              <p>
-                Preço, duração e horários disponíveis aparecem antes da
-                confirmação. Para clientes novos, o sistema mostra uma simulação
-                de sinal. Nesta versão, nenhum pagamento real é feito. Clientes
-                recorrentes ficam isentos do sinal.
-              </p>
-              <h2>5. Cancelamento e alteração</h2>
-              <p>
-                Cancelamentos e reagendamentos devem ser pedidos com no mínimo
-                24 horas de antecedência. Quando aplicável, vale o direito de
-                arrependimento do Código de Defesa do Consumidor (art. 49).
-              </p>
-              <h2>6. Contato</h2>
-              <p>
-                Dúvidas e reclamações:{" "}
-                {inModal ? (
-                  <>fale com a clínica pelo WhatsApp ou pelo e-mail {company.email}</>
-                ) : (
-                  <>veja a página <a href="#contato">Fale com a clínica</a></>
-                )}
-                .
-              </p>
-            </>
-          ))}
+      <strong>{label}</strong>
+      {text && <> {text}</>}
+    </>
+  )
+}
 
-        {/* Política de privacidade */}
-        {kind === "privacidade" &&
-          (clinicText ? (
-            <>
-              {title(<>Política de privacidade — {company.name}</>)}
-              <div className="lg-text">{clinicText}</div>
-            </>
-          ) : (
-            <>
-              {title(<>Política de privacidade</>)}
-              <h2>Quais dados usamos e para quê</h2>
-              <p>
-                Usamos nome, data de nascimento, WhatsApp e e-mail para
-                cadastro, agendamento e comunicação sobre o serviço. A senha é
-                guardada de forma criptografada. A ficha de saúde (alergias e
-                observações médicas) serve só para a segurança do procedimento e
-                é vista por você e pela gestora da clínica.
-              </p>
-              <h2>Quem pode ver seus dados</h2>
-              <p>
-                Você vê apenas os seus dados e agendamentos. A gestora vê os
-                dados dos clientes da própria clínica. Ninguém mais tem acesso.
-              </p>
-              <h2>Por quanto tempo guardamos</h2>
-              <ul>
-                <li>
-                  Registros de acesso (data e hora): 6 meses, em ambiente
-                  seguro.
-                </li>
-                <li>
-                  Histórico de prestação de serviços: no mínimo 3 anos, para
-                  defesa em eventuais ações de reparação.
-                </li>
-                <li>
-                  Registros de atendimentos e valores cobrados: 5 anos, para
-                  fins de defesa do consumidor e auditoria fiscal.
-                </li>
+/** Documento oficial do Prontto (termos ou privacidade), de pronttoLegalTexts.js. */
+function PronttoDocument({ doc, title }) {
+  return (
+    <>
+      {title(doc.title)}
+      <p className="lg-meta">
+        Versão {doc.version} · Última atualização: {doc.updated}
+      </p>
+      {doc.intro.map((text, i) => (
+        <p key={`intro-${i}`}>{text}</p>
+      ))}
+      {doc.sections.map((section) => (
+        <section key={section.h}>
+          <h2>{section.h}</h2>
+          {section.blocks.map((block, i) =>
+            block.list ? (
+              <ul key={i}>
+                {block.list.map((item, j) => (
+                  <li key={j}>
+                    <Labeled value={item} />
+                  </li>
+                ))}
               </ul>
-              <h2>Seus direitos (LGPD, art. 18)</h2>
-              <p>
-                Você pode pedir acesso, correção e exclusão dos seus dados em
-                Meu perfil. Na exclusão, seus dados pessoais são anonimizados.
-                Os registros de atendimento e valores continuam guardados, sem
-                identificar você, durante os prazos acima.
+            ) : (
+              <p key={i}>
+                <Labeled value={block.p} />
               </p>
-              <h2>Fale com a gente</h2>
-              <p>
-                Pedidos e dúvidas sobre privacidade:{" "}
-                <a href={`mailto:${company.email}`}>{company.email}</a>.
-              </p>
-            </>
-          ))}
-
+            ),
+          )}
+        </section>
+      ))}
     </>
   )
 }

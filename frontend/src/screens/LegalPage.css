@@ -78,3 +78,8 @@ a.lg-contact:hover .lg-contact-hint { text-decoration: underline; text-underline
   .ff-card.lg-card h1 { font-size: 24px; }
   .legal a.lg-cta-btn { width: 100%; justify-content: center; }
 }
+
+/* Versão e data dos documentos oficiais do Prontto (abaixo do título) */
+.legal .lg-meta { margin: -4px 0 16px; font-size: 13px; color: var(--muted); }
+.legal p strong,
+.legal li strong { color: var(--navy); }
